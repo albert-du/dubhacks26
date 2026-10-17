@@ -1,0 +1,30 @@
+name: Privacy & security audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests (redaction, parsing, clustering)
+        run: npm test
+      - name: Privacy guardrails (VEYZL.md R1–R9)
+        run: npm run audit:privacy
+
+  # VEYZL reviews the PR diff against VEYZL.md.
+  # TODO: replace with the official VEYZL action/app once installed on the repo:
+  #   - uses: <veyzl-org>/<veyzl-action>@<version>
+  #     with:
+  #       policy: VEYZL.md
+  #       fail-on: high
