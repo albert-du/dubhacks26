@@ -23,7 +23,7 @@ export async function enrollGuest(
 
   let embedding: number[] | undefined;
   if (input.selfie) {
-    if (!faceEmbed.enabled()) throw new HttpError(503, "Face matching is offline right now. Try without a selfie.");
+    if (!faceEmbed.enabled()) throw new HttpError(503, "Selfies aren’t working right now. Try again without one.");
     const { jpeg } = await normalizeImage(input.selfie);
     const faces = await faceEmbed.detect(jpeg);
     if (!faces.length) throw new HttpError(422, "Couldn't find a face. More light, closer to the camera.");

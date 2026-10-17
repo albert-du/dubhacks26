@@ -25,7 +25,7 @@ export function Fire({
           <h2 className="display text-[clamp(2.5rem,12vw,4rem)]">
             Dumpster
             <br />
-            <span className="bg-fire px-1">fire</span>
+            <span className="hl bg-fire">fire</span>
           </h2>
           <p className="mt-3 text-sm leading-snug">Tap the burning can on any shot. Most fires wins.</p>
         </div>

@@ -6,9 +6,9 @@ import type { PublicDumpster } from "@/lib/types";
 const STATUS: Record<UploadItem["state"], string> = {
   queued: "Queued",
   uploading: "Throwing",
-  waiting: "No signal — held on your phone",
-  processing: "Landed · scanning faces",
-  failed: "Rejected",
+  waiting: "No signal — waiting on your phone",
+  processing: "Landed · sorting",
+  failed: "Didn’t go in",
 };
 
 export function Drop({
@@ -37,7 +37,7 @@ export function Drop({
           <br />
           it in.
         </span>
-        <span className="label">No login · {dumpster.ttlHours}h then it’s all gone</span>
+        <span className="label">Everything here burns {dumpster.ttlHours}h after it opened</span>
         <input type="file" multiple accept={accept} onChange={pick} className="sr-only" />
       </label>
 
@@ -52,7 +52,7 @@ export function Drop({
             <input type="file" accept="video/*" capture="environment" onChange={pick} className="sr-only" />
           </label>
         ) : (
-          <span className="btn btn-ghost opacity-40">No video</span>
+          <span className="btn btn-ghost opacity-40">Photos only</span>
         )}
       </div>
 

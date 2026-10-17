@@ -41,7 +41,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
   const ext = EXT[file.type];
   if (!ext) throw new HttpError(415, "Photos and videos only");
   const kind = file.type.startsWith("video/") ? "video" : "image";
-  if (kind === "video" && !d.settings.allowVideo) throw new HttpError(403, "The host turned off video for this Dumpster");
+  if (kind === "video" && !d.settings.allowVideo) throw new HttpError(403, "This Dumpster is photos only");
   if (file.size > config.maxUploadBytes) throw new HttpError(413, "Too big — 150MB max");
 
   const buf = Buffer.from(await file.arrayBuffer());

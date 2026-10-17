@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicDumpster, RoomState } from "@/lib/types";
 
 export function Me(props: {
@@ -18,6 +18,8 @@ export function Me(props: {
   const [camera, setCamera] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const selfieUrl = useMemo(() => (selfie ? URL.createObjectURL(selfie) : ""), [selfie]);
+  useEffect(() => () => (selfieUrl ? URL.revokeObjectURL(selfieUrl) : undefined), [selfieUrl]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,13 +33,13 @@ export function Me(props: {
     const r = await fetch(`/api/dumpsters/${props.dumpster.id}/guests`, { method: "POST", body: form }).catch(() => null);
     const body = await r?.json().catch(() => ({}));
     setBusy(false);
-    if (!r?.ok) return setMsg({ tone: "err", text: body?.error ?? "No connection. Try again." });
+    if (!r?.ok) return setMsg({ tone: "err", text: body?.error ?? "Couldn’t reach Dump. Check your signal and try again." });
     setMsg({
       tone: "ok",
       text: body.faceMatched
         ? body.clustersClaimed
-          ? `Found you in the pool. Un-blurring your face now.`
-          : `Face saved. You’ll show up as photos land.`
+          ? `Found you. Your shots are tagged with your name now.`
+          : `Got it. You’ll show up as photos land.`
         : `You’re in. Add a selfie any time to find your photos.`,
     });
     setSelfie(null);
@@ -72,7 +74,7 @@ export function Me(props: {
               <br />
               yourself.
             </h2>
-            <p className="mt-2 text-sm leading-snug">One-second selfie. Every shot of you surfaces, and we text you when new ones land.</p>
+            <p className="mt-2 text-sm leading-snug">Take a quick selfie to pull up every shot you’re in. Leave a number and we’ll text you when new ones land.</p>
           </div>
 
           <div className="border-3 border-ink">
@@ -87,7 +89,7 @@ export function Me(props: {
             ) : selfie ? (
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={URL.createObjectURL(selfie)} alt="Your selfie" className="block aspect-square w-full object-cover" />
+                <img src={selfieUrl} alt="Your selfie" className="block aspect-square w-full object-cover" />
                 <button type="button" className="btn absolute right-2 bottom-2 !py-2" onClick={() => setCamera(true)}>
                   Retake
                 </button>
@@ -114,8 +116,8 @@ export function Me(props: {
           <label className="flex cursor-pointer items-start gap-3 border-3 border-ink p-3">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 size-5 accent-[#46a65a]" />
             <span className="text-sm leading-snug">
-              Show my face un-blurred in this Dumpster and text me when I appear. Dump keeps a numeric face fingerprint (never the selfie
-              itself) and my number <b>only until this Dumpster burns</b>.
+              Tag me in this Dumpster’s photos and text me when I show up. My selfie isn’t kept, and my name and number{" "}
+              <b>burn with this Dumpster</b>.
             </span>
           </label>
 

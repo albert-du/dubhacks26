@@ -83,8 +83,8 @@ export function Stage({ initial }: { initial: RoomState }) {
         <dl className="grid grid-cols-3 border-3 border-paper">
           {[
             ["Photos", stats?.photos ?? state.media.length],
-            ["Faces", stats?.faces ?? state.clusters.length],
-            ["Opted in", stats?.people ?? 0],
+            ["People", stats?.faces ?? state.clusters.length],
+            ["Fires", state.media.reduce((s, m) => s + m.reactions.fire, 0)],
           ].map(([k, v], i) => (
             <div key={k} className={`p-3 ${i ? "border-l-3 border-paper" : ""}`}>
               <dt className="label">{k}</dt>
@@ -95,7 +95,7 @@ export function Stage({ initial }: { initial: RoomState }) {
 
         <div>
           <div className="mb-2 flex items-baseline justify-between">
-            <span className="label">Uploads / min · last 15</span>
+            <span className="label">Drops per minute</span>
             <span className="display text-2xl tabular-nums">{perMin.toFixed(1)}</span>
           </div>
           <div className="flex h-20 items-end gap-[3px] border-b-3 border-paper" role="img" aria-label="Upload velocity">
@@ -120,7 +120,7 @@ export function Stage({ initial }: { initial: RoomState }) {
         )}
 
         <div className="mt-auto">
-          <p className="label mb-1">Self-destructs in</p>
+          <p className="label mb-1">Burns in</p>
           <div className="hazard p-2">
             <Countdown expiresAt={state.dumpster.expiresAt} className="display block bg-ink px-3 text-5xl" />
           </div>

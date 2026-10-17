@@ -30,17 +30,13 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "me", label: "Me" },
 ];
 
-function matches(m: PublicMedia, filter: Filter | null, q: string) {
+export function inFilter(m: PublicMedia, filter: Filter | null) {
   if (filter?.kind === "faces") {
     const inFrame = m.faces.some((f) => f.clusterId && filter.ids.includes(f.clusterId));
     const mentioned = !!filter.name && m.mentions.includes(filter.name);
-    if (!inFrame && !mentioned) return false;
+    return inFrame || mentioned;
   }
-  if (filter?.kind === "venue" && m.venue !== filter.venue) return false;
-  if (q) {
-    const hay = [m.caption, m.tags.join(" "), m.transcript, m.venue, m.mentions.join(" ")].join(" ").toLowerCase();
-    if (!hay.includes(q.toLowerCase())) return false;
-  }
+  if (filter?.kind === "venue") return m.venue === filter.venue;
   return true;
 }
 
@@ -59,8 +55,11 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
   const [viewing, setViewing] = useState<{ ids: string[]; index: number } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const visible = useMemo(() => state.media.filter((m) => matches(m, filter, q)), [state.media, filter, q]);
   const byId = useMemo(() => new Map(state.media.map((m) => [m.id, m])), [state.media]);
+  const names = useMemo(
+    () => new Map(state.clusters.filter((c) => c.name).map((c) => [c.id, c.name!] as [string, string])),
+    [state.clusters],
+  );
   const frames = useMemo(() => {
     const n = new Map<string, number>();
     state.media.forEach((m, i) => n.set(m.id, state.media.length - i));
@@ -86,14 +85,14 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
   const viewList = viewing ? (viewing.ids.map((i) => byId.get(i)).filter(Boolean) as PublicMedia[]) : [];
 
   return (
-    <div className="mx-auto min-h-dvh max-w-xl pb-[calc(64px+env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-30 border-b-3 border-ink bg-paper">
-        <div className="flex items-stretch">
+    <div className="mx-auto min-h-dvh w-full max-w-[430px] pb-[calc(64px+env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-header border-b-3 border-ink bg-paper">
+        <div className="flex h-14 items-stretch">
           <MarkBlock />
-          <h1 className="display min-w-0 flex-1 self-center truncate px-3 py-3 text-2xl leading-none">{state.dumpster.name}</h1>
+          <h1 className="display min-w-0 flex-1 self-center truncate px-3 text-[22px] leading-none">{state.dumpster.name}</h1>
           <button
             onClick={copyLink}
-            className={`display shrink-0 border-l-3 border-ink px-3 text-sm leading-tight ${copied ? "bg-ink text-paper" : "bg-green"}`}
+            className={`display w-[92px] shrink-0 border-l-3 border-ink text-[13px] leading-tight ${copied ? "bg-ink text-paper" : "bg-green"}`}
             aria-live="polite"
           >
             {copied ? (
@@ -108,7 +107,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
           </button>
         </div>
         <div className="flex items-center justify-between border-t border-ink pl-3">
-          <span className="label">Self-destructs in</span>
+          <span className="label">Burns in</span>
           <span className="hazard py-1 pl-6">
             <Countdown expiresAt={state.dumpster.expiresAt} className="display block bg-ink px-2 text-lg text-paper" />
           </span>
@@ -119,9 +118,10 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
         {tab === "drop" && <Drop dumpster={state.dumpster} uploader={uploader} onCopyLink={copyLink} copied={copied} />}
         {tab === "pool" && (
           <Pool
-            media={visible}
-            total={state.media.length}
+            media={state.media}
+            byId={byId}
             frames={frames}
+            names={names}
             clusters={state.clusters}
             me={state.me}
             filter={filter}
@@ -129,7 +129,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
             mine={mineFilter(state)}
             q={q}
             setQ={setQ}
-            onOpen={(mid) => open(visible, mid)}
+            onOpen={open}
             goTo={setTab}
           />
         )}
@@ -149,7 +149,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
           <Me
             dumpster={state.dumpster}
             me={state.me}
-            photosOfMe={state.me ? state.media.filter((m) => matches(m, mineFilter(state), "")).length : 0}
+            photosOfMe={state.me ? state.media.filter((m) => inFilter(m, mineFilter(state))).length : 0}
             onEnrolled={room.refresh}
             onShowMine={() => {
               setFilter(mineFilter(state));
@@ -159,7 +159,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
         )}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-xl border-t-3 border-ink bg-paper pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed inset-x-0 bottom-0 z-nav mx-auto w-full max-w-[430px] border-t-3 border-ink bg-paper pb-[env(safe-area-inset-bottom)]">
         <ul className="grid grid-cols-6">
           {TABS.map((t, i) => {
             const active = tab === t.id;
@@ -173,10 +173,10 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
                     active ? "bg-ink text-paper" : t.id === "drop" ? "bg-green" : ""
                   }`}
                 >
-                  <span className="display text-[15px] leading-none">{t.label}</span>
+                  <span className="display text-[14px] leading-none">{t.label}</span>
                   {count > 0 && <span className="label mt-1 !text-[10px] !tracking-normal">{count}</span>}
                   {t.id === "drop" && uploader.items.some((u) => u.state === "waiting") && (
-                    <span className="absolute top-1 right-1 size-2 animate-blink bg-fire" aria-label="uploads waiting" />
+                    <span className="absolute top-1 right-1 size-2 animate-blink bg-fire" aria-label="Photos waiting to send" />
                   )}
                 </button>
               </li>
@@ -190,15 +190,13 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
           list={viewList}
           index={Math.min(viewing.index, viewList.length - 1)}
           frames={frames}
-          clusters={state.clusters}
+          names={names}
+          byId={byId}
           onIndex={(index) => setViewing({ ...viewing, index })}
           onClose={() => setViewing(null)}
           onReact={room.react}
           onDelete={room.remove}
-          onSticker={async (mid, object) => {
-            const ok = await room.makeSticker(mid, object);
-            return ok;
-          }}
+          onSticker={room.makeSticker}
         />
       )}
     </div>

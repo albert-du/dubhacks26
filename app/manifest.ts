@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Dump — dumpster.photo",
     short_name: "Dump",
-    description: "Throw every photo in. Find yourself. Gone in 72h.",
+    description: "One shared photo pile for your event. It burns after 24, 48 or 72 hours.",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",
