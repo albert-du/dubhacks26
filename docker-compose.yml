@@ -1,0 +1,24 @@
+# Local dev infrastructure. In production: MongoDB Atlas, TigerData Cloud, Vultr instances.
+services:
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
+    volumes: ["mongo:/data/db"]
+
+  timescale:
+    image: timescale/timescaledb:latest-pg16
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dump
+    volumes:
+      - tsdb:/var/lib/postgresql/data
+      - ./sql/tigerdata.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+
+  face-embed:
+    build: ./services/face-embed
+    ports: ["8001:8001"]
+
+volumes:
+  mongo:
+  tsdb:

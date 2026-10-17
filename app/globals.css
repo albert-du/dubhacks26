@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+/*
+ * DUMP design system — raw, tactile, editorial/brutalist.
+ * Paper + ink, one working green, one alarm orange. Hard edges, thick rules,
+ * mono labels, giant condensed headlines. No gradients, no glass, no rounded cards.
+ */
+@theme {
+  --color-ink: #121212;
+  --color-paper: #f1eee4;
+  --color-bone: #e3dece;
+  --color-smoke: #77736a;
+  --color-green: #46a65a;
+  --color-moss: #2c6b3a;
+  --color-fire: #ff5b1f;
+
+  --font-display: var(--font-archivo-black), "Arial Black", Impact, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --animate-drop: drop 380ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  --animate-blink: blink 1s steps(2, start) infinite;
+
+  @keyframes drop {
+    from { transform: translateY(-14px) rotate(-1.5deg); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+  @keyframes blink {
+    to { visibility: hidden; }
+  }
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  /* Paper grain: a static noise texture so flat fills don't feel digital. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: var(--color-green);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-green);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .display {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    line-height: 0.88;
+    letter-spacing: -0.02em;
+  }
+
+  .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 3px solid var(--color-ink);
+    background: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0.9rem 1rem;
+    transition: transform 60ms;
+    user-select: none;
+  }
+  .btn:active { transform: translate(2px, 2px); }
+  .btn:disabled { opacity: 0.45; pointer-events: none; }
+  .btn-green { background: var(--color-green); color: var(--color-ink); }
+  .btn-fire { background: var(--color-fire); color: var(--color-ink); }
+  .btn-ghost { background: transparent; color: inherit; border-color: currentColor; }
+
+  .field {
+    width: 100%;
+    border: 3px solid var(--color-ink);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    padding: 0.8rem 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 16px; /* prevents iOS zoom on focus */
+    border-radius: 0;
+    appearance: none;
+  }
+  .field::placeholder { color: var(--color-smoke); }
+
+  /* Hazard tape — used only for the self-destruct countdown and burned states. */
+  .hazard {
+    background: repeating-linear-gradient(-45deg, var(--color-ink) 0 14px, var(--color-fire) 14px 28px);
+  }
+
+  .rule { border-top: 3px solid var(--color-ink); }
+  .rule-thin { border-top: 1px solid var(--color-ink); }
+
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
