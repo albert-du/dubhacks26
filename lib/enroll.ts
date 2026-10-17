@@ -5,21 +5,21 @@ import { cosine } from "./faces";
 import { faceEmbed } from "./faceEmbed";
 import { HttpError } from "./http";
 import { cols } from "./mongo";
-import { normalizeImage } from "./privacy";
+import { normalizeImage } from "./imaging";
 import { tiger } from "./tiger";
 import type { Dumpster, Guest } from "./types";
 
 /**
  * Guest opt-in: name + optional phone + 1-second selfie.
  * The selfie is embedded in memory and discarded — only the vector is stored, and it
- * expires with the Dumpster. Enrolling is what un-blurs your face in the pool.
+ * expires with the Dumpster. It names your face in the gallery and powers "new photos of you" texts.
  */
 export async function enrollGuest(
   d: Dumpster,
   viewerId: string,
   input: { name: string; phone?: string; selfie?: Buffer },
 ): Promise<{ guestId: string; faceMatched: boolean; clustersClaimed: number }> {
-  const { guests, clusters, media } = await cols();
+  const { guests, clusters } = await cols();
 
   let embedding: number[] | undefined;
   if (input.selfie) {
@@ -58,11 +58,6 @@ export async function enrollGuest(
 
   if (matched.length) {
     await clusters.updateMany({ _id: { $in: matched } }, { $set: { guestId: guest._id, updatedAt: new Date() } });
-    // Re-render photos they're already in so their face is un-blurred.
-    await media.updateMany(
-      { dumpsterId: d._id, status: "ready", kind: "image", "faces.clusterId": { $in: matched } },
-      { $set: { status: "rerender", claimedAt: null } },
-    );
   } else {
     await clusters.insertOne({
       _id: nanoid(10),

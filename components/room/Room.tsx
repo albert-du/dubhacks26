@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
+import { MarkBlock } from "@/components/Brand";
 import { Burned } from "@/components/Burned";
 import { Countdown } from "@/components/ui";
 import { useRoom } from "@/lib/client/useRoom";
@@ -57,7 +57,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
   const [filter, setFilter] = useState<Filter | null>(() => (showMine ? mineFilter(initial) : null));
   const [q, setQ] = useState("");
   const [viewing, setViewing] = useState<{ ids: string[]; index: number } | null>(null);
-  const [hostMenu, setHostMenu] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const visible = useMemo(() => state.media.filter((m) => matches(m, filter, q)), [state.media, filter, q]);
   const byId = useMemo(() => new Map(state.media.map((m) => [m.id, m])), [state.media]);
@@ -69,6 +69,17 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
 
   if (room.destroyed) return <Burned />;
 
+  const copyLink = async () => {
+    const url = `${window.location.origin}/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("Copy this link", url);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const open = (list: PublicMedia[], mediaId: string) =>
     setViewing({ ids: list.map((m) => m.id), index: Math.max(0, list.findIndex((m) => m.id === mediaId)) });
 
@@ -78,18 +89,23 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
     <div className="mx-auto min-h-dvh max-w-xl pb-[calc(64px+env(safe-area-inset-bottom))]">
       <header className="sticky top-0 z-30 border-b-3 border-ink bg-paper">
         <div className="flex items-stretch">
-          <Link href="/" className="display grid place-items-center bg-ink px-3 text-xl text-paper" aria-label="Dump home">
-            DUMP
-          </Link>
-          <div className="min-w-0 flex-1 px-3 py-2">
-            <p className="label truncate text-smoke">dumpster.photo/{id}</p>
-            <h1 className="display truncate text-2xl leading-none">{state.dumpster.name}</h1>
-          </div>
-          {room.host && (
-            <button onClick={() => setHostMenu((v) => !v)} className="label border-l-3 border-ink px-3" aria-expanded={hostMenu}>
-              Host
-            </button>
-          )}
+          <MarkBlock />
+          <h1 className="display min-w-0 flex-1 self-center truncate px-3 py-3 text-2xl leading-none">{state.dumpster.name}</h1>
+          <button
+            onClick={copyLink}
+            className={`display shrink-0 border-l-3 border-ink px-3 text-sm leading-tight ${copied ? "bg-ink text-paper" : "bg-green"}`}
+            aria-live="polite"
+          >
+            {copied ? (
+              "Copied!"
+            ) : (
+              <>
+                Copy
+                <br />
+                link
+              </>
+            )}
+          </button>
         </div>
         <div className="flex items-center justify-between border-t border-ink pl-3">
           <span className="label">Self-destructs in</span>
@@ -97,25 +113,10 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
             <Countdown expiresAt={state.dumpster.expiresAt} className="display block bg-ink px-2 text-lg text-paper" />
           </span>
         </div>
-        {hostMenu && room.host && (
-          <div className="grid grid-cols-2 gap-2 border-t-3 border-ink bg-bone p-3">
-            <a className="btn btn-ghost" href={`/${id}/stage`} target="_blank" rel="noreferrer">
-              Stage view
-            </a>
-            <button
-              className="btn btn-fire"
-              onClick={() => {
-                if (confirm("Burn it now? Every photo, face and number in this Dumpster is deleted immediately.")) room.burn();
-              }}
-            >
-              Burn now
-            </button>
-          </div>
-        )}
       </header>
 
       <main>
-        {tab === "drop" && <Drop dumpster={state.dumpster} uploader={uploader} showShare={isNew || !!room.host} />}
+        {tab === "drop" && <Drop dumpster={state.dumpster} uploader={uploader} onCopyLink={copyLink} copied={copied} />}
         {tab === "pool" && (
           <Pool
             media={visible}
@@ -123,7 +124,6 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
             frames={frames}
             clusters={state.clusters}
             me={state.me}
-            blurOn={state.dumpster.settings.blurNonConsented}
             filter={filter}
             setFilter={setFilter}
             mine={mineFilter(state)}
@@ -191,7 +191,6 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
           index={Math.min(viewing.index, viewList.length - 1)}
           frames={frames}
           clusters={state.clusters}
-          isHost={!!room.host}
           onIndex={(index) => setViewing({ ...viewing, index })}
           onClose={() => setViewing(null)}
           onVote={room.vote}

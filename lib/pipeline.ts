@@ -5,17 +5,16 @@ import { cosine, nearest, updateCentroid } from "./faces";
 import { faceEmbed } from "./faceEmbed";
 import { cols } from "./mongo";
 import { perceptron, type VisionResult } from "./perceptron";
-import { classifySensitive, normalizeImage, renderPublic, renderSticker } from "./privacy";
+import { normalizeImage, renderPublic, renderSticker } from "./imaging";
 import { storage } from "./storage";
 import { findMentions, transcriber } from "./transcribe";
 import type { Cluster, Dumpster, FaceHit, Media, TextHit } from "./types";
 
 /*
  * Media pipeline, run by the Vultr worker (worker/index.ts):
- *   original → normalize (orient, resize, strip EXIF) → Perceptron + face-embed in parallel
- *   → cluster faces → decide consent → irreversible redaction → public WebP → notify.
- * Fail-closed: if nothing could scan for faces, the image is not published
- * (unless ALLOW_UNSCANNED_PUBLISH=true in dev).
+ *   original → normalize (orient, resize, strip EXIF) → public WebP
+ *   → Perceptron + face-embed in parallel → cluster faces → notify.
+ * Analysis is enrichment only: if a vision service is down the photo still publishes.
  */
 
 const STALE_CLAIM_MS = 5 * 60_000;
@@ -32,7 +31,7 @@ export async function processNextMedia(): Promise<boolean> {
   const { media } = await cols();
   const m = await media.findOneAndUpdate(
     {
-      status: { $in: ["pending", "rerender"] },
+      status: "pending",
       $or: [{ claimedAt: null }, { claimedAt: { $lt: new Date(Date.now() - STALE_CLAIM_MS) } }],
     },
     { $set: { claimedAt: new Date() }, $inc: { attempts: 1 } },
@@ -60,52 +59,25 @@ export async function processNextMedia(): Promise<boolean> {
 
 async function processImage(m: Media, d: Dumpster) {
   const { media, guests, clusters } = await cols();
-  const rerender = m.status === "rerender";
   const { jpeg, width, height } = await normalizeImage(await storage.get(m.originalKey));
 
-  let faces: FaceHit[] = m.faces;
-  let text: TextHit[] = m.text;
-  let vision: VisionResult | null = null;
-  let scanned = m.scanned;
+  const [v, e] = await Promise.allSettled([
+    perceptron.enabled() ? perceptron.analyze(jpeg) : Promise.reject(new Error("perceptron not configured")),
+    faceEmbed.enabled() ? faceEmbed.detect(jpeg) : Promise.reject(new Error("face-embed not configured")),
+  ]);
+  if (v.status === "rejected" && perceptron.enabled()) console.warn("[perceptron]", (v.reason as Error).message);
+  if (e.status === "rejected" && faceEmbed.enabled()) console.warn("[face-embed]", (e.reason as Error).message);
+  const vision: VisionResult | null = v.status === "fulfilled" ? v.value : null;
+  const embedded = e.status === "fulfilled" ? e.value : null;
 
-  if (!rerender) {
-    const [v, e] = await Promise.allSettled([
-      perceptron.enabled() ? perceptron.analyze(jpeg) : Promise.reject(new Error("perceptron not configured")),
-      faceEmbed.enabled() ? faceEmbed.detect(jpeg) : Promise.reject(new Error("face-embed not configured")),
-    ]);
-    if (v.status === "rejected" && perceptron.enabled()) console.warn("[perceptron]", (v.reason as Error).message);
-    if (e.status === "rejected" && faceEmbed.enabled()) console.warn("[face-embed]", (e.reason as Error).message);
-    vision = v.status === "fulfilled" ? v.value : null;
-    const embedded = e.status === "fulfilled" ? e.value : null;
+  const faces: FaceHit[] = embedded
+    ? embedded.map((f) => ({ box: f.box, embedding: f.embedding }))
+    : (vision?.faces ?? []).map((f) => ({ box: f.box }));
+  const text: TextHit[] = (vision?.text ?? []).map((t) => ({ text: t.text, box: t.box }));
+  await assignClusters(d, m._id, faces);
 
-    scanned = !!(vision || embedded);
-    if (!scanned && !config.allowUnscannedPublish) throw new Error("no face scanner available; refusing to publish unscanned image");
-
-    faces = embedded
-      ? embedded.map((f) => ({ box: f.box, embedding: f.embedding, consented: false, redacted: false }))
-      : (vision?.faces ?? []).map((f) => ({ box: f.box, consented: false, redacted: false }));
-    text = (vision?.text ?? []).map((t) => {
-      const reason = classifySensitive(t.text, t.sensitiveHint);
-      return { text: t.text, box: t.box, sensitive: !!reason, reason: reason ?? undefined, redacted: false };
-    });
-    await assignClusters(d, m._id, faces);
-  }
-
-  // Consent = the face's cluster is claimed by a guest who enrolled with a selfie.
-  const clusterIds = [...new Set(faces.map((f) => f.clusterId).filter(Boolean))] as string[];
-  const claimed = await clusters
-    .find({ _id: { $in: clusterIds }, guestId: { $exists: true } }, { projection: { guestId: 1 } })
-    .toArray();
-  const consented = new Set(claimed.map((c) => c._id));
-  for (const f of faces) {
-    f.consented = !!f.clusterId && consented.has(f.clusterId);
-    f.redacted = d.settings.blurNonConsented && !f.consented;
-  }
-  for (const t of text) t.redacted = d.settings.redactSensitiveText && t.sensitive;
-
-  const redact = [...faces.filter((f) => f.redacted).map((f) => f.box), ...text.filter((t) => t.redacted).map((t) => t.box)];
   const publicKey = `${d._id}/public/${m._id}.webp`;
-  await storage.put(publicKey, await renderPublic(jpeg, width, height, redact), "image/webp");
+  await storage.put(publicKey, await renderPublic(jpeg), "image/webp");
 
   await media.updateOne(
     { _id: m._id },
@@ -118,7 +90,6 @@ async function processImage(m: Media, d: Dumpster) {
         height,
         faces,
         text,
-        scanned,
         updatedAt: new Date(),
         ...(vision
           ? {
@@ -134,10 +105,15 @@ async function processImage(m: Media, d: Dumpster) {
     },
   );
 
-  if (!rerender) {
+  // Text guests who enrolled and appear in this photo.
+  const clusterIds = [...new Set(faces.map((f) => f.clusterId).filter(Boolean))] as string[];
+  if (clusterIds.length) {
+    const claimed = await clusters
+      .find({ _id: { $in: clusterIds }, guestId: { $exists: true } }, { projection: { guestId: 1 } })
+      .toArray();
     const guestIds = [...new Set(claimed.map((c) => c.guestId!))];
     if (guestIds.length) await guests.updateMany({ _id: { $in: guestIds } }, { $inc: { pendingPhotoAlerts: 1 } });
-    if (faces.some((f) => f.clusterId)) await publish(d._id, { type: "clusters" });
+    await publish(d._id, { type: "clusters" });
   }
   await publish(d._id, { type: "media", mediaId: m._id });
 }
@@ -209,19 +185,18 @@ async function processVideo(m: Media, d: Dumpster) {
     if (ids.length) await guests.updateMany({ _id: { $in: ids } }, { $inc: { pendingMentionAlerts: 1 } });
   }
 
-  // Video frames are not face-redacted (see VEYZL.md "Known gaps"); hosts opt in via settings.allowVideo.
   const publicKey = `${d._id}/public/${m._id}.${ext}`;
   await storage.put(publicKey, buf, m.mime);
   await media.updateOne(
     { _id: m._id },
     {
-      $set: { status: "ready", claimedAt: null, publicKey, transcript, mentions, scanned: false, updatedAt: new Date() },
+      $set: { status: "ready", claimedAt: null, publicKey, transcript, mentions, updatedAt: new Date() },
     },
   );
   await publish(d._id, { type: "media", mediaId: m._id });
 }
 
-/** Renders one queued sticker from the already-redacted public image. */
+/** Renders one queued sticker from the public image. */
 export async function processNextSticker(): Promise<boolean> {
   const { stickers, media } = await cols();
   const s = await stickers.findOneAndUpdate(

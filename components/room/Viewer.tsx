@@ -9,7 +9,6 @@ export function Viewer(props: {
   index: number;
   frames: Map<string, number>;
   clusters: PublicCluster[];
-  isHost: boolean;
   onIndex: (i: number) => void;
   onClose: () => void;
   onVote: (id: string) => void;
@@ -90,12 +89,12 @@ export function Viewer(props: {
                 <Overlay
                   key={`f${i}`}
                   box={f.box}
-                  tone={f.redacted ? "fire" : "green"}
-                  label={f.redacted ? "Blurred" : (f.clusterId && names.get(f.clusterId)) || "Face"}
+                  tone="green"
+                  label={(f.clusterId && names.get(f.clusterId)) || "Person"}
                 />
               ))}
               {m.text.map((t, i) => (
-                <Overlay key={`t${i}`} box={t.box} tone={t.redacted ? "fire" : "paper"} label={t.redacted ? "Redacted" : t.text ?? "Text"} />
+                <Overlay key={`t${i}`} box={t.box} tone="paper" label={t.text} />
               ))}
               {m.subjects.map((s, i) => (
                 <Overlay key={`s${i}`} box={s.box} tone="dotted" label={s.label} />
@@ -161,8 +160,7 @@ export function Viewer(props: {
           ) : (
             <span />
           )}
-          {m.mine || props.isHost ? (
-            <button
+          <button
               className="btn btn-ghost !px-2"
               onClick={async () => {
                 if (!confirm("Pull this out of the Dumpster? It’s deleted for everyone.")) return;
@@ -174,11 +172,6 @@ export function Viewer(props: {
             >
               Delete
             </button>
-          ) : (
-            <a className="btn btn-ghost !px-2" href={m.url} download>
-              Save
-            </a>
-          )}
         </div>
       </div>
     </div>

@@ -10,7 +10,6 @@ export function Pool(props: {
   frames: Map<string, number>;
   clusters: PublicCluster[];
   me?: RoomState["me"];
-  blurOn: boolean;
   filter: Filter | null;
   setFilter: (f: Filter | null) => void;
   mine: Filter | null;
@@ -56,12 +55,8 @@ export function Pool(props: {
             {c.cover ? <FaceThumb cover={c.cover} size={68} /> : <span className="block size-[68px] bg-bone" />}
           </FaceButton>
         ))}
-        {props.blurOn && others.length === 0 && (
-          <p className="label flex items-center px-3 leading-relaxed text-smoke">
-            Faces show up here once people opt in.
-            <br />
-            Blurred faces stay anonymous.
-          </p>
+        {others.length === 0 && (
+          <p className="label flex items-center px-3 leading-relaxed text-smoke">People show up here as photos land.</p>
         )}
       </div>
 
@@ -115,9 +110,6 @@ export function Pool(props: {
                 {m.kind === "video" && <span className="label absolute top-0 left-0 bg-paper px-1 !text-[9px]">▶ Vid</span>}
                 {(m.aiFire >= 70 || m.votes >= 3) && (
                   <span className="label absolute top-0 right-0 bg-fire px-1 !text-[9px]">Fire</span>
-                )}
-                {!m.scanned && m.kind === "image" && (
-                  <span className="label absolute right-0 bottom-0 bg-paper px-1 !text-[9px]">Unscanned</span>
                 )}
               </button>
             </li>

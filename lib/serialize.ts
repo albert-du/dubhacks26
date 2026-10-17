@@ -13,8 +13,8 @@ import type {
 } from "./types";
 
 /*
- * The ONLY functions allowed to shape data for browsers. They drop face embeddings,
- * phone numbers, raw storage keys, and the text of anything we redacted.
+ * The ONLY functions allowed to shape data for browsers. They drop face vectors,
+ * phone numbers, and raw storage keys.
  */
 
 export const fileUrl = (key: string) => `/api/files/${key}`;
@@ -30,7 +30,7 @@ export function publicDumpster(d: Dumpster): PublicDumpster {
   };
 }
 
-export function publicMedia(m: Media, viewer: string, voted: boolean, showAllClusters: boolean): PublicMedia {
+export function publicMedia(m: Media, voted: boolean): PublicMedia {
   return {
     id: m._id,
     kind: m.kind,
@@ -47,17 +47,11 @@ export function publicMedia(m: Media, viewer: string, voted: boolean, showAllClu
     fireReason: m.fireReason,
     votes: m.votes,
     voted,
-    scanned: m.scanned,
-    faces: m.faces.map((f) => ({
-      box: f.box,
-      clusterId: f.consented || showAllClusters ? f.clusterId : undefined,
-      redacted: f.redacted,
-    })),
-    text: m.text.map((t) => ({ box: t.box, text: t.redacted || t.sensitive ? undefined : t.text, redacted: t.redacted })),
+    faces: m.faces.map((f) => ({ box: f.box, clusterId: f.clusterId })),
+    text: m.text.map((t) => ({ box: t.box, text: t.text })),
     subjects: m.subjects,
     transcript: m.transcript,
     mentions: m.mentions,
-    mine: m.uploaderId === viewer,
     status: m.status,
     createdAt: m.createdAt.toISOString(),
   };
@@ -67,14 +61,10 @@ export function publicSticker(s: Sticker): PublicSticker {
   return { id: s._id, mediaId: s.mediaId, label: s.label, url: s.publicKey ? fileUrl(s.publicKey) : undefined, status: s.status };
 }
 
-/**
- * Face filters. When blurring is on, only clusters claimed by an enrolled guest are
- * listed — an anonymous cluster avatar would leak the very face we blurred.
- */
+/** Face gallery: every person detected in the room, largest groups first. Names come from guests who enrolled. */
 export async function publicClusters(d: Dumpster): Promise<PublicCluster[]> {
   const { clusters, guests, media } = await cols();
-  const filter = d.settings.blurNonConsented ? { dumpsterId: d._id, guestId: { $exists: true } } : { dumpsterId: d._id };
-  const list = await clusters.find(filter, { projection: { centroid: 0 } }).toArray();
+  const list = await clusters.find({ dumpsterId: d._id }, { projection: { centroid: 0 } }).toArray();
   const guestIds = [...new Set(list.map((c) => c.guestId).filter(Boolean))] as string[];
   const names = new Map(
     (await guests.find({ _id: { $in: guestIds } }, { projection: { name: 1 } }).toArray()).map((g) => [g._id, g.name]),
@@ -84,7 +74,7 @@ export async function publicClusters(d: Dumpster): Promise<PublicCluster[]> {
     (
       await media
         .find(
-          { _id: { $in: coverIds }, status: { $in: ["ready", "rerender"] } },
+          { _id: { $in: coverIds }, status: "ready" },
           { projection: { publicKey: 1, width: 1, height: 1, updatedAt: 1 } },
         )
         .toArray()
@@ -111,7 +101,7 @@ export async function roomState(d: Dumpster, viewer: string): Promise<RoomState>
   const { media, stickers, votes, guests, clusters } = await cols();
   const cursor = new Date();
   const list = await media
-    .find({ dumpsterId: d._id, status: { $in: ["ready", "rerender"] } }, { projection: { "faces.embedding": 0 } })
+    .find({ dumpsterId: d._id, status: "ready" }, { projection: { "faces.embedding": 0 } })
     .sort({ createdAt: -1 })
     .limit(500)
     .toArray();
@@ -122,7 +112,7 @@ export async function roomState(d: Dumpster, viewer: string): Promise<RoomState>
   const myClusters = me ? await clusters.find({ dumpsterId: d._id, guestId: me._id }, { projection: { _id: 1 } }).toArray() : [];
   return {
     dumpster: publicDumpster(d),
-    media: list.map((m) => publicMedia(m, viewer, myVotes.has(m._id), !d.settings.blurNonConsented)),
+    media: list.map((m) => publicMedia(m, myVotes.has(m._id))),
     clusters: await publicClusters(d),
     stickers: (await stickers.find({ dumpsterId: d._id }).sort({ createdAt: -1 }).toArray()).map(publicSticker),
     me: me ? { guestId: me._id, name: me.name, clusterIds: myClusters.map((c) => c._id) } : undefined,

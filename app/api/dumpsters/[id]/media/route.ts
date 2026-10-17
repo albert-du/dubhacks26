@@ -8,7 +8,6 @@ import { cols } from "@/lib/mongo";
 import { storage } from "@/lib/storage";
 import { tiger } from "@/lib/tiger";
 import type { Media } from "@/lib/types";
-import { viewerId } from "@/lib/viewer";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -27,13 +26,12 @@ const EXT: Record<string, string> = {
 const num = (v: FormDataEntryValue | null) => (typeof v === "string" && v !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
 
 /**
- * Drop a photo/video. Stores the original privately and queues it for the
- * redaction pipeline; nothing is public until the worker has rendered it.
+ * Drop a photo/video. Anonymous: nothing about the uploader is recorded.
+ * The original is stored privately; the worker publishes a metadata-stripped render.
  */
 export const POST = route<Ctx>(async (req, { params }) => {
   const d = await getLiveDumpster((await params).id);
   if (!d) throw notFound();
-  const viewer = await viewerId();
 
   const form = await req.formData();
   const file = form.get("file");
@@ -71,7 +69,6 @@ export const POST = route<Ctx>(async (req, { params }) => {
   const doc: Media = {
     _id: id,
     dumpsterId: d._id,
-    uploaderId: viewer,
     kind,
     mime: file.type,
     bytes: file.size,
@@ -81,7 +78,6 @@ export const POST = route<Ctx>(async (req, { params }) => {
     status: "pending",
     attempts: 0,
     claimedAt: null,
-    scanned: false,
     faces: [],
     text: [],
     subjects: [],

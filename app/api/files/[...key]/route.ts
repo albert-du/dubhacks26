@@ -11,7 +11,7 @@ const TYPES: Record<string, string> = {
 };
 
 /**
- * Serves ONLY redacted public renders (`{dumpsterId}/public/*`) of LIVE Dumpsters.
+ * Serves ONLY public renders (`{dumpsterId}/public/*`) of LIVE Dumpsters.
  * Originals are unreachable by construction; expired rooms 404 even before the purge runs.
  */
 export async function GET(req: Request, { params }: Ctx) {

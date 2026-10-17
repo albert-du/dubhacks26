@@ -4,10 +4,6 @@ import type { TtlHours } from "./config";
 export type Box = [number, number, number, number];
 
 export interface DumpsterSettings {
-  /** Blur every face that doesn't belong to a guest who enrolled (consented) with a selfie. */
-  blurNonConsented: boolean;
-  /** Blur OCR text that looks like IDs, plates, card numbers, etc. */
-  redactSensitiveText: boolean;
   allowVideo: boolean;
 }
 
@@ -19,8 +15,7 @@ export interface Dumpster {
   expiresAt: Date;
   /** Mongo TTL backstop — the worker normally purges before this. */
   hardDeleteAt: Date;
-  hostTokenHash: string;
-  hostPhone?: string;
+  // Deliberately no creator field: rooms are anonymous and nobody owns them.
   settings: DumpsterSettings;
   warningSent?: boolean;
 }
@@ -44,16 +39,11 @@ export interface FaceHit {
   box: Box;
   embedding?: number[];
   clusterId?: string;
-  consented: boolean;
-  redacted: boolean;
 }
 
 export interface TextHit {
   text: string;
   box: Box;
-  sensitive: boolean;
-  reason?: string;
-  redacted: boolean;
 }
 
 export interface Subject {
@@ -61,12 +51,12 @@ export interface Subject {
   box: Box;
 }
 
-export type MediaStatus = "pending" | "rerender" | "ready" | "failed" | "deleted";
+export type MediaStatus = "pending" | "ready" | "failed" | "deleted";
 
 export interface Media {
   _id: string;
   dumpsterId: string;
-  uploaderId: string;
+  // Deliberately no uploader field: uploads are anonymous.
   kind: "image" | "video";
   mime: string;
   bytes: number;
@@ -79,8 +69,6 @@ export interface Media {
   status: MediaStatus;
   attempts: number;
   claimedAt?: Date | null;
-  /** False when no face/text scanner was available (dev only). */
-  scanned: boolean;
   faces: FaceHit[];
   text: TextHit[];
   subjects: Subject[];
@@ -130,7 +118,7 @@ export interface Vote {
   expiresAt: Date;
 }
 
-/* ---------- Shapes sent to browsers. Never include embeddings, phones, or unredacted sensitive text. ---------- */
+/* ---------- Shapes sent to browsers. Never include face vectors or phone numbers. ---------- */
 
 export interface PublicMedia {
   id: string;
@@ -146,13 +134,11 @@ export interface PublicMedia {
   fireReason?: string;
   votes: number;
   voted: boolean;
-  scanned: boolean;
-  faces: { box: Box; clusterId?: string; redacted: boolean }[];
-  text: { box: Box; text?: string; redacted: boolean }[];
+  faces: { box: Box; clusterId?: string }[];
+  text: { box: Box; text: string }[];
   subjects: Subject[];
   transcript?: string;
   mentions: string[];
-  mine: boolean;
   status: MediaStatus;
   createdAt: string;
 }

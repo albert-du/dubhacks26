@@ -45,7 +45,7 @@ export async function GET(req: Request, { params }: Ctx) {
 
           const changed = await media
             .find(
-              { dumpsterId: id, updatedAt: { $gt: after }, status: { $in: ["ready", "rerender", "deleted", "failed"] } },
+              { dumpsterId: id, updatedAt: { $gt: after }, status: { $in: ["ready", "deleted", "failed"] } },
               { projection: { "faces.embedding": 0 } },
             )
             .sort({ updatedAt: 1 })
@@ -57,7 +57,7 @@ export async function GET(req: Request, { params }: Ctx) {
             );
             send(
               "media",
-              changed.map((m) => publicMedia(m, viewer, mine.has(m._id), !d.settings.blurNonConsented)),
+              changed.map((m) => publicMedia(m, mine.has(m._id))),
             );
             sent = true;
           }

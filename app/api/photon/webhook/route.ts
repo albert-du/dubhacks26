@@ -32,7 +32,8 @@ export async function POST(req: Request) {
   const cmd = parseCommand(text);
   let reply: string;
   if (cmd.type === "create") {
-    const { dumpster } = await createDumpster({ name: cmd.name, ttlHours: cmd.ttlHours, hostPhone: from });
+    // The sender's number is used for this one reply and never stored with the room.
+    const dumpster = await createDumpster({ name: cmd.name, ttlHours: cmd.ttlHours });
     const url = roomUrl(dumpster._id);
     reply = [
       `🗑️ Dumpster "${dumpster.name}" is open for ${cmd.ttlHours}h.`,

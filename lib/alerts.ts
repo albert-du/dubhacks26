@@ -40,7 +40,7 @@ export async function flushFaceAlerts() {
   }
 }
 
-/** One "burning soon" digest per Dumpster, to every guest with a phone and the host. */
+/** One "burning soon" digest per Dumpster, to every guest who left a phone number. */
 export async function sendExpiryWarnings() {
   const { dumpsters, guests, media } = await cols();
   const now = Date.now();
@@ -64,7 +64,6 @@ export async function sendExpiryWarnings() {
     ].join("\n");
 
     const phones = new Set<string>();
-    if (d.hostPhone) phones.add(d.hostPhone);
     for (const g of await guests.find({ dumpsterId: d._id, phone: { $exists: true } }).toArray()) if (g.phone) phones.add(g.phone);
     await Promise.allSettled([...phones].map((p) => photon.send(p, text)));
   }
