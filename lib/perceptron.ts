@@ -3,8 +3,7 @@ import type { Box, Subject } from "./types";
 
 /**
  * Perceptron vision adapter (Isaac / Mk1). One grounded call per image returns
- * OCR text with boxes, face boxes, subject boxes, a caption, venue/landmark text,
- * and a "Dumpster Fire" candid/humor score.
+ * OCR text with boxes, face boxes, subject boxes, a caption and venue/landmark text.
  *
  * Uses an OpenAI-compatible chat-completions request with an inline image.
  * VERIFY against Perceptron's current API docs: base URL, model id, and whether
@@ -15,8 +14,6 @@ export interface VisionResult {
   caption?: string;
   tags: string[];
   venue?: string;
-  candidScore: number;
-  fireReason?: string;
   faces: { box: Box }[];
   text: { text: string; box: Box; sensitiveHint?: string }[];
   subjects: Subject[];
@@ -27,8 +24,6 @@ const PROMPT = `You are the vision system for a party photo-sharing app. Analyze
   "caption": "one short, playful sentence",
   "tags": ["up to 6 lowercase tags"],
   "venue": "venue, landmark, or event signage name visible in the image, or null",
-  "candid_score": 0-100, // how candid, chaotic, or funny the moment is (100 = legendary blooper)
-  "fire_reason": "why it's funny/candid in under 10 words, or null",
   "faces": [{"box": [x1,y1,x2,y2]}],             // every human face, including background people
   "text": [{"text": "...", "box": [x1,y1,x2,y2], "sensitive": "license_plate|id_card|credit_card|address|phone|email|null"}],
   "subjects": [{"label": "short noun", "box": [x1,y1,x2,y2]}]  // up to 3 sticker-worthy subjects
@@ -75,8 +70,6 @@ export function parseVision(content: string): VisionResult {
     caption: str(raw.caption),
     tags: Array.isArray(raw.tags) ? raw.tags.filter((t: unknown) => typeof t === "string").slice(0, 6) : [],
     venue: str(raw.venue),
-    candidScore: clamp(Number(raw.candid_score) || 0, 0, 100),
-    fireReason: str(raw.fire_reason),
     faces: (raw.faces ?? []).map((f: { box: unknown }) => ({ box: toBox(f.box) })).filter((f: { box: Box | null }) => f.box),
     text: (raw.text ?? [])
       .map((t: { text: unknown; box: unknown; sensitive: unknown }) => ({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { ReactionKey } from "@/lib/reactions";
 import type { PublicCluster, PublicMedia, PublicSticker, RoomState } from "@/lib/types";
 
 function sortMedia(list: PublicMedia[]) {
@@ -57,17 +58,31 @@ export function useRoom(initial: RoomState, onReady?: (ids: string[]) => void) {
     if (r.ok) setState(await r.json());
   }, [id]);
 
-  const vote = useCallback(
-    async (mediaId: string) => {
+  const react = useCallback(
+    async (mediaId: string, key: ReactionKey) => {
+      const patch = (fn: (m: PublicMedia) => PublicMedia) =>
+        setState((s) => ({ ...s, media: s.media.map((m) => (m.id === mediaId ? fn(m) : m)) }));
       // Optimistic toggle; the server's answer wins.
-      setState((s) => ({
-        ...s,
-        media: s.media.map((m) => (m.id === mediaId ? { ...m, voted: !m.voted, votes: m.votes + (m.voted ? -1 : 1) } : m)),
-      }));
-      const r = await fetch(`/api/dumpsters/${id}/media/${mediaId}/vote`, { method: "POST" });
+      patch((m) => {
+        const on = m.myReactions.includes(key);
+        return {
+          ...m,
+          myReactions: on ? m.myReactions.filter((k) => k !== key) : [...m.myReactions, key],
+          reactions: { ...m.reactions, [key]: Math.max(0, m.reactions[key] + (on ? -1 : 1)) },
+        };
+      });
+      const r = await fetch(`/api/dumpsters/${id}/media/${mediaId}/react`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
       if (r.ok) {
-        const { voted, votes } = await r.json();
-        setState((s) => ({ ...s, media: s.media.map((m) => (m.id === mediaId ? { ...m, voted, votes } : m)) }));
+        const { on, reactions } = await r.json();
+        patch((m) => ({
+          ...m,
+          reactions,
+          myReactions: on ? [...new Set([...m.myReactions, key])] : m.myReactions.filter((k) => k !== key),
+        }));
       }
     },
     [id],
@@ -98,5 +113,5 @@ export function useRoom(initial: RoomState, onReady?: (ids: string[]) => void) {
     [id],
   );
 
-  return { state, destroyed, refresh, vote, remove, makeSticker };
+  return { state, destroyed, refresh, react, remove, makeSticker };
 }

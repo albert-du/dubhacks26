@@ -61,7 +61,7 @@ export function EventMap({
           ))}
           {proj?.pts.map(({ m, x, y }) => (
             <g key={m.id} onClick={() => onOpen(located, m.id)} onMouseEnter={() => setHover(m.id)} className="cursor-pointer">
-              <rect x={x - 2} y={y - 2} width={4} height={4} fill={m.aiFire >= 70 ? "#ff5b1f" : "#46a65a"} stroke="#121212" strokeWidth={0.6} />
+              <rect x={x - 2} y={y - 2} width={4} height={4} fill={m.reactions.fire > 0 ? "#ff5b1f" : "#46a65a"} stroke="#121212" strokeWidth={0.6} />
               {hover === m.id && <rect x={x - 3.2} y={y - 3.2} width={6.4} height={6.4} fill="none" stroke="#121212" strokeWidth={0.4} />}
             </g>
           ))}

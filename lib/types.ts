@@ -1,4 +1,5 @@
 import type { TtlHours } from "./config";
+import type { ReactionCounts, ReactionKey } from "./reactions";
 
 /** Normalized box [x1, y1, x2, y2], each 0..1, relative to the oriented image. */
 export type Box = [number, number, number, number];
@@ -75,9 +76,8 @@ export interface Media {
   caption?: string;
   tags: string[];
   venue?: string;
-  aiFire: number;
-  fireReason?: string;
-  votes: number;
+  /** Aggregated counts; the per-person rows live in the `reactions` collection. */
+  reactions: ReactionCounts;
   transcript?: string;
   mentions: string[];
   createdAt: Date;
@@ -110,11 +110,13 @@ export interface Sticker {
   expiresAt: Date;
 }
 
-export interface Vote {
-  _id: string; // `${mediaId}:${viewerId}`
+/** One person's reaction; exists only so a tap toggles instead of stacking. */
+export interface Reaction {
+  _id: string; // `${mediaId}:${viewerId}:${key}`
   dumpsterId: string;
   mediaId: string;
   viewerId: string;
+  key: ReactionKey;
   expiresAt: Date;
 }
 
@@ -130,10 +132,9 @@ export interface PublicMedia {
   venue?: string;
   caption?: string;
   tags: string[];
-  aiFire: number;
-  fireReason?: string;
-  votes: number;
-  voted: boolean;
+  reactions: ReactionCounts;
+  /** Which reactions this browser has given. */
+  myReactions: ReactionKey[];
   faces: { box: Box; clusterId?: string }[];
   text: { box: Box; text: string }[];
   subjects: Subject[];

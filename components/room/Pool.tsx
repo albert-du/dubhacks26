@@ -1,5 +1,6 @@
 "use client";
 
+import { FireIcon } from "@/components/Brand";
 import { FaceThumb, frameNo } from "@/components/ui";
 import type { PublicCluster, PublicMedia, RoomState } from "@/lib/types";
 import type { Filter, Tab } from "./Room";
@@ -108,8 +109,11 @@ export function Pool(props: {
                   {frameNo(props.frames.get(m.id) ?? 0)}
                 </span>
                 {m.kind === "video" && <span className="label absolute top-0 left-0 bg-paper px-1 !text-[9px]">▶ Vid</span>}
-                {(m.aiFire >= 70 || m.votes >= 3) && (
-                  <span className="label absolute top-0 right-0 bg-fire px-1 !text-[9px]">Fire</span>
+                {m.reactions.fire > 0 && (
+                  <span className="absolute top-0 right-0 flex items-center gap-0.5 bg-paper py-0.5 pr-1 pl-0.5">
+                    <FireIcon size={14} />
+                    <span className="label !text-[9px] !tracking-normal">{m.reactions.fire}</span>
+                  </span>
                 )}
               </button>
             </li>

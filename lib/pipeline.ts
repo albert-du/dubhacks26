@@ -97,8 +97,6 @@ async function processImage(m: Media, d: Dumpster) {
               tags: vision.tags,
               venue: vision.venue,
               subjects: vision.subjects,
-              aiFire: vision.candidScore,
-              fireReason: vision.fireReason,
             }
           : {}),
       },

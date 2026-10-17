@@ -1,6 +1,6 @@
 import { getLiveDumpster } from "@/lib/dumpsters";
 import { cols } from "@/lib/mongo";
-import { publicClusters, publicMedia, publicSticker } from "@/lib/serialize";
+import { myReactions, publicClusters, publicMedia, publicSticker } from "@/lib/serialize";
 import { viewerId } from "@/lib/viewer";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -21,7 +21,7 @@ export async function GET(req: Request, { params }: Ctx) {
   if (!d0) return new Response("gone", { status: 404 });
   const viewer = await viewerId();
   const since0 = new URL(req.url).searchParams.get("since");
-  const { media, stickers, clusters, votes } = await cols();
+  const { media, stickers, clusters } = await cols();
   const enc = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -52,12 +52,14 @@ export async function GET(req: Request, { params }: Ctx) {
             .limit(200)
             .toArray();
           if (changed.length) {
-            const mine = new Set(
-              (await votes.find({ viewerId: viewer, mediaId: { $in: changed.map((m) => m._id) } }).toArray()).map((v) => v.mediaId),
+            const mine = await myReactions(
+              id,
+              viewer,
+              changed.map((m) => m._id),
             );
             send(
               "media",
-              changed.map((m) => publicMedia(m, mine.has(m._id))),
+              changed.map((m) => publicMedia(m, mine.get(m._id) ?? [])),
             );
             sent = true;
           }

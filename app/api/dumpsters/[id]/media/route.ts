@@ -5,6 +5,7 @@ import { config } from "@/lib/config";
 import { getLiveDumpster } from "@/lib/dumpsters";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
+import { emptyReactions } from "@/lib/reactions";
 import { storage } from "@/lib/storage";
 import { tiger } from "@/lib/tiger";
 import type { Media } from "@/lib/types";
@@ -82,8 +83,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
     text: [],
     subjects: [],
     tags: [],
-    aiFire: 0,
-    votes: 0,
+    reactions: emptyReactions(),
     mentions: [],
     createdAt: now,
     updatedAt: now,

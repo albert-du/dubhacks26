@@ -12,7 +12,7 @@ export const DELETE = route<Ctx>(async (_req, { params }) => {
   const { id, mediaId } = await params;
   const d = await getLiveDumpster(id);
   if (!d) throw notFound();
-  const { media, votes, stickers } = await cols();
+  const { media, reactions, stickers } = await cols();
   const m = await media.findOne({ _id: mediaId, dumpsterId: id });
   if (!m || m.status === "deleted") throw new HttpError(404, "Already gone");
   const stickerDocs = await stickers.find({ mediaId }).toArray();
@@ -25,7 +25,7 @@ export const DELETE = route<Ctx>(async (_req, { params }) => {
     { _id: mediaId },
     { $set: { status: "deleted", faces: [], text: [], transcript: undefined, updatedAt: new Date() }, $unset: { publicKey: "" } },
   );
-  await votes.deleteMany({ mediaId });
+  await reactions.deleteMany({ mediaId });
   await stickers.deleteMany({ mediaId });
   await publish(id, { type: "media", mediaId });
   return NextResponse.json({ ok: true });

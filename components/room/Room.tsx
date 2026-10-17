@@ -133,7 +133,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
             goTo={setTab}
           />
         )}
-        {tab === "fire" && <Fire media={state.media} onVote={room.vote} onOpen={open} />}
+        {tab === "fire" && <Fire media={state.media} onReact={room.react} onOpen={open} />}
         {tab === "map" && (
           <EventMap
             media={state.media}
@@ -193,7 +193,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
           clusters={state.clusters}
           onIndex={(index) => setViewing({ ...viewing, index })}
           onClose={() => setViewing(null)}
-          onVote={room.vote}
+          onReact={room.react}
           onDelete={room.remove}
           onSticker={async (mid, subject) => {
             const ok = await room.makeSticker(mid, subject);

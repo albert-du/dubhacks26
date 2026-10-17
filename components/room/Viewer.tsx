@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ReactionBar } from "@/components/Reactions";
 import { frameNo } from "@/components/ui";
+import type { ReactionKey } from "@/lib/reactions";
 import type { Box, PublicCluster, PublicMedia } from "@/lib/types";
 
 export function Viewer(props: {
@@ -11,7 +13,7 @@ export function Viewer(props: {
   clusters: PublicCluster[];
   onIndex: (i: number) => void;
   onClose: () => void;
-  onVote: (id: string) => void;
+  onReact: (id: string, key: ReactionKey) => void;
   onDelete: (id: string) => Promise<boolean>;
   onSticker: (id: string, subject: number) => Promise<boolean>;
 }) {
@@ -114,7 +116,6 @@ export function Viewer(props: {
               {t}
             </span>
           ))}
-          {m.fireReason && <span className="label bg-fire px-1.5 py-0.5 text-ink">{m.fireReason}</span>}
         </div>
         {m.transcript && (
           <p className="max-h-20 overflow-auto border-l-4 border-green pl-2 text-sm">
@@ -137,41 +138,38 @@ export function Viewer(props: {
           </div>
         )}
 
+        <ReactionBar m={m} onReact={(k) => props.onReact(m.id, k)} tone="dark" />
+
         <div className="grid grid-cols-4 gap-2">
-          <button
-            onClick={() => props.onVote(m.id)}
-            className={`btn !px-2 ${m.voted ? "btn-fire" : "btn-ghost"}`}
-            aria-pressed={m.voted}
-            aria-label="Vote Dumpster Fire"
-          >
-            🔥 {m.votes}
-          </button>
           {m.kind === "image" ? (
-            <button onClick={() => setBoxes((v) => !v)} className={`btn !px-2 ${boxes ? "btn-green" : "btn-ghost"}`} aria-pressed={boxes}>
-              Boxes
+            <button onClick={() => setBoxes((v) => !v)} className={`btn !px-1 !text-sm ${boxes ? "btn-green" : "btn-ghost"}`} aria-pressed={boxes}>
+              Tags
             </button>
           ) : (
             <span />
           )}
           {m.kind === "image" ? (
-            <button className="btn btn-ghost !px-2" onClick={() => (m.subjects.length ? setCutMenu((v) => !v) : cut(-1))}>
+            <button className="btn btn-ghost !px-1 !text-sm" onClick={() => (m.subjects.length ? setCutMenu((v) => !v) : cut(-1))}>
               Sticker
             </button>
           ) : (
             <span />
           )}
+          <a className="btn btn-ghost !px-1 !text-sm" href={m.url} download>
+            Save
+          </a>
           <button
-              className="btn btn-ghost !px-2"
-              onClick={async () => {
-                if (!confirm("Pull this out of the Dumpster? It’s deleted for everyone.")) return;
-                if (await props.onDelete(m.id)) {
-                  if (list.length <= 1) onClose();
-                  else if (index >= list.length - 1) onIndex(index - 1);
-                }
-              }}
-            >
-              Delete
-            </button>
+            className="btn btn-ghost !px-1 !text-sm"
+            onClick={async () => {
+              if (!confirm("Take this out of the Dumpster? It’s gone for everyone.")) return;
+              if (await props.onDelete(m.id)) {
+                if (list.length <= 1) onClose();
+                else if (index >= list.length - 1) onIndex(index - 1);
+              }
+            }}
+          >
+            Delete
+          </button>
         </div>
       </div>
     </div>

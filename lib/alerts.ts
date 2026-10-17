@@ -54,12 +54,13 @@ export async function sendExpiryWarnings() {
     if (!claimed.modifiedCount) continue;
 
     const count = await media.countDocuments({ dumpsterId: d._id, status: "ready" });
-    const top = await media.find({ dumpsterId: d._id, status: "ready" }).sort({ votes: -1, aiFire: -1 }).limit(1).next();
+    const top = await media.find({ dumpsterId: d._id, status: "ready" }).sort({ "reactions.fire": -1 }).limit(1).next();
+    const fires = top?.reactions?.fire ?? 0;
     const mins = Math.max(1, Math.round((d.expiresAt.getTime() - now) / 60_000));
     const left = mins >= 90 ? `${Math.round(mins / 60)}h` : `${mins} min`;
     const text = [
-      `🔥 "${d.name}" self-destructs in ${left}.`,
-      `${count} photo${count === 1 ? "" : "s"} & videos inside${top?.votes ? ` — top Dumpster Fire has ${top.votes} 🔥` : ""}.`,
+      `🔥 "${d.name}" burns in ${left}.`,
+      `${count} photo${count === 1 ? "" : "s"} & videos inside${fires ? ` — the top Dumpster Fire has ${fires} 🔥` : ""}.`,
       `Save what you want before it's gone: ${roomUrl(d._id)}`,
     ].join("\n");
 

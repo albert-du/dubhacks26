@@ -1,4 +1,5 @@
 import { cols } from "./mongo";
+import { emptyReactions, type ReactionKey } from "./reactions";
 import type {
   Cluster,
   Dumpster,
@@ -19,6 +20,17 @@ import type {
 
 export const fileUrl = (key: string) => `/api/files/${key}`;
 
+/** mediaId → reactions this viewer has given, optionally limited to some media. */
+export async function myReactions(dumpsterId: string, viewer: string, mediaIds?: string[]) {
+  const { reactions } = await cols();
+  const rows = await reactions
+    .find({ dumpsterId, viewerId: viewer, ...(mediaIds ? { mediaId: { $in: mediaIds } } : {}) }, { projection: { mediaId: 1, key: 1 } })
+    .toArray();
+  const out = new Map<string, ReactionKey[]>();
+  for (const r of rows) out.set(r.mediaId, [...(out.get(r.mediaId) ?? []), r.key]);
+  return out;
+}
+
 export function publicDumpster(d: Dumpster): PublicDumpster {
   return {
     id: d._id,
@@ -30,7 +42,7 @@ export function publicDumpster(d: Dumpster): PublicDumpster {
   };
 }
 
-export function publicMedia(m: Media, voted: boolean): PublicMedia {
+export function publicMedia(m: Media, myReactions: ReactionKey[]): PublicMedia {
   return {
     id: m._id,
     kind: m.kind,
@@ -43,10 +55,8 @@ export function publicMedia(m: Media, voted: boolean): PublicMedia {
     venue: m.venue,
     caption: m.caption,
     tags: m.tags,
-    aiFire: m.aiFire,
-    fireReason: m.fireReason,
-    votes: m.votes,
-    voted,
+    reactions: { ...emptyReactions(), ...m.reactions },
+    myReactions,
     faces: m.faces.map((f) => ({ box: f.box, clusterId: f.clusterId })),
     text: m.text.map((t) => ({ box: t.box, text: t.text })),
     subjects: m.subjects,
@@ -98,21 +108,19 @@ export async function publicClusters(d: Dumpster): Promise<PublicCluster[]> {
 }
 
 export async function roomState(d: Dumpster, viewer: string): Promise<RoomState> {
-  const { media, stickers, votes, guests, clusters } = await cols();
+  const { media, stickers, guests, clusters } = await cols();
   const cursor = new Date();
   const list = await media
     .find({ dumpsterId: d._id, status: "ready" }, { projection: { "faces.embedding": 0 } })
     .sort({ createdAt: -1 })
     .limit(500)
     .toArray();
-  const myVotes = new Set(
-    (await votes.find({ dumpsterId: d._id, viewerId: viewer }).toArray()).map((v) => v.mediaId),
-  );
+  const mine = await myReactions(d._id, viewer);
   const me: Guest | null = await guests.findOne({ dumpsterId: d._id, viewerId: viewer });
   const myClusters = me ? await clusters.find({ dumpsterId: d._id, guestId: me._id }, { projection: { _id: 1 } }).toArray() : [];
   return {
     dumpster: publicDumpster(d),
-    media: list.map((m) => publicMedia(m, myVotes.has(m._id))),
+    media: list.map((m) => publicMedia(m, mine.get(m._id) ?? [])),
     clusters: await publicClusters(d),
     stickers: (await stickers.find({ dumpsterId: d._id }).sort({ createdAt: -1 }).toArray()).map(publicSticker),
     me: me ? { guestId: me._id, name: me.name, clusterIds: myClusters.map((c) => c._id) } : undefined,

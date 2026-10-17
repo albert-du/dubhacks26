@@ -31,7 +31,7 @@ export const tiger = {
     return q(`insert into upload_events (time, dumpster_id, kind, bytes) values (now(), $1, $2, $3)`, [dumpsterId, kind, bytes]);
   },
 
-  engagement(dumpsterId: string, type: "join" | "enroll" | "vote" | "sticker" | "view") {
+  engagement(dumpsterId: string, type: "join" | "enroll" | "react" | "sticker" | "view") {
     return q(`insert into engagement_events (time, dumpster_id, type) values (now(), $1, $2)`, [dumpsterId, type]);
   },
 

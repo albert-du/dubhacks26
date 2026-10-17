@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FireIcon } from "@/components/Brand";
 import { Burned } from "@/components/Burned";
 import { Countdown } from "@/components/ui";
 import { useRoom } from "@/lib/client/useRoom";
+import { fireRank } from "@/lib/reactions";
 import type { RoomState } from "@/lib/types";
 
 interface Stats {
@@ -33,7 +35,7 @@ export function Stage({ initial }: { initial: RoomState }) {
   if (destroyed) return <Burned />;
 
   const latest = state.media.filter((m) => m.kind === "image").slice(0, 11);
-  const fire = [...state.media].filter((m) => m.kind === "image").sort((a, b) => b.votes - a.votes || b.aiFire - a.aiFire)[0];
+  const fire = fireRank(state.media.filter((m) => m.kind === "image"))[0];
   const bars = buildBars(stats?.velocity ?? []);
   const peak = Math.max(1, ...bars);
   const perMin = bars.slice(-5).reduce((s, n) => s + n, 0) / 5;
@@ -103,13 +105,16 @@ export function Stage({ initial }: { initial: RoomState }) {
           </div>
         </div>
 
-        {fire && fire.votes > 0 && (
+        {fire && (
           <div className="grid grid-cols-[96px_1fr] border-3 border-fire">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={fire.url} alt="" className="size-24 object-cover" />
             <div className="p-2">
               <p className="label text-fire">Top Dumpster Fire</p>
-              <p className="display text-3xl">🔥 {fire.votes}</p>
+              <p className="flex items-center gap-2">
+                <FireIcon size={36} />
+                <span className="display text-3xl tabular-nums">{fire.reactions.fire}</span>
+              </p>
             </div>
           </div>
         )}

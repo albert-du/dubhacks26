@@ -1,6 +1,6 @@
 import { MongoClient, type Db } from "mongodb";
 import { config } from "./config";
-import type { Cluster, Dumpster, Guest, Media, Sticker, Vote } from "./types";
+import type { Cluster, Dumpster, Guest, Media, Reaction, Sticker } from "./types";
 
 /**
  * Every collection that holds event data. Each one gets a TTL index on `expiresAt`
@@ -13,7 +13,7 @@ export const EPHEMERAL_COLLECTIONS = {
   media: "expiresAt",
   clusters: "expiresAt",
   stickers: "expiresAt",
-  votes: "expiresAt",
+  reactions: "expiresAt",
 } as const;
 
 const g = globalThis as unknown as { _dumpMongo?: Promise<MongoClient>; _dumpIdx?: Promise<void> };
@@ -26,6 +26,7 @@ async function ensureIndexes(d: Db) {
   await d.collection("media").createIndex({ status: 1, createdAt: 1 });
   await d.collection("clusters").createIndex({ dumpsterId: 1 });
   await d.collection("guests").createIndex({ dumpsterId: 1, viewerId: 1 });
+  await d.collection("reactions").createIndex({ dumpsterId: 1, viewerId: 1 });
   await d.collection("stickers").createIndex({ dumpsterId: 1, updatedAt: 1 });
   await d.collection("stickers").createIndex({ status: 1 });
   await d.collection("dumpsters").createIndex({ expiresAt: 1 });
@@ -53,7 +54,7 @@ export async function cols() {
     media: d.collection<Media>("media"),
     clusters: d.collection<Cluster>("clusters"),
     stickers: d.collection<Sticker>("stickers"),
-    votes: d.collection<Vote>("votes"),
+    reactions: d.collection<Reaction>("reactions"),
   };
 }
 
