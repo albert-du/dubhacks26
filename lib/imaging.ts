@@ -30,7 +30,7 @@ export async function renderPublic(jpeg: Buffer) {
   return sharp(jpeg).webp({ quality: 82 }).toBuffer();
 }
 
-/** Sticker: crop a subject from the public image, die-cut style. */
+/** Sticker: crop a object from the public image, die-cut style. */
 export async function renderSticker(publicImage: Buffer, box: Box) {
   const img = sharp(publicImage);
   const { width = 1, height = 1 } = await img.metadata();

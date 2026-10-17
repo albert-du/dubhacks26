@@ -98,11 +98,11 @@ export function useRoom(initial: RoomState, onReady?: (ids: string[]) => void) {
   );
 
   const makeSticker = useCallback(
-    async (mediaId: string, subject: number) => {
+    async (mediaId: string, object: number) => {
       const r = await fetch(`/api/dumpsters/${id}/media/${mediaId}/sticker`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ subject }),
+        body: JSON.stringify({ object }),
       });
       if (r.ok) {
         const st: PublicSticker = await r.json();

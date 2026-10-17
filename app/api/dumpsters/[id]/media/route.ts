@@ -2,6 +2,7 @@ import exifr from "exifr";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { config } from "@/lib/config";
+import { sha256 } from "@/lib/dedupe";
 import { getLiveDumpster } from "@/lib/dumpsters";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
@@ -74,6 +75,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
     mime: file.type,
     bytes: file.size,
     originalKey,
+    sha256: sha256(buf),
     gps: lat !== undefined && lng !== undefined && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : undefined,
     takenAt: takenAt ? new Date(takenAt) : undefined,
     status: "pending",
@@ -81,7 +83,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
     claimedAt: null,
     faces: [],
     text: [],
-    subjects: [],
+    objects: [],
     tags: [],
     reactions: emptyReactions(),
     mentions: [],

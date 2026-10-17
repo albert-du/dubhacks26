@@ -9,21 +9,21 @@ import type { Box, Sticker } from "@/lib/types";
 
 type Ctx = { params: Promise<{ id: string; mediaId: string }> };
 
-const Body = z.object({ subject: z.number().int().min(-1).max(2).default(-1) });
+const Body = z.object({ object: z.number().int().min(-1).max(19).default(-1) });
 
-/** Queues a sticker cut from a Perceptron subject box (or the center of the frame). */
+/** Queues a sticker cut from a Perceptron object box (or the center of the frame). */
 export const POST = route<Ctx>(async (req, { params }) => {
   const { id, mediaId } = await params;
   const d = await getLiveDumpster(id);
   if (!d) throw notFound();
-  const { subject } = Body.parse(await req.json().catch(() => ({})));
+  const { object } = Body.parse(await req.json().catch(() => ({})));
   const { media, stickers } = await cols();
   const m = await media.findOne({ _id: mediaId, dumpsterId: id, status: "ready", kind: "image" });
   if (!m) throw new HttpError(404, "Stickers come from photos that are ready");
 
-  const s = subject >= 0 ? m.subjects[subject] : undefined;
+  const s = object >= 0 ? m.objects[object] : undefined;
   const box: Box = s?.box ?? [0.12, 0.12, 0.88, 0.88];
-  const _id = `${mediaId}-${subject}`;
+  const _id = `${mediaId}-${object}`;
   const existing = await stickers.findOne({ _id });
   if (existing && existing.status !== "failed") return NextResponse.json(publicSticker(existing));
 

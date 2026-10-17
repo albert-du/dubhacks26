@@ -24,6 +24,7 @@ async function ensureIndexes(d: Db) {
   }
   await d.collection("media").createIndex({ dumpsterId: 1, updatedAt: 1 });
   await d.collection("media").createIndex({ status: 1, createdAt: 1 });
+  await d.collection("media").createIndex({ dumpsterId: 1, sha256: 1 });
   await d.collection("clusters").createIndex({ dumpsterId: 1 });
   await d.collection("guests").createIndex({ dumpsterId: 1, viewerId: 1 });
   await d.collection("reactions").createIndex({ dumpsterId: 1, viewerId: 1 });

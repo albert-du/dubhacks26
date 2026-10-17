@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { publish } from "./backboard";
 import { config } from "./config";
+import { findDuplicate, pixelHash } from "./dedupe";
 import { cosine, nearest, updateCentroid } from "./faces";
 import { faceEmbed } from "./faceEmbed";
 import { cols } from "./mongo";
@@ -12,8 +13,8 @@ import type { Cluster, Dumpster, FaceHit, Media, TextHit } from "./types";
 
 /*
  * Media pipeline, run by the Vultr worker (worker/index.ts):
- *   original → normalize (orient, resize, strip EXIF) → public WebP
- *   → Perceptron + face-embed in parallel → cluster faces → notify.
+ *   original → normalize (orient, resize, strip EXIF) → pixel hash + duplicate check
+ *   → Perceptron (objects, people, text) + face-embed in parallel → cluster faces → public WebP → notify.
  * Analysis is enrichment only: if a vision service is down the photo still publishes.
  */
 
@@ -60,6 +61,8 @@ export async function processNextMedia(): Promise<boolean> {
 async function processImage(m: Media, d: Dumpster) {
   const { media, guests, clusters } = await cols();
   const { jpeg, width, height } = await normalizeImage(await storage.get(m.originalKey));
+  const phash = await pixelHash(jpeg);
+  const duplicateOf = await detectDuplicate(m, phash);
 
   const [v, e] = await Promise.allSettled([
     perceptron.enabled() ? perceptron.analyze(jpeg) : Promise.reject(new Error("perceptron not configured")),
@@ -90,13 +93,15 @@ async function processImage(m: Media, d: Dumpster) {
         height,
         faces,
         text,
+        phash,
+        duplicateOf,
         updatedAt: new Date(),
         ...(vision
           ? {
               caption: vision.caption,
               tags: vision.tags,
               venue: vision.venue,
-              subjects: vision.subjects,
+              objects: vision.objects,
             }
           : {}),
       },
@@ -114,6 +119,25 @@ async function processImage(m: Media, d: Dumpster) {
     await publish(d._id, { type: "clusters" });
   }
   await publish(d._id, { type: "media", mediaId: m._id });
+}
+
+/** Flags re-uploads: same bytes, or same pixels captured at the same moment (see lib/dedupe.ts). */
+async function detectDuplicate(m: Media, phash?: string) {
+  const { media } = await cols();
+  const candidates = await media
+    .find(
+      {
+        dumpsterId: m.dumpsterId,
+        _id: { $ne: m._id },
+        status: "ready",
+        kind: m.kind,
+        ...(phash ? { $or: [{ sha256: m.sha256 }, { phash: { $exists: true } }] } : { sha256: m.sha256 }),
+      },
+      { projection: { sha256: 1, phash: 1, takenAt: 1 } },
+    )
+    .sort({ createdAt: 1 })
+    .toArray();
+  return findDuplicate({ sha256: m.sha256, phash, takenAt: m.takenAt }, candidates);
 }
 
 /** Online clustering: each face joins the nearest cluster above threshold, or starts a new one. */
@@ -163,6 +187,7 @@ async function processVideo(m: Media, d: Dumpster) {
   const { media, guests } = await cols();
   const buf = await storage.get(m.originalKey);
   const ext = m.originalKey.split(".").pop() ?? "mp4";
+  const duplicateOf = await detectDuplicate(m);
 
   let transcript: string | undefined;
   let mentions: string[] = [];
@@ -188,7 +213,7 @@ async function processVideo(m: Media, d: Dumpster) {
   await media.updateOne(
     { _id: m._id },
     {
-      $set: { status: "ready", claimedAt: null, publicKey, transcript, mentions, updatedAt: new Date() },
+      $set: { status: "ready", claimedAt: null, publicKey, transcript, mentions, duplicateOf, updatedAt: new Date() },
     },
   );
   await publish(d._id, { type: "media", mediaId: m._id });

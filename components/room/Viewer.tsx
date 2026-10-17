@@ -15,7 +15,7 @@ export function Viewer(props: {
   onClose: () => void;
   onReact: (id: string, key: ReactionKey) => void;
   onDelete: (id: string) => Promise<boolean>;
-  onSticker: (id: string, subject: number) => Promise<boolean>;
+  onSticker: (id: string, object: number) => Promise<boolean>;
 }) {
   const { list, index, onIndex, onClose } = props;
   const m = list[index];
@@ -50,9 +50,9 @@ export function Viewer(props: {
     setToast(t);
     setTimeout(() => setToast(null), 2200);
   };
-  const cut = async (subject: number) => {
+  const cut = async (object: number) => {
     setCutMenu(false);
-    flash((await props.onSticker(m.id, subject)) ? "Cutting sticker → Pack" : "Couldn’t cut that one");
+    flash((await props.onSticker(m.id, object)) ? "Cutting sticker → Pack" : "Couldn’t cut that one");
   };
 
   return (
@@ -98,7 +98,7 @@ export function Viewer(props: {
               {m.text.map((t, i) => (
                 <Overlay key={`t${i}`} box={t.box} tone="paper" label={t.text} />
               ))}
-              {m.subjects.map((s, i) => (
+              {m.objects.map((s, i) => (
                 <Overlay key={`s${i}`} box={s.box} tone="dotted" label={s.label} />
               ))}
             </div>
@@ -127,7 +127,7 @@ export function Viewer(props: {
         {cutMenu && (
           <div className="flex flex-wrap gap-2">
             <span className="label self-center">Cut:</span>
-            {m.subjects.map((s, i) => (
+            {m.objects.map((s, i) => (
               <button key={i} className="btn btn-green !px-3 !py-2 !text-sm" onClick={() => cut(i)}>
                 {s.label}
               </button>
@@ -149,7 +149,7 @@ export function Viewer(props: {
             <span />
           )}
           {m.kind === "image" ? (
-            <button className="btn btn-ghost !px-1 !text-sm" onClick={() => (m.subjects.length ? setCutMenu((v) => !v) : cut(-1))}>
+            <button className="btn btn-ghost !px-1 !text-sm" onClick={() => (m.objects.length ? setCutMenu((v) => !v) : cut(-1))}>
               Sticker
             </button>
           ) : (

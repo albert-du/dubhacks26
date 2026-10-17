@@ -47,7 +47,7 @@ export interface TextHit {
   box: Box;
 }
 
-export interface Subject {
+export interface DetectedObject {
   label: string;
   box: Box;
 }
@@ -63,6 +63,12 @@ export interface Media {
   bytes: number;
   originalKey: string;
   publicKey?: string;
+  /** Exact byte hash of the upload. */
+  sha256: string;
+  /** 64-bit pixel hash (images only), for near-duplicate detection. */
+  phash?: string;
+  /** Set when this is a duplicate of an earlier upload in the same room. */
+  duplicateOf?: string;
   width?: number;
   height?: number;
   gps?: { lat: number; lng: number };
@@ -72,7 +78,7 @@ export interface Media {
   claimedAt?: Date | null;
   faces: FaceHit[];
   text: TextHit[];
-  subjects: Subject[];
+  objects: DetectedObject[];
   caption?: string;
   tags: string[];
   venue?: string;
@@ -137,10 +143,13 @@ export interface PublicMedia {
   myReactions: ReactionKey[];
   faces: { box: Box; clusterId?: string }[];
   text: { box: Box; text: string }[];
-  subjects: Subject[];
+  objects: DetectedObject[];
   transcript?: string;
   mentions: string[];
+  duplicateOf?: string;
   status: MediaStatus;
+  /** Capture time from the camera, when known. */
+  takenAt?: string;
   createdAt: string;
 }
 

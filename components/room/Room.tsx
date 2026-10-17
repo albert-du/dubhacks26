@@ -195,8 +195,8 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
           onClose={() => setViewing(null)}
           onReact={room.react}
           onDelete={room.remove}
-          onSticker={async (mid, subject) => {
-            const ok = await room.makeSticker(mid, subject);
+          onSticker={async (mid, object) => {
+            const ok = await room.makeSticker(mid, object);
             return ok;
           }}
         />

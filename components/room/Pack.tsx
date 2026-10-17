@@ -16,7 +16,7 @@ export function Pack({ stickers, goTo }: { stickers: PublicSticker[]; goTo: (t: 
           pack
         </h2>
         <p className="mt-3 text-sm leading-snug">
-          Open any photo → <b>Sticker</b>. The AI finds the subject and cuts it out. Long-press to save. Burns with everything else.
+          Open any photo → <b>Sticker</b>. The AI finds the object and cuts it out. Long-press to save. Burns with everything else.
         </p>
       </div>
 

@@ -51,13 +51,13 @@ test("faces: clustering math", () => {
 
 test("perceptron: parses grounded JSON and normalizes 0-1000 boxes", () => {
   const v = parseVision(`Sure! {"caption":"cake hits floor","tags":["cake"],"venue":"null",
-    "faces":[{"box":[100,200,300,400]}],"text":[{"text":"7ABC123","box":[0,0,500,100],"sensitive":"license_plate"}],
-    "subjects":[{"label":"cake","box":[400,400,600,600]},{"label":"bad","box":[5,5,1,1]}]}`);
+    "faces":[{"box":[100,200,300,400]}],"text":[{"text":" MAIN STAGE ","box":[0,0,500,100]}],
+    "objects":[{"label":"Cake","box":[400,400,600,600]},{"label":"bad","box":[5,5,1,1]}]}`);
   assert.equal(v.caption, "cake hits floor");
   assert.equal(v.venue, undefined);
   assert.deepEqual(v.faces[0].box, [0.1, 0.2, 0.3, 0.4]);
-  assert.equal(v.text[0].sensitiveHint, "license_plate");
-  assert.equal(v.subjects.length, 1);
+  assert.equal(v.text[0].text, "MAIN STAGE");
+  assert.deepEqual(v.objects.map((o) => o.label), ["cake"]);
 });
 
 test("transcripts: whole-word first-name mentions", () => {

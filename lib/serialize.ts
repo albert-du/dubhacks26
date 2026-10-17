@@ -59,9 +59,11 @@ export function publicMedia(m: Media, myReactions: ReactionKey[]): PublicMedia {
     myReactions,
     faces: m.faces.map((f) => ({ box: f.box, clusterId: f.clusterId })),
     text: m.text.map((t) => ({ box: t.box, text: t.text })),
-    subjects: m.subjects,
+    objects: m.objects,
     transcript: m.transcript,
     mentions: m.mentions,
+    duplicateOf: m.duplicateOf,
+    takenAt: m.takenAt?.toISOString(),
     status: m.status,
     createdAt: m.createdAt.toISOString(),
   };
