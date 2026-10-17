@@ -2,8 +2,8 @@
  * Uploads are queued in IndexedDB by the page itself (lib/client/uploadQueue.ts),
  * so this worker never touches /api. Media files are never cached here: when a
  * Dumpster burns, nothing should linger on guests' phones beyond the HTTP cache. */
-const CACHE = "dump-shell-v1";
-const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png"];
+const CACHE = "dump-shell-v2";
+const SHELL = ["/", "/manifest.webmanifest", "/favicon.png", "/icon-192.png", "/brand/mark-green.webp", "/brand/fire.webp"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

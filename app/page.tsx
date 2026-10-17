@@ -1,3 +1,4 @@
+import { Logo, MarkBlock } from "@/components/Brand";
 import { CreateForm } from "@/components/CreateForm";
 
 const STEPS = [
@@ -13,11 +14,12 @@ export default function Home() {
   return (
     <div className="mx-auto max-w-xl">
       <header className="flex items-stretch border-b-3 border-ink">
-        <span className="display grid place-items-center bg-ink px-3 text-2xl text-paper">DUMP</span>
+        <MarkBlock />
         <span className="label flex flex-1 items-center justify-end px-3">dumpster.photo</span>
       </header>
 
       <section className="px-4 pt-6 pb-8">
+        <Logo className="mb-6 h-40" />
         <h1 className="display text-[clamp(4rem,22vw,8.5rem)]">
           Throw
           <br />

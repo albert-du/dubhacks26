@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: "Zero-login, self-destructing photo & video pools for group events. Scan, drop, find yourself. Gone in 72h.",
   applicationName: "Dump",
   appleWebApp: { capable: true, title: "Dump", statusBarStyle: "default" },
-  icons: { icon: "/icon.svg", apple: "/icon-192.png" },
+  icons: { icon: "/favicon.png", apple: "/apple-touch-icon.png" },
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
 };
 

@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { Logo } from "./Brand";
 
 export function Burned() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col">
       <div className="hazard h-6" />
       <main className="flex flex-1 flex-col justify-center px-4">
-        <p className="label mb-3">Error 410 · Gone</p>
+        <Logo className="mb-6 h-28 opacity-30 grayscale" />
         <h1 className="display text-[clamp(3.5rem,17vw,7rem)]">
           This
           <br />
