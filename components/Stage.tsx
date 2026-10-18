@@ -7,7 +7,7 @@ import { MediaStage } from "@/components/MediaStage";
 import { ReactionBar } from "@/components/Reactions";
 import { Countdown, ShotImage, useNow } from "@/components/ui";
 import { useDumpster } from "@/lib/client/useDumpster";
-import { useSaveShots } from "@/lib/client/useSaveShots";
+import { dropSavedShots, useSaveShots } from "@/lib/client/useSaveShots";
 import { fireRank, REACTIONS, type ReactionKey } from "@/lib/reactions";
 import { attachmentUrl } from "@/lib/saveToPhotos";
 import type { DumpsterState, PublicMedia } from "@/lib/types";
@@ -118,7 +118,7 @@ function StageViewer({
   );
 }
 
-/** Full-width bar for the projector. Same save path as the phone: camera roll on iPhone, a file or a ZIP elsewhere. */
+/** Full-width bar for the projector. Same save path as the phone: camera roll on iPhone, a file or a ZIP elsewhere. Checks clear once that save finishes. */
 function StageSaveBar(props: {
   dumpsterId: string;
   selected: PublicMedia[];
@@ -126,11 +126,13 @@ function StageSaveBar(props: {
   onAll: () => void;
   onNone: () => void;
   onDone: () => void;
+  onSaved: (ids: string[]) => void;
 }) {
   const n = props.selected.length;
   const camera = useSaveShots(
     props.selected.map((m) => ({ id: m.id, url: m.url, kind: m.kind })),
     (shots) => downloadShots(props.dumpsterId, shots),
+    props.onSaved,
   );
   return (
     <div className="fixed inset-x-0 bottom-0 z-nav border-t-3 border-ink bg-paper text-ink">
@@ -346,6 +348,7 @@ export function Stage({ initial }: { initial: DumpsterState }) {
           onAll={() => setSelected(new Set(all.map((m) => m.id)))}
           onNone={() => setSelected(new Set())}
           onDone={stopSelecting}
+          onSaved={(ids) => setSelected((cur) => dropSavedShots(cur, ids))}
         />
       )}
 

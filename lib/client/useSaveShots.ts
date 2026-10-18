@@ -13,16 +13,37 @@ import {
 } from "@/lib/saveToPhotos";
 
 /**
+ * Selection with a finished save removed. The same set when none of those ids were selected.
+ */
+export function dropSavedShots(selected: Set<string>, savedIds: string[]) {
+  if (!savedIds.length) return selected;
+  const next = new Set(selected);
+  for (const id of savedIds) next.delete(id);
+  return next.size === selected.size ? selected : next;
+}
+
+/** The picker dropped exactly the shots that already saved, so this batch is still in progress. */
+function sameIds(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+  const have = new Set(b);
+  return a.every((id) => have.has(id));
+}
+
+/**
  * On iPhone and iPad, Save opens the system share sheet with the photo files
  * so Save Image writes them to the camera roll. Elsewhere, `fallback` keeps
  * the normal download (one file, or a zip when there are several).
+ * `onSaved` gets the ids once that save finishes, so the picker can clear
+ * those checks. Dismissing the share sheet does not call it.
  */
-export function useSaveShots(shots: SaveShot[], fallback: (shots: SaveShot[]) => void) {
+export function useSaveShots(shots: SaveShot[], fallback: (shots: SaveShot[]) => void, onSaved?: (ids: string[]) => void) {
   const key = shots.map((shot) => shot.id).join("\n");
   const shotsRef = useRef(shots);
   shotsRef.current = shots;
   const fallbackRef = useRef(fallback);
   fallbackRef.current = fallback;
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
 
   const ready = useRef(new Map<string, File>());
   const inflight = useRef(new Map<string, Promise<void>>());
@@ -33,11 +54,16 @@ export function useSaveShots(shots: SaveShot[], fallback: (shots: SaveShot[]) =>
   const sharing = useRef(false);
 
   const seenKey = useRef(key);
+  const nextIds = shots.map((shot) => shot.id);
+  // Clearing the shots that just saved must not cancel the rest of this batch.
+  const savedOnly = seenKey.current !== key && sameIds(nextIds, pendingRef.current);
   if (seenKey.current !== key) {
     seenKey.current = key;
-    selectionGen.current += 1;
-    pendingRef.current = shots.map((shot) => shot.id);
-    batchRef.current = null;
+    if (!savedOnly) {
+      selectionGen.current += 1;
+      pendingRef.current = nextIds;
+      batchRef.current = null;
+    }
   }
 
   const [phase, setPhase] = useState<"idle" | "preparing" | "confirm" | "error">("idle");
@@ -49,9 +75,11 @@ export function useSaveShots(shots: SaveShot[], fallback: (shots: SaveShot[]) =>
   const [tracked, setTracked] = useState(key);
   if (tracked !== key) {
     setTracked(key);
-    setPhase("idle");
-    setNote(null);
-    setRemaining(null);
+    if (!savedOnly) {
+      setPhase("idle");
+      setNote(null);
+      setRemaining(null);
+    }
   }
 
   function remember(id: string, file: File) {
@@ -106,6 +134,10 @@ export function useSaveShots(shots: SaveShot[], fallback: (shots: SaveShot[]) =>
     void mapPool(want, 3, (shot) => ensure(shot));
   }
 
+  function markSaved(ids: string[]) {
+    if (ids.length) onSavedRef.current?.(ids);
+  }
+
   useEffect(() => {
     if (!isIosDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) return;
     // Fetch photos ahead of the tap so Save can open the sheet inside the gesture.
@@ -118,13 +150,14 @@ export function useSaveShots(shots: SaveShot[], fallback: (shots: SaveShot[]) =>
     try {
       await navigator.share({ files: batch.map((item) => item.file) });
       if (selectionGen.current !== sel) return;
-      const shared = new Set(batch.map((item) => item.shot.id));
+      const sharedIds = batch.map((item) => item.shot.id);
+      const shared = new Set(sharedIds);
       pendingRef.current = pendingRef.current.filter((id) => !shared.has(id));
       batchRef.current = null;
       const left = pendingRef.current.length;
       setPhase("idle");
       if (!left) {
-        // The sheet finished. Offer Save again in case they sent the shots somewhere else.
+        // The sheet finished. A one-photo Save can run again; a picker clears the checks.
         pendingRef.current = shotsRef.current.map((shot) => shot.id);
         setRemaining(null);
         setNote(null);
@@ -133,6 +166,7 @@ export function useSaveShots(shots: SaveShot[], fallback: (shots: SaveShot[]) =>
         setNote("Tap Save to add the next ones to your camera roll.");
         prefetch(currentPending());
       }
+      markSaved(sharedIds);
     } catch (e) {
       if (selectionGen.current !== sel) return;
       const name = (e as { name?: string }).name;
@@ -191,20 +225,25 @@ export function useSaveShots(shots: SaveShot[], fallback: (shots: SaveShot[]) =>
     fallbackRef.current(pendingShots);
     setPhase("idle");
     setNote(null);
+    markSaved(pendingShots.map((shot) => shot.id));
   }
 
   const save = () => {
     const ios = isIosDevice(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
     if (!ios) {
-      fallbackRef.current(shotsRef.current);
+      const list = shotsRef.current;
+      fallbackRef.current(list);
+      markSaved(list.map((shot) => shot.id));
       return;
     }
     const sel = selectionGen.current;
     if (phaseRef.current === "error") {
       const pending = currentPending();
-      fallbackRef.current(pending.length ? pending : shotsRef.current);
+      const list = pending.length ? pending : shotsRef.current;
+      fallbackRef.current(list);
       setPhase("idle");
       setNote(null);
+      markSaved(list.map((shot) => shot.id));
       return;
     }
     if (phaseRef.current === "confirm" && batchRef.current?.length) {
@@ -222,6 +261,7 @@ export function useSaveShots(shots: SaveShot[], fallback: (shots: SaveShot[]) =>
         return;
       }
       fallbackRef.current(pendingShots);
+      markSaved(pendingShots.map((shot) => shot.id));
       return;
     }
     // Ready photos open the sheet in this tap, even if a clip is still loading.

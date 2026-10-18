@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { FireIcon } from "@/components/Brand";
 import { FaceThumb, frameNo, ShotImage } from "@/components/ui";
-import { useSaveShots } from "@/lib/client/useSaveShots";
+import { dropSavedShots, useSaveShots } from "@/lib/client/useSaveShots";
 import { prepareFile } from "@/lib/client/uploadQueue";
 import { attachmentUrl } from "@/lib/saveToPhotos";
 import { groupMoments } from "@/lib/moments";
@@ -475,6 +475,7 @@ export function Dump(props: {
           onAll={() => setSelected(new Set(results.map((m) => m.id)))}
           onNone={() => setSelected(new Set())}
           onDone={stopSelecting}
+          onSaved={(ids) => setSelected((cur) => dropSavedShots(cur, ids))}
         />
       )}
     </section>
@@ -490,7 +491,7 @@ function CameraIcon() {
   );
 }
 
-/** Pinned above the tab bar while selecting. iPhone saves into the camera roll; other devices download, zipping when there are several. */
+/** Pinned above the tab bar while selecting. iPhone saves into the camera roll; other devices download, zipping when there are several. Checks clear once that save finishes. */
 function SelectBar(props: {
   dumpsterId: string;
   selected: PublicMedia[];
@@ -498,6 +499,7 @@ function SelectBar(props: {
   onAll: () => void;
   onNone: () => void;
   onDone: () => void;
+  onSaved: (ids: string[]) => void;
 }) {
   const n = props.selected.length;
   const downloadShots = (shots: { id: string; url: string }[]) => {
@@ -524,6 +526,7 @@ function SelectBar(props: {
   const camera = useSaveShots(
     props.selected.map((m) => ({ id: m.id, url: m.url, kind: m.kind })),
     downloadShots,
+    props.onSaved,
   );
   return (
     <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-nav mx-auto w-full max-w-[430px] border-t-3 border-ink bg-paper">
