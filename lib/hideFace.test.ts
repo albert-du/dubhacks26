@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { config } from "./config";
 import { claimFaces } from "./enroll";
-import { hideFace, mergeClusters } from "./faceIdentity";
+import { hideFace, mergeClusters, unhideFace } from "./faceIdentity";
 import { HttpError } from "./http";
 import { closeMongo, cols, db } from "./mongo";
 import { publicClusters } from "./serialize";
@@ -31,15 +31,25 @@ test("faces: hiding a stranger takes it off the gallery and the shots, and never
 
     await assert.rejects(hideFace(d._id, "friend"), (e) => e instanceof HttpError && e.status === 409);
     await hideFace(d._id, "stranger");
-    assert.deepEqual((await media.findOne({ _id: "s1" }))?.faces.map((f) => f.clusterId), ["friend"], "its box comes off the shot");
+    const hiddenOf = async () => (await media.findOne({ _id: "s1" }))?.faces.map((f) => [f.clusterId, !!f.hidden]);
+    assert.deepEqual(await hiddenOf(), [["friend", false], ["stranger", true]], "its box is marked hidden, not deleted");
     assert.deepEqual((await publicClusters(d)).map((c) => c.id).sort(), ["friend", "other"], "gone from the face row");
+    assert.deepEqual((await publicClusters(d, { hidden: true })).map((c) => c.id), ["stranger"], "listed as hidden");
     assert.equal((await clusters.findOne({ _id: "stranger" }))?.name, undefined);
+
+    // Unhide puts it back on the row and its box back on the shot; then hide it again.
+    await unhideFace(d._id, "stranger");
+    assert.deepEqual(await hiddenOf(), [["friend", false], ["stranger", false]]);
+    assert.deepEqual((await publicClusters(d)).map((c) => c.id).sort(), ["friend", "other", "stranger"]);
+    await assert.rejects(unhideFace(d._id, "stranger"), (e) => e instanceof HttpError && e.status === 404);
+    await hideFace(d._id, "stranger");
 
     // Nobody can claim a hidden face, and merging it with a real person brings that person back.
     assert.equal(await claimFaces(d, { _id: "g-bo", name: "Bo" }, ["stranger"]), 0);
     const keep = await mergeClusters(d._id, [(await clusters.findOne({ _id: "stranger" }))!, (await clusters.findOne({ _id: "other" }))!]);
     assert.equal(keep, "other");
     assert.equal((await clusters.findOne({ _id: "other" }))?.hidden, undefined);
+    assert.deepEqual(await hiddenOf(), [["friend", false], ["other", false]], "its boxes come back with the real person");
   } finally {
     await (await db()).dropDatabase();
     await closeMongo();

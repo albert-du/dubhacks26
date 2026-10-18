@@ -66,6 +66,8 @@ export interface FaceHit {
   box: Box;
   embedding?: number[];
   clusterId?: string;
+  /** Its face group was hidden (a stranger). Kept so unhiding puts the box back. */
+  hidden?: boolean;
 }
 
 export interface TextHit {
@@ -184,7 +186,8 @@ export interface PublicMedia {
   reactions: ReactionCounts;
   /** Which reactions this browser has given. */
   myReactions: ReactionKey[];
-  faces: { box: Box; clusterId?: string }[];
+  /** Hidden faces stay in the list (so face indexes line up for stickers); pages skip them. */
+  faces: { box: Box; clusterId?: string; hidden?: true }[];
   text: { box: Box; text: string }[];
   objects: DetectedObject[];
   transcript?: string;
@@ -228,6 +231,8 @@ export interface DumpsterState {
   media: PublicMedia[];
   clusters: PublicCluster[];
   stickers: PublicSticker[];
+  /** Faces someone hid, so they can be unhidden. */
+  hiddenFaces: PublicCluster[];
   /** This browser's sign-up, if any. Only the last 4 digits of a verified number are sent back. */
   /** This browser's sign-in for this dumpster. Absent = not signed in yet. */
   me?: { guestId: string; name: string; phoneLast4?: string; clusterIds: string[]; notifications?: NotificationStatus };

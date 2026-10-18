@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLiveDumpster } from "@/lib/dumpsters";
-import { hideFace } from "@/lib/faceIdentity";
+import { hideFace, unhideFace } from "@/lib/faceIdentity";
 import { requireGuest } from "@/lib/guestAuth";
 import { notFound, route } from "@/lib/http";
 import { nameFace } from "@/lib/names";
@@ -14,13 +14,20 @@ const Body = z.object({ name: z.string().trim().max(40), group: z.boolean().opti
  * Name (or rename, or un-name with "") a face in the gallery. Open like the rest of the
  * dumpster: anyone in it can do this. If someone here already goes by the name, the
  * browser gets a 409 asking "same person?", and `group: true` folds the face into theirs.
+ * `{ hidden: false }` instead unhides a face that was hidden.
  */
 export const POST = route<Ctx>(async (req, { params }) => {
   const { id, faceId } = await params;
   const d = await getLiveDumpster(id);
   if (!d) throw notFound();
   await requireGuest(d._id);
-  const { name, group } = Body.parse(await req.json());
+  const body = await req.json();
+  // Unhide a face someone hid by mistake.
+  if (body?.hidden === false) {
+    await unhideFace(d._id, faceId);
+    return NextResponse.json({ ok: true });
+  }
+  const { name, group } = Body.parse(body);
   return NextResponse.json(await nameFace(d, faceId, name, !!group));
 });
 
