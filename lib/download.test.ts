@@ -28,12 +28,13 @@ test("WebP stickers export as PNG with transparency", async () => {
   assert.equal((await sharp(body).raw().toBuffer())[3], 0);
 });
 
-test("PNG stickers are re-exported under the iMessage limit with a plain name", async () => {
+test("PNG stickers already under the iMessage limit are passed through", async () => {
   const png = await sharp({
     create: { width: 8, height: 8, channels: 4, background: { r: 1, g: 2, b: 3, alpha: 0 } },
   }).png().toBuffer();
   const body = await downloadBody("event/public/sticker-one.png", png);
   const meta = await sharp(body).metadata();
+  assert.equal(body, png);
   assert.equal(downloadFilename("event/public/sticker-one.png"), "sticker.png");
   assert.equal(meta.format, "png");
   assert.equal(meta.hasAlpha, true);

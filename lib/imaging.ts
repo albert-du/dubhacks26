@@ -48,13 +48,25 @@ export async function renderPublic(jpeg: Buffer) {
   return sharp(jpeg).webp({ quality: 82 }).toBuffer();
 }
 
+/**
+ * Small same-aspect WebP for grids, map pins, and the sticker pack.
+ * The source is already a public render, so this stays metadata-free. Alpha is kept for stickers.
+ */
+export async function renderThumb(image: Buffer, edge: number) {
+  return sharp(image, { failOn: "none" })
+    .rotate()
+    .resize({ width: edge, height: edge, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 72, alphaQuality: 80 })
+    .toBuffer();
+}
+
 const STICKER_SIZE = 512;
 
 /** Messages refuses a sticker at or above 500KB and sends the file name instead. */
 export const IMESSAGE_STICKER_MAX_BYTES = 500 * 1024;
 
 /** Largest sticker Messages lays out: 206 points at 3x. */
-const IMESSAGE_STICKER_MAX_EDGE = 618;
+export const IMESSAGE_STICKER_MAX_EDGE = 618;
 
 /** Crop the selected window out of a public render. The matte is applied to this crop. */
 export async function cropSticker(image: Buffer, box: Box) {

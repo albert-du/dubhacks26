@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MlMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { ShotImage } from "@/components/ui";
 import { dumpMapStyle } from "@/lib/mapStyle";
 import { groupMoments } from "@/lib/moments";
+import { previewUrl } from "@/lib/preview";
 import type { PublicMedia } from "@/lib/types";
 
 /** Thumbnail size at the fitted view and zoomed in, and the smallest it gets zoomed out, in px. */
@@ -26,17 +28,21 @@ function spread(k: number, px: number, zoomedIn = 0): [number, number] {
  * The scene: every shot with a location, as a small thumbnail on an OpenFreeMap drawn in
  * Dump's paper and ink. Zoom in and the thumbnails keep their size while the map grows
  * under them, so they separate and each can be tapped; zoom out and they shrink to fit. The "use two fingers" hint shows once per sign-in. Full screen frees one-finger panning. Tile requests cover the area already
- * shown on the pins. If the phone has no WebGL, the same thumbnails fall back to a grid.
+ * shown on the pins. While MapLibre and its tiles are still arriving, the same thumbnails
+ * sit on a plain grid so the scene is not blank. If the phone has no WebGL, that grid stays.
  */
 export function EventMap({
   media,
   onOpen,
   guestId,
+  active = true,
 }: {
   media: PublicMedia[];
   onOpen: (list: PublicMedia[], id: string) => void;
   /** Who is signed in: the two-finger hint is shown once per sign-in. */
   guestId: string;
+  /** False while another tab is showing. The map stays built so coming back is instant. */
+  active?: boolean;
 }) {
   const byId = useMemo(() => new Map(media.map((m) => [m.id, m])), [media]);
   const moments = useMemo(
@@ -113,15 +119,19 @@ export function EventMap({
   const rescaleRef = useRef(rescale);
   rescaleRef.current = rescale;
 
+  // Build the map once. Leaving the tab hides it; tearing it down made the next visit wait on tiles again.
   useEffect(() => {
-    if (!showMap) return;
+    if (!active || !showMap || mapRef.current) {
+      if (active && mapRef.current) requestAnimationFrame(() => mapRef.current?.resize());
+      return;
+    }
     const el = containerRef.current;
     if (!el) return;
-    let map: MlMap | undefined;
     let cancelled = false;
 
     void import("maplibre-gl").then((ml) => {
-      if (cancelled || !containerRef.current) return;
+      if (cancelled || mapRef.current || !containerRef.current) return;
+      let map: MlMap;
       try {
         // MapLibre's default sibling URL is lost when Next bundles its main module.
         // A static URL lets Webpack emit the matching worker as a build asset.
@@ -162,8 +172,9 @@ export function EventMap({
         });
       mapRef.current = map;
       map.once("load", () => {
-        if (cancelled) return;
-        map?.resize();
+        // The tab may already be hidden. Keep the result so coming back does not wait again.
+        if (mapRef.current !== map) return;
+        map.resize();
         setReady(true);
       });
     }).catch(() => {
@@ -172,14 +183,26 @@ export function EventMap({
 
     return () => {
       cancelled = true;
+    };
+  }, [active, showMap, guestId]);
+
+  useEffect(() => {
+    if (!ready || !active) return;
+    const id = requestAnimationFrame(() => mapRef.current?.resize());
+    return () => cancelAnimationFrame(id);
+  }, [ready, active]);
+
+  useEffect(
+    () => () => {
       setReady(false);
       fitZoomRef.current = null;
       for (const { marker } of markersRef.current) marker.remove();
       markersRef.current = [];
-      map?.remove();
+      mapRef.current?.remove();
       mapRef.current = null;
-    };
-  }, [showMap, guestId]);
+    },
+    [],
+  );
 
   useEffect(() => {
     const map = mapRef.current;
@@ -197,9 +220,14 @@ export function EventMap({
         button.setAttribute("aria-label", pin.m.venue ? `Shot at ${pin.m.venue}` : "Shot");
         const thumb = document.createElement(pin.m.kind === "image" ? "img" : "video");
         if (thumb instanceof HTMLImageElement) {
-          thumb.src = pin.m.url;
+          const full = pin.m.url;
+          thumb.src = previewUrl(full);
           thumb.alt = "";
-          thumb.loading = "lazy";
+          thumb.decoding = "async";
+          thumb.onerror = () => {
+            thumb.onerror = null;
+            thumb.src = full;
+          };
         } else {
           thumb.src = `${pin.m.url}#t=0.1`;
           thumb.muted = true;
@@ -274,12 +302,11 @@ export function EventMap({
                 Shots taken with location on show up here.
               </span>
             </p>
-          ) : showMap ? (
-            <div className="absolute inset-0">
-              <div ref={containerRef} className="dump-map h-full w-full" />
-            </div>
           ) : (
-            proj && <Grid pts={proj.pts} meters={proj.meters} onOpen={openShot} />
+            <div className="absolute inset-0">
+              {showMap && <div ref={containerRef} className="dump-map absolute inset-0" />}
+              {proj && (!showMap || !ready) && <Grid pts={proj.pts} meters={proj.meters} onOpen={openShot} />}
+            </div>
           )}
           <span className="display pointer-events-none absolute top-2 left-3 z-labels text-xl">N↑</span>
           {pins.length > 0 && (
@@ -336,8 +363,7 @@ export function EventMap({
 function Thumb({ m, className }: { m?: PublicMedia; className: string }) {
   if (!m) return <span className={`block bg-bone ${className}`} />;
   return m.kind === "image" ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={m.url} alt="" loading="lazy" className={className} />
+    <ShotImage url={m.url} eager className={className} />
   ) : (
     <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className={className} />
   );

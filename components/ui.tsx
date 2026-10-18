@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { previewUrl, type PreviewEdge } from "@/lib/preview";
 import type { PublicCluster } from "@/lib/types";
 
 export function useNow(intervalMs = 1000) {
@@ -25,6 +26,41 @@ export function Countdown({ expiresAt, className = "" }: { expiresAt: string; cl
   return <span className={`tabular-nums ${className}`}>{now === null ? "--:--:--" : formatLeft(Date.parse(expiresAt) - now)}</span>;
 }
 
+/** A photo or sticker sized for a tile. The viewer still opens the full file. */
+export function ShotImage({
+  url,
+  alt = "",
+  edge = 320,
+  eager = false,
+  className,
+  style,
+}: {
+  url: string;
+  alt?: string;
+  edge?: PreviewEdge;
+  eager?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const preview = previewUrl(url, edge);
+  const [src, setSrc] = useState(preview);
+  useEffect(() => setSrc(preview), [preview]);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      decoding="async"
+      loading={eager ? "eager" : "lazy"}
+      fetchPriority={eager ? "high" : undefined}
+      draggable={false}
+      className={className}
+      style={style}
+      onError={() => setSrc((cur) => (cur === url ? cur : url))}
+    />
+  );
+}
+
 /** Square crop of a face from a (redaction-safe) public image, without generating new files. */
 export function FaceThumb({ cover, size }: { cover: NonNullable<PublicCluster["cover"]>; size: number }) {
   const [x1, y1, x2, y2] = cover.box;
@@ -37,9 +73,14 @@ export function FaceThumb({ cover, size }: { cover: NonNullable<PublicCluster["c
     <div className="relative overflow-hidden bg-bone" style={{ width: size, height: size }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={cover.url}
+        src={previewUrl(cover.url, 960)}
         alt=""
+        decoding="async"
         draggable={false}
+        onError={(e) => {
+          if (e.currentTarget.src.endsWith(cover.url)) return;
+          e.currentTarget.src = cover.url;
+        }}
         style={{ position: "absolute", maxWidth: "none", width: W * k, height: H * k, left: size / 2 - cx * k, top: size / 2 - cy * k }}
       />
     </div>

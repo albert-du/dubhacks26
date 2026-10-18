@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FireIcon } from "@/components/Brand";
-import { FaceThumb, frameNo } from "@/components/ui";
+import { FaceThumb, frameNo, ShotImage } from "@/components/ui";
 import { useSaveShots } from "@/lib/client/useSaveShots";
 import { prepareFile } from "@/lib/client/uploadQueue";
 import { attachmentUrl } from "@/lib/saveToPhotos";
@@ -563,7 +563,7 @@ function Grid({
 }) {
   return (
     <ul className="grid grid-cols-3 gap-[3px] bg-ink">
-      {list.map((m) => (
+      {list.map((m, i) => (
         <li key={m.id} className="animate-drop">
           <button
             onClick={() => (selecting ? onToggle(m.id) : onOpen(list, m.id))}
@@ -571,8 +571,7 @@ function Grid({
             className="relative block aspect-square w-full overflow-hidden bg-bone"
           >
             {m.kind === "image" ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={m.url} alt={m.caption ?? ""} loading="lazy" className="z-media relative size-full object-cover" />
+              <ShotImage url={m.url} alt={m.caption ?? ""} eager={i < 9} className="z-media relative size-full object-cover" />
             ) : (
               <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className="z-media relative size-full object-cover" />
             )}

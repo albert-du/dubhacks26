@@ -3,9 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["sharp", "mongodb", "pg", "onnxruntime-node"],
   experimental: {
-    // middleware.ts runs on every request, uploads included, and Next only hands the route the
-    // first 10MB of a body that passes through middleware. Videos are bigger than that, so the
-    // form arrived cut off and never parsed. Allow the 150MB upload cap plus multipart overhead.
+    // Backstop for any other body that still passes through middleware. The upload route
+    // itself is excluded from the matcher (see middleware.ts): raising this limit did not
+    // stop Next from cloning video bodies and returning 500.
     middlewareClientMaxBodySize: "160mb",
   },
   async headers() {

@@ -2,6 +2,7 @@
 
 import { FireIcon } from "@/components/Brand";
 import { ReactionBar } from "@/components/Reactions";
+import { ShotImage } from "@/components/ui";
 import { topFireFrameStyle } from "@/lib/fireFrame";
 import { engagement, fireRank, type ReactionKey } from "@/lib/reactions";
 import type { PublicMedia } from "@/lib/types";
@@ -46,7 +47,7 @@ export function Fire({
           <div style={{ containerType: "inline-size" }}>
             <button className="relative block w-full" onClick={() => onOpen(ranked, top.id)}>
               <span className="bg-bone" style={topFireFrameStyle(top.width, top.height)}>
-                <Thumb m={top} eager className="absolute inset-0 size-full object-cover" />
+                <Thumb m={top} edge={960} eager fill className="absolute inset-0 size-full object-cover" />
                 <span className="display z-labels absolute top-0 left-0 bg-fire px-2 text-6xl leading-none">01</span>
               </span>
             </button>
@@ -62,7 +63,7 @@ export function Fire({
           <li key={m.id} className="grid grid-cols-[3rem_80px_1fr] border-b border-ink">
             <span className="display border-r border-ink pt-2 text-center text-2xl">{String(i + 2).padStart(2, "0")}</span>
             <button onClick={() => onOpen(ranked, m.id)} className="size-20 overflow-hidden border-r border-ink">
-              <Thumb m={m} className="size-full object-cover" />
+              <Thumb m={m} eager={i < 8} className="size-full object-cover" />
             </button>
             <div className="flex min-w-0 flex-col justify-center gap-1 px-3 py-2">
               <p className="flex items-center gap-1.5">
@@ -85,33 +86,32 @@ export function Fire({
   );
 }
 
-function Thumb({ m, className, eager = false }: { m: PublicMedia; className: string; eager?: boolean }) {
-  // The winner sits in a frame that is already the right size. Fill that frame; don't wait on the file to grow it.
-  const fill = eager
+function Thumb({
+  m,
+  className,
+  edge = 320,
+  eager = false,
+  fill = false,
+}: {
+  m: PublicMedia;
+  className: string;
+  edge?: 320 | 960;
+  eager?: boolean;
+  /** Cover a frame that is already sized, instead of growing the page when the file arrives. */
+  fill?: boolean;
+}) {
+  const fillStyle = fill
     ? { position: "absolute" as const, inset: 0, width: "100%", height: "100%", objectFit: "cover" as const }
     : undefined;
   return m.kind === "image" ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={m.url}
-      alt={m.caption ?? ""}
-      width={m.width || undefined}
-      height={m.height || undefined}
-      loading={eager ? "eager" : "lazy"}
-      fetchPriority={eager ? "high" : undefined}
-      decoding="async"
-      style={fill}
-      className={className}
-    />
+    <ShotImage url={m.url} alt={m.caption ?? ""} edge={edge} eager={eager} className={className} style={fillStyle} />
   ) : (
     <video
       src={`${m.url}#t=0.1`}
       muted
       playsInline
       preload={eager ? "auto" : "metadata"}
-      width={m.width || undefined}
-      height={m.height || undefined}
-      style={fill}
+      style={fillStyle}
       className={className}
     />
   );
