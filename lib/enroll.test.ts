@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import sharp from "sharp";
 import { config } from "./config";
-import { enrollGuest, forgetGuest, nameKey, renameGuest, signInByName, signOutGuest } from "./enroll";
+import { claimFaces, enrollGuest, forgetGuest, nameKey, renameGuest, signInByName, signOutGuest } from "./enroll";
 import { faceEmbed } from "./faceEmbed";
 import { HttpError } from "./http";
 import { closeMongo, cols, db } from "./mongo";
@@ -56,6 +56,17 @@ test("enroll: first sign-in takes a selfie, then the name alone gets you back in
     await assert.rejects(renameGuest(d, "phone", "ANA"), conflict);
     await renameGuest(d, "phone", "Sammy");
     assert.equal(await signInByName(d, "tablet", "sammy", false), "returning");
+
+    // "That's me" takes unclaimed faces only, and names them.
+    const { clusters } = await cols();
+    const anaId = (await guests.findOne({ nameKey: "ana" }))!._id;
+    const face = (id: string, guestId?: string) => ({ _id: id, dumpsterId: d._id, centroid: [1, 0], n: 1, expiresAt, updatedAt: now, ...(guestId ? { guestId, name: "Ana" } : {}) });
+    await clusters.insertMany([face("loose"), face("anas", anaId)]);
+    assert.equal(await claimFaces(d, { _id: guestId, name: "Sammy" }, ["anas"]), 0);
+    assert.equal(await claimFaces(d, { _id: guestId, name: "Sammy" }, ["loose"]), 1);
+    assert.deepEqual(await clusters.findOne({ _id: "loose" }, { projection: { _id: 0, guestId: 1, name: 1 } }), { guestId, name: "Sammy" });
+    assert.equal((await clusters.findOne({ _id: "anas" }))?.guestId, anaId);
+    assert.deepEqual((await dumpsterState(d, "phone")).me?.clusterIds, ["loose"]);
 
     // Sign out forgets this browser only; the name still works.
     await signOutGuest(d, "phone");

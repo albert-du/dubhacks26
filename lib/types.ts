@@ -194,6 +194,8 @@ export interface PublicCluster {
   id: string;
   name?: string;
   count: number;
+  /** Someone signed in has said this face is them. Unclaimed faces offer "That's me". */
+  claimed: boolean;
   cover?: { url: string; box: Box; w: number; h: number };
 }
 

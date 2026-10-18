@@ -7,7 +7,7 @@ import { HttpError } from "./http";
 import { cols } from "./mongo";
 import { normalizeImage } from "./imaging";
 import { tiger } from "./tiger";
-import type { Dumpster } from "./types";
+import type { Dumpster, Guest } from "./types";
 
 /** Names are unique within a dumpster, ignoring case and spacing, so the name alone finds you again. */
 export function nameKey(name: string) {
@@ -125,6 +125,20 @@ export async function renameGuest(d: Dumpster, viewerId: string, name: string) {
     throw e;
   }
   await clusters.updateMany({ dumpsterId: d._id, guestId: g._id }, { $set: { name, updatedAt: new Date() } });
+}
+
+/**
+ * "That's me": a signed-in guest takes faces nobody has claimed yet. The faces get their
+ * name, and new shots of those faces count as theirs (photos of you, texts).
+ */
+export async function claimFaces(d: Dumpster, guest: Pick<Guest, "_id" | "name">, faceIds: string[]) {
+  if (!faceIds.length) return 0;
+  const { clusters } = await cols();
+  const r = await clusters.updateMany(
+    { _id: { $in: faceIds }, dumpsterId: d._id, $or: [{ guestId: { $exists: false } }, { guestId: guest._id }] },
+    { $set: { guestId: guest._id, name: guest.name, updatedAt: new Date() } },
+  );
+  return r.matchedCount;
 }
 
 /** Sign out: this browser forgets you. Your name still works to get back in until the dumpster burns. */

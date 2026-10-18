@@ -206,6 +206,9 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           index={Math.min(viewing.index, viewList.length - 1)}
           frames={frames}
           names={names}
+          clusters={state.clusters}
+          myClusterIds={me.clusterIds}
+          onClaim={dumpster.claimFace}
           byId={byId}
           onIndex={(index) => setViewing({ ...viewing, index })}
           onClose={() => setViewing(null)}

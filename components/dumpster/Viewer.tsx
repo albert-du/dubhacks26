@@ -6,15 +6,18 @@ import { ReactionBar } from "@/components/Reactions";
 import { frameNo } from "@/components/ui";
 import type { ReactionKey } from "@/lib/reactions";
 import { faceOverlapping } from "@/lib/sticker";
-import type { Box, PublicMedia, StickerTarget } from "@/lib/types";
+import type { Box, PublicCluster, PublicMedia, StickerTarget } from "@/lib/types";
 
-type Mark = { box: Box; label: string; tone: "person" | "text" };
+type Mark = { box: Box; label: string; tone: "person" | "focus" };
 
 export function Viewer(props: {
   list: PublicMedia[];
   index: number;
   frames: Map<string, number>;
   names: Map<string, string>;
+  clusters: PublicCluster[];
+  /** Faces that are the signed-in guest. */
+  myClusterIds: string[];
   byId: Map<string, PublicMedia>;
   onIndex: (i: number) => void;
   onClose: () => void;
@@ -23,6 +26,8 @@ export function Viewer(props: {
   onSticker: (id: string, target: StickerTarget) => Promise<boolean>;
   /** Tap a name under Who: show that person's shots. */
   onPerson: (clusterId: string, name: string) => void;
+  /** "That's me" on an unclaimed face. Resolves to an error message, or null. */
+  onClaim: (clusterId: string) => Promise<string | null>;
 }) {
   const { list, index, onIndex, onClose } = props;
   const m = list[index];
@@ -47,7 +52,13 @@ export function Viewer(props: {
     };
   });
 
-  useEffect(() => setCutMenu(false), [m?.id]);
+  /** The face tag that was tapped: its box is outlined so two unnamed people can be told apart. */
+  const [focus, setFocus] = useState<number | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  useEffect(() => {
+    setCutMenu(false);
+    setFocus(null);
+  }, [m?.id]);
 
   if (!m) return null;
 
@@ -81,14 +92,37 @@ export function Viewer(props: {
   cuts.push({ key: "frame", label: "Everyone", target: { kind: "frame" } });
 
   const original = m.duplicateOf ? props.byId.get(m.duplicateOf) : undefined;
-  // Named people in this shot, once each. Object labels stay internal (search only).
-  const people = [
-    ...new Map(
-      m.faces.filter((f) => f.clusterId && props.names.get(f.clusterId)).map((f) => [f.clusterId!, props.names.get(f.clusterId!)!]),
-    ).entries(),
-  ];
+  // Every face in this shot, once per person. Unnamed ones are numbered so their boxes can be matched to the tags.
   // Only people are tagged on the shot. Captions, writing, objects and speech stay behind the search box.
-  const overlay: Mark[] = m.faces.map((f) => ({ box: f.box, label: (f.clusterId && props.names.get(f.clusterId)) || "person", tone: "person" as const }));
+  const claimed = new Set(props.clusters.filter((c) => c.claimed).map((c) => c.id));
+  const mine = new Set(props.myClusterIds);
+  const labelOf: string[] = [];
+  const tags: { face: number; clusterId?: string; name?: string; label: string }[] = [];
+  m.faces.forEach((f, i) => {
+    const same = f.clusterId ? tags.find((t) => t.clusterId === f.clusterId) : undefined;
+    if (same) return void (labelOf[i] = same.label);
+    const name = f.clusterId ? props.names.get(f.clusterId) : undefined;
+    const label = name ?? `Person ${tags.filter((t) => !t.name).length + 1}`;
+    labelOf[i] = label;
+    tags.push({ face: i, clusterId: f.clusterId, name, label });
+  });
+  const focused = focus === null ? undefined : tags.find((t) => t.face === focus);
+  const focusedCluster = focused?.clusterId;
+  const canClaim = !!focusedCluster && !claimed.has(focusedCluster) && !mine.has(focusedCluster);
+  const overlay: Mark[] = m.faces.map((f, i) => ({
+    box: f.box,
+    label: labelOf[i],
+    tone: focused && (i === focused.face || (!!focusedCluster && f.clusterId === focusedCluster)) ? "focus" : "person",
+  }));
+  const claim = async () => {
+    if (!focusedCluster) return;
+    setClaiming(true);
+    const error = await props.onClaim(focusedCluster);
+    setClaiming(false);
+    if (error) return flash(error);
+    setFocus(null);
+    flash("That’s you now. New shots of you go to Me.");
+  };
 
   return (
     <div className="fixed inset-0 z-dialog flex flex-col bg-ink text-paper" role="dialog" aria-modal aria-label="Photo">
@@ -111,7 +145,7 @@ export function Viewer(props: {
           next={list[index + 1]}
           onPrev={prev}
           onNext={next}
-          overlay={marks && m.kind === "image" ? <Marks marks={overlay} /> : null}
+          overlay={(marks || focused) && m.kind === "image" ? <Marks marks={overlay} /> : null}
         />
         {toast && (
           <p className="display z-toast absolute bottom-4 left-1/2 -translate-x-1/2 bg-green px-3 py-2 whitespace-nowrap text-ink">{toast}</p>
@@ -132,18 +166,54 @@ export function Viewer(props: {
         )}
 
         <dl className="space-y-1.5 text-sm">
-          {people.length > 0 && (
+          {tags.length > 0 && (
             <Row k="Who">
               <span className="flex flex-wrap gap-1.5">
-                {people.map(([id, name]) => (
-                  <button key={id} onClick={() => props.onPerson(id, name)} className="border border-green px-1.5 text-green underline-offset-2 hover:underline">
-                    {name} →
-                  </button>
-                ))}
+                {tags.map((t) =>
+                  t.name && t.clusterId ? (
+                    <button
+                      key={t.clusterId}
+                      onClick={() => props.onPerson(t.clusterId!, t.name!)}
+                      className="border border-green px-1.5 text-green underline-offset-2 hover:underline"
+                    >
+                      {t.name} →
+                    </button>
+                  ) : (
+                    <button
+                      key={t.clusterId ?? `face-${t.face}`}
+                      onClick={() => setFocus(focus === t.face ? null : t.face)}
+                      aria-pressed={focus === t.face}
+                      className={`border border-dashed px-1.5 ${focus === t.face ? "border-fire bg-fire text-ink" : "border-paper/60"}`}
+                    >
+                      Unnamed · {t.label}
+                    </button>
+                  ),
+                )}
               </span>
             </Row>
           )}
         </dl>
+
+        {focused && (
+          <div className="space-y-2 border-2 border-fire p-2">
+            <p className="text-sm">
+              {m.kind === "image" ? <>The orange box is <b>{focused.label}</b>. </> : <><b>{focused.label}</b> is in this clip. </>}
+              {canClaim ? "Is that you?" : focusedCluster ? "Someone already said this is them." : "We couldn’t match this face, so it can’t be claimed."}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {canClaim && (
+                <button className="btn btn-green !py-2 !text-sm" disabled={claiming} onClick={() => void claim()}>
+                  {claiming ? "Claiming…" : "That’s me"}
+                </button>
+              )}
+              {focusedCluster && (
+                <button className="btn btn-ghost !py-2 !text-sm" onClick={() => props.onPerson(focusedCluster, focused.label)}>
+                  Their shots
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {cutMenu && (
           <div className="flex flex-wrap gap-2">
@@ -209,7 +279,7 @@ function Row({ k, children }: { k: string; children: React.ReactNode }) {
 
 const TONE = {
   person: { line: "border-green", chip: "bg-green text-ink" },
-  text: { line: "border-fire", chip: "bg-fire text-ink" },
+  focus: { line: "border-fire", chip: "bg-fire text-ink" },
 };
 
 /**
@@ -240,7 +310,7 @@ function Marks({ marks }: { marks: Mark[] }) {
     <>
       <div className="pointer-events-none absolute inset-0 z-boxes" aria-hidden>
         {marks.map((mk, i) => (
-          <div key={i} className={`absolute border-2 ${TONE[mk.tone].line}`} style={pct(mk.box)} />
+          <div key={i} className={`absolute ${mk.tone === "focus" ? "border-4" : "border-2"} ${TONE[mk.tone].line}`} style={pct(mk.box)} />
         ))}
       </div>
       <div ref={labels} className="pointer-events-none absolute inset-0 z-labels">

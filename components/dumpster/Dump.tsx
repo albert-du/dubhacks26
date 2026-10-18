@@ -25,7 +25,7 @@ export function Dump(props: {
   q: string;
   setQ: (q: string) => void;
   canAsk: boolean;
-  onNameFaces: (faceIds: string[], name: string) => Promise<boolean>;
+  onNameFaces: (faceIds: string[], name: string) => Promise<string | null>;
   onOpen: (list: PublicMedia[], id: string) => void;
   goTo: (t: Tab) => void;
 }) {
@@ -82,7 +82,8 @@ export function Dump(props: {
     if (!naming) return;
     const { ids, value } = naming;
     setNaming(null);
-    await props.onNameFaces(ids, value);
+    const error = await props.onNameFaces(ids, value);
+    if (error) return setAskError(error);
     // Keep an active face filter in step with the new name (used for video mentions).
     if (filter?.kind === "faces" && filter.ids.join() === ids.join()) {
       props.setFilter({ ...filter, label: value.trim() || filter.label, name: value.trim() || undefined });
