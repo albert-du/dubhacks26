@@ -1,19 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PublicDumpster, DumpsterState } from "@/lib/types";
+import type { DumpsterState, PublicDumpster } from "@/lib/types";
+import type { Tab } from "./DumpsterView";
+import { NotificationSettings } from "./NotificationSettings";
 
+/**
+ * Me: texts are opt-in. Nothing is asked for until you turn texts on; then we need a
+ * selfie to know which face is yours, and a number connected by iMessage to text.
+ * Naming people happens on the faces in the Dump tab, not here.
+ */
 export function Me(props: {
   dumpster: PublicDumpster;
   me?: DumpsterState["me"];
   photosOfMe: number;
   onEnrolled: () => Promise<void>;
   onShowMine: () => void;
+  goTo: (t: Tab) => void;
 }) {
-  const [editing, setEditing] = useState(!props.me);
-  const [name, setName] = useState(props.me?.name ?? "");
-  const [phone, setPhone] = useState("");
-  const [consent, setConsent] = useState(false);
+  const [texts, setTexts] = useState(false);
   const [selfie, setSelfie] = useState<Blob | null>(null);
   const [camera, setCamera] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -23,112 +28,108 @@ export function Me(props: {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!selfie) return;
     setBusy(true);
     setMsg(null);
     const form = new FormData();
-    form.append("name", name);
-    form.append("phone", phone);
-    form.append("consent", consent ? "yes" : "no");
-    if (selfie) form.append("selfie", selfie, "selfie.jpg");
+    form.append("consent", "yes");
+    form.append("selfie", selfie, "selfie.jpg");
     const r = await fetch(`/api/dumpsters/${props.dumpster.id}/guests`, { method: "POST", body: form }).catch(() => null);
     const body = await r?.json().catch(() => ({}));
     setBusy(false);
     if (!r?.ok) return setMsg({ tone: "err", text: body?.error ?? "Couldn’t reach Dump. Check your signal and try again." });
-    setMsg({
-      tone: "ok",
-      text: body.faceMatched
-        ? body.clustersClaimed
-          ? `Found you. Your shots are tagged with your name now.`
-          : `Got it. You’ll show up as photos land.`
-        : `You’re in. Add a selfie any time to find your photos.`,
-    });
+    setMsg({ tone: "ok", text: body.clustersClaimed ? "Found you. Now connect your number below." : "Got your face. Now connect your number below." });
     setSelfie(null);
-    setEditing(false);
+    setTexts(false);
+    await props.onEnrolled();
+  }
+
+  async function stop() {
+    setBusy(true);
+    await fetch(`/api/dumpsters/${props.dumpster.id}/guests`, { method: "DELETE" }).catch(() => null);
+    setBusy(false);
+    setMsg({ tone: "ok", text: "Done. Your number and face match are gone." });
     await props.onEnrolled();
   }
 
   return (
     <section>
-      {props.me && !editing ? (
-        <div className="border-b-3 border-ink px-4 pt-5 pb-6">
-          <p className="label">You’re in as</p>
-          <h2 className="display text-[clamp(3rem,15vw,5rem)] break-words">{props.me.name}.</h2>
-          <p className="mt-3">
+      <div className="border-b-3 border-ink px-4 pt-5 pb-5">
+        <h2 className="display text-[clamp(2.5rem,12vw,4rem)]">
+          Find
+          <br />
+          yourself.
+        </h2>
+        <p className="mt-2 text-sm leading-snug">Tap any face in the Dump to see every shot they’re in.</p>
+        <button className="btn btn-ghost mt-4 !py-2.5 !text-sm" onClick={() => props.goTo("dump")}>
+          Go to faces →
+        </button>
+      </div>
+
+      {props.me ? (
+        <div className="space-y-4 px-4 py-5">
+          <p className="label">{props.me.notifications?.state === "connected" ? `Texts on${props.me.phoneLast4 ? ` · ••• ${props.me.phoneLast4}` : ""}` : "Face saved"}</p>
+          <p>
             <b className="display text-3xl">{props.photosOfMe}</b> photos & videos of you so far.
           </p>
-          <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <button className="btn btn-green" onClick={props.onShowMine} disabled={!props.me.clusterIds.length}>
               Show mine
             </button>
-            <button className="btn btn-ghost" onClick={() => setEditing(true)}>
-              Update
+            <button className="btn btn-ghost" onClick={stop} disabled={busy}>
+              Forget me
             </button>
           </div>
-          {!props.me.clusterIds.length && <p className="label mt-3 text-smoke">Add a selfie to find photos of you.</p>}
         </div>
       ) : (
-        <form onSubmit={submit} className="space-y-4 p-4">
-          <div>
-            <h2 className="display text-[clamp(2.5rem,12vw,4rem)]">
-              Find
-              <br />
-              yourself.
-            </h2>
-            <p className="mt-2 text-sm leading-snug">Take a quick selfie to pull up every shot you’re in. Leave a number and we’ll text you when new ones land.</p>
-          </div>
+        <form onSubmit={submit} className="space-y-4 px-4 py-5">
+          <label className="flex cursor-pointer items-center gap-3 border-3 border-ink p-3">
+            <input type="checkbox" checked={texts} onChange={(e) => setTexts(e.target.checked)} className="size-5 shrink-0 accent-[#46a65a]" />
+            <span className="font-bold uppercase">Text me when I show up</span>
+          </label>
 
-          <div className="border-3 border-ink">
-            {camera ? (
-              <Camera
-                onShot={(b) => {
-                  setSelfie(b);
-                  setCamera(false);
-                }}
-                onCancel={() => setCamera(false)}
-              />
-            ) : selfie ? (
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={selfieUrl} alt="Your selfie" className="block aspect-square w-full object-cover" />
-                <button type="button" className="btn absolute right-2 bottom-2 !py-2" onClick={() => setCamera(true)}>
-                  Retake
-                </button>
+          {texts && (
+            <>
+              <div className="border-3 border-ink">
+                {camera ? (
+                  <Camera
+                    onShot={(b) => {
+                      setSelfie(b);
+                      setCamera(false);
+                    }}
+                    onCancel={() => setCamera(false)}
+                  />
+                ) : selfie ? (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={selfieUrl} alt="Your selfie" className="block aspect-square w-full object-cover" />
+                    <button type="button" className="btn absolute right-2 bottom-2 !py-2" onClick={() => setCamera(true)}>
+                      Retake
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setCamera(true)} className="grid aspect-[4/3] w-full place-items-center bg-bone">
+                    <span className="text-center">
+                      <span className="display block text-4xl">Selfie</span>
+                      <span className="label">Tap to open camera</span>
+                    </span>
+                  </button>
+                )}
               </div>
-            ) : (
-              <button type="button" onClick={() => setCamera(true)} className="grid aspect-[4/3] w-full place-items-center bg-bone">
-                <span className="text-center">
-                  <span className="display block text-4xl">Selfie</span>
-                  <span className="label">Tap to open camera</span>
-                </span>
+
+              <button className="btn btn-green w-full !py-5 !text-xl" disabled={busy || !selfie}>
+                {busy ? "Scanning…" : "Save my face"}
               </button>
-            )}
-          </div>
-
-          <label className="block">
-            <span className="label mb-1 block">Name (how friends say it in videos)</span>
-            <input className="field" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required autoComplete="given-name" />
-          </label>
-          <label className="block">
-            <span className="label mb-1 block">Phone (optional) — for “new photos of you” texts</span>
-            <input className="field" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
-          </label>
-
-          <label className="flex cursor-pointer items-start gap-3 border-3 border-ink p-3">
-            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 size-5 accent-[#46a65a]" />
-            <span className="text-sm leading-snug">
-              Tag me in this Dumpster’s photos and text me when I show up. My selfie isn’t kept, and my name and number{" "}
-              <b>burn with this Dumpster</b>.
-            </span>
-          </label>
-
-          {msg && <p className={`border-3 p-3 text-sm ${msg.tone === "ok" ? "border-green bg-green/20" : "border-fire bg-fire/15"}`}>{msg.text}</p>}
-
-          <button className="btn btn-green w-full !py-5 !text-xl" disabled={busy || !consent || !name.trim()}>
-            {busy ? "Scanning…" : "Let me in"}
-          </button>
+            </>
+          )}
         </form>
       )}
-      {msg?.tone === "ok" && !editing && <p className="border-b-3 border-ink bg-green/20 p-3 text-sm">{msg.text}</p>}
+
+      {props.me && <NotificationSettings dumpsterId={props.dumpster.id} initial={props.me.notifications} onConnected={props.onEnrolled} />}
+
+      {msg && (
+        <p className={`mx-4 mb-5 border-3 p-3 text-sm ${msg.tone === "ok" ? "border-green bg-green/20" : "border-fire bg-fire/15"}`}>{msg.text}</p>
+      )}
     </section>
   );
 }

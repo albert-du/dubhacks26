@@ -9,6 +9,7 @@
  */
 import { flushFaceAlerts, sendExpiryWarnings } from "../lib/alerts";
 import { purgeExpired } from "../lib/cleanup";
+import { mergeAllFaces } from "../lib/faceIdentity";
 import { closeMongo } from "../lib/mongo";
 import { processNextMedia, processNextSticker } from "../lib/pipeline";
 
@@ -48,6 +49,7 @@ async function main() {
     every("alerts", flushFaceAlerts, 15_000),
     every("warnings", sendExpiryWarnings, 60_000),
     every("cleanup", purgeExpired, 60_000),
+    every("faces", mergeAllFaces, 120_000),
   ]);
   await closeMongo();
 }

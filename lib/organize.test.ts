@@ -3,6 +3,7 @@ import { test } from "node:test";
 import sharp from "sharp";
 import { findDuplicate, hamming, pixelHash } from "./dedupe";
 import { groupMoments } from "./moments";
+import { rankByLabels } from "./photoSearch";
 import { emptyReactions } from "./reactions";
 import { matchSources } from "./search";
 import type { PublicMedia } from "./types";
@@ -74,4 +75,15 @@ test("search: matches objects, written text and speech, AND across words", () =>
   assert.deepEqual(matchSources(m, "priya", names), ["people"]);
   assert.deepEqual(matchSources(m, "dog cheese", names)?.sort(), ["objects", "speech"]);
   assert.equal(matchSources(m, "dog cat", names), null);
+});
+
+test("photo search: ranks shots by shared object labels, ignoring people", () => {
+  const shots = [
+    { _id: "dog-only", labels: ["dog", "grass"] },
+    { _id: "dog-frisbee", labels: ["dog", "frisbee", "person"] },
+    { _id: "people", labels: ["person", "person"] },
+    { _id: "none", labels: ["cake"] },
+  ];
+  assert.deepEqual(rankByLabels(shots, ["Dog", "Frisbee", "person"]), ["dog-frisbee", "dog-only"]);
+  assert.deepEqual(rankByLabels(shots, ["person"]), []);
 });

@@ -16,11 +16,9 @@ import type { PublicMedia } from "@/lib/types";
 export function EventMap({
   media,
   onOpen,
-  onVenue,
 }: {
   media: PublicMedia[];
   onOpen: (list: PublicMedia[], id: string) => void;
-  onVenue: (venue: string) => void;
 }) {
   const byId = useMemo(() => new Map(media.map((m) => [m.id, m])), [media]);
   const moments = useMemo(
@@ -62,11 +60,6 @@ export function EventMap({
     };
   }, [pins]);
 
-  const venues = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const m of media) if (m.venue) counts.set(m.venue, (counts.get(m.venue) ?? 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  }, [media]);
 
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
@@ -227,24 +220,6 @@ export function EventMap({
         </ol>
       )}
 
-      <div className="px-4 pt-5 pb-2">
-        <h3 className="display text-2xl">Venue board</h3>
-        <p className="text-sm">Places named on signs and landmarks in the shots.</p>
-      </div>
-      {venues.length ? (
-        <ul className="border-t border-ink">
-          {venues.map(([v, n]) => (
-            <li key={v} className="border-b border-ink">
-              <button onClick={() => onVenue(v)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
-                <span className="display min-w-0 truncate text-lg">{v}</span>
-                <span className="label shrink-0">{n} shots →</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="label px-4 pb-6 text-smoke">No places spotted yet.</p>
-      )}
     </section>
   );
 }

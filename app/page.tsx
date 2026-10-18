@@ -1,25 +1,23 @@
 import { Logo, MarkBlock } from "@/components/Brand";
-import { CreateForm } from "@/components/CreateForm";
+import { StartByMessage } from "@/components/StartByMessage";
 
 const STEPS = [
   ["Pass it around", "Tape the code to the cooler or text the link to the group chat. Anyone who has it can get in."],
   ["Throw it all in", "Everybody drops what they shot, blurry ones included. On bad signal, photos wait on the phone and go once it’s back."],
-  ["Find yourself", "Take a quick selfie and every shot you’re in pulls up. We’ll text you when new ones land."],
+  ["Find yourself", "Take a quick selfie and every shot you’re in pulls up. Registered demo guests can connect iMessage alerts in Me."],
   ["Start fires", "Hit the burning can on the best disasters. Most fires tops the board. Cut stickers out of the winners."],
   ["Watch it burn", "When the timer hits zero, every photo, video and name goes with it."],
 ];
 
 export default function Home() {
-  const photon = process.env.NEXT_PUBLIC_PHOTON_NUMBER;
   return (
     <div className="mx-auto w-full max-w-[430px]">
       <header className="flex h-14 items-stretch border-b-3 border-ink">
-        <MarkBlock />
-        <span className="label flex flex-1 items-center justify-end px-3">dumpster.photo</span>
+        <MarkBlock divider={false} />
       </header>
 
       <section className="grid grid-cols-[1fr_auto] items-end gap-3 px-4 pt-6 pb-8">
-        <h1 className="display text-[clamp(3.6rem,19vw,5.4rem)]">
+        <h1 className="display min-w-0 text-[clamp(3.2rem,16vw,5rem)]">
           Throw
           <br />
           every
@@ -28,7 +26,7 @@ export default function Home() {
           <br />
           in.
         </h1>
-        <Logo className="h-36 self-start" />
+        <Logo className="h-32 self-start justify-self-end" />
         <p className="col-span-2 mt-4 text-[15px] leading-snug">
           One shared pile for the party, the hike, the wedding, the tailgate. Everyone adds what they shot, everyone finds
           themselves in it, and a day or three later it burns.
@@ -36,23 +34,8 @@ export default function Home() {
       </section>
 
       <section className="border-t-3 border-ink px-4 py-6">
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="display text-3xl">Start a Dumpster</h2>
-          <span className="label">01</span>
-        </div>
-        <CreateForm />
-        {photon && (
-          <div className="mt-6 border-3 border-dashed border-ink p-4">
-            <p className="label mb-2">Or start one by text</p>
-            <p className="display text-lg leading-tight">CREATE DUMPSTER “MT. SI HIKE” 48H</p>
-            <p className="mt-1 text-sm">
-              to{" "}
-              <a className="underline decoration-2" href={`sms:${photon}`}>
-                {photon}
-              </a>
-            </p>
-          </div>
-        )}
+        <h2 className="display mb-4 text-3xl">Start a Dumpster</h2>
+        <StartByMessage />
       </section>
 
       <section className="border-t-3 border-ink">

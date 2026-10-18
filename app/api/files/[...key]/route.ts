@@ -20,7 +20,11 @@ export async function GET(req: Request, { params }: Ctx) {
   const d = await getLiveDumpster(key.split("/")[0]);
   if (!d) return new Response("gone", { status: 410 });
 
-  const signed = await storage.signedUrl(key);
+  // ?download=1 saves the file instead of opening it (works for the S3 redirect too).
+  const download = new URL(req.url).searchParams.get("download") === "1";
+  const filename = `dump-${key.split("/").pop()}`;
+
+  const signed = await storage.signedUrl(key, download ? filename : undefined);
   if (signed) return Response.redirect(signed, 302);
 
   try {
@@ -33,6 +37,7 @@ export async function GET(req: Request, { params }: Ctx) {
         "content-length": String(r.end - r.start + 1),
         "accept-ranges": "bytes",
         "cache-control": "private, max-age=3600",
+        ...(download ? { "content-disposition": `attachment; filename="${filename}"` } : {}),
         ...(r.partial ? { "content-range": `bytes ${r.start}-${r.end}/${r.size}` } : {}),
       },
     });

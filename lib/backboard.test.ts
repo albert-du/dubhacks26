@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createPoolSession, searchShots, shotFromMedia, type ShotCard } from "./ask";
+import { createDumpSession, searchShots, shotFromMedia, type ShotCard } from "./ask";
 import { backboard, isStaleTextAssistant } from "./backboard";
 import { dumpsterIdFrom } from "./dumpsters";
 import { emptyReactions } from "./reactions";
@@ -32,8 +32,8 @@ test("shot cards keep search text and drop face vectors", () => {
   );
   assert.deepEqual(searchShots([shot], ["dog"]), []);
 
-  const session = createPoolSession([shot]);
-  session.dispatch("search_pool", { words: ["toast"] });
+  const session = createDumpSession([shot]);
+  session.dispatch("search_dump", { words: ["toast"] });
   session.dispatch("show", { ids: ["shot1", "nope"], answer: "The toast." });
   assert.deepEqual(session.shown(), { ids: ["shot1"], answer: "The toast." });
   assert.deepEqual(session.lastIds(), ["shot1"]);
@@ -117,7 +117,7 @@ test("fixed help never calls Backboard, and a free-text turn deletes its assista
   }
 });
 
-test("search words are AND, and show refuses ids that are not in the pool", () => {
+test("search words are AND, and show refuses ids that are not in the dump", () => {
   const cards: ShotCard[] = [
     {
       id: "a",
@@ -143,7 +143,7 @@ test("search words are AND, and show refuses ids that are not in the pool", () =
     searchShots(cards, ["dog", "lake"]).map((h) => h.id),
     ["a"],
   );
-  const session = createPoolSession(cards);
+  const session = createDumpSession(cards);
   session.dispatch("show", { ids: ["b", "foreign"], answer: "Just the dog." });
   assert.deepEqual(session.shown()?.ids, ["b"]);
 });

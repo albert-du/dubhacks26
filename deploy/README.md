@@ -23,21 +23,29 @@ the inbound webhook. Configure Perceptron for objects, people, text, and caption
 Analysis is enrichment: photos still publish when vision services are unavailable.
 The former `ALLOW_UNSCANNED_PUBLISH` setting is no longer used.
 
-Photon 2.0 requires `PHOTON_API_KEY`, `PHOTON_PROJECT_ID`,
-`PHOTON_AGENT_USER_ID`, and `PHOTON_PLATFORM`. Its API base defaults to
-`https://api.photon.codes/v1`. Register the public
-`/api/photon/webhook` URL with Photon and copy its Standard Webhooks signing
-secret into `PHOTON_WEBHOOK_SECRET`. The default platform is `imessage`.
-For a shared iMessage line, register each test sender in Photon and use its
-`assignedPhoneNumber` as `NEXT_PUBLIC_PHOTON_NUMBER`. Set `PHOTON_AGENT_USER_ID`
-to the agent identity returned by the project's iMessage users or an incoming
-message's `receivedBy.id`. The test sender must initiate the conversation with
-its assigned number. Subscribe the webhook destination to `message.received`.
-Public HTTPS must work before registering the webhook and testing replies.
-Shared-line alerts only work for senders assigned to the line; arbitrary guest
-phone numbers cannot receive messages through this setup.
-The adapter sends normal iMessage messages in the incoming Space rather than
-setting `parentMessageId`, because shared lines reject threaded replies.
+Photon 2.0 requires `PHOTON_API_KEY`, `PHOTON_PROJECT_ID`, and
+`PHOTON_PLATFORM=imessage`. The key needs `project:read`, `project:write`,
+`platforms:read`, and `platforms:write`. The API base defaults to `https://api.photon.codes/v1`.
+Register the public `/api/photon/webhook` URL with Photon, subscribe it to
+`message.received`, and copy its Standard Webhooks signing secret into
+`PHOTON_WEBHOOK_SECRET`. Public HTTPS must work before testing replies.
+
+The homepage registers fresh numbers through Photon and reuses existing assignments.
+Photon enforces the 25-slot project allowance atomically; when full, the homepage
+explains that link/QR joining still works. Sending the create text opens the Dumpster. Anyone can join an existing link or QR code.
+
+In Me, guests save their name, then optionally connect alerts by sending a
+one-time message from their registered number. The code is hashed, expires after
+ten minutes, and is consumed atomically. Alerts use that guest's verified
+conversation and agent, never a global sending line. Unregistered guests retain
+website access. Profile edits preserve connections; changing the number requires
+new verification, and disconnecting removes routing and contact data. All of this
+state lives on the expiring guest record. Failed sends retain pending alerts;
+expiry reminders retry the same saved payload and idempotency key.
+
+`PHOTON_AGENT_USER_ID` is an optional fallback for manual sends and the local
+simulator. `NEXT_PUBLIC_PHOTON_NUMBER` is no longer used. Shared iMessage messages
+omit `parentMessageId`, because shared lines reject threaded replies.
 
 Backboard now powers Ask the pool and free-text Photon replies. Set
 `BACKBOARD_API_KEY` to enable it; `BACKBOARD_URL` defaults to
@@ -48,8 +56,8 @@ For Cloudflare R2, set `S3_REGION=auto`, the account's S3 API endpoint without a
 bucket path, the bucket name, and bucket-scoped Object Read & Write credentials.
 Keep the bucket private. Existing local media is not migrated by switching storage.
 
-Public Next.js variables are passed at build time as well as runtime. Rebuild
-the web image after changing `NEXT_PUBLIC_APP_URL` or `NEXT_PUBLIC_PHOTON_NUMBER`.
+`NEXT_PUBLIC_APP_URL` is passed at build time as well as runtime. Rebuild
+the web image after changing it.
 Secrets are loaded at runtime from the ignored `deploy/.env`; they are excluded
 from the image build context.
 

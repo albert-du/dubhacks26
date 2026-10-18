@@ -37,8 +37,8 @@ for (const c of used) if (!(c in EPHEMERAL_COLLECTIONS)) fail("R2", `collection 
 for (const f of files) {
   const client = f.src.includes('"use client"');
   // Allowed mentions: Mongo projections that EXCLUDE the field, and Omit<> types that drop it.
-  const stripped = f.src.replace(/"faces\.embedding": 0|centroid: 0|Omit<Cluster, "centroid">/g, "");
-  if ((client || f.p === "lib/serialize.ts") && /\b(embedding|centroid)\b/.test(stripped)) {
+  const stripped = f.src.replace(/"faces\.embedding": 0|centroid: 0|exemplars: 0|Omit<Cluster, "centroid">/g, "");
+  if ((client || f.p === "lib/serialize.ts") && /\b(embedding|centroid|exemplars)\b/.test(stripped)) {
     fail("R3", `${f.p} references face vectors`);
   }
 }
@@ -72,9 +72,11 @@ if (bits < 122) fail("R6", `dumpster ids carry only ${bits.toFixed(0)} bits of e
 const dumpsters = files.find((f) => f.p === "lib/dumpsters.ts")?.src ?? "";
 if (!dumpsters.includes("if (!isDumpsterId(id)) return null")) fail("R6", "getLiveDumpster must validate the id format");
 
-// R7: selfies are never persisted.
+// R7: selfies and search-by-photo query images are never persisted.
 const enroll = files.find((f) => f.p === "lib/enroll.ts")?.src ?? "";
 if (/storage\.put/.test(enroll)) fail("R7", "enroll.ts must not write selfies to storage");
+const photoSearch = files.find((f) => f.p === "lib/photoSearch.ts")?.src ?? "";
+if (!photoSearch || /storage\.put/.test(photoSearch)) fail("R7", "photoSearch.ts must not write query photos to storage");
 
 // R8: purge deletes every ephemeral collection.
 const cleanup = files.find((f) => f.p === "lib/cleanup.ts")?.src ?? "";
