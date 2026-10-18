@@ -33,6 +33,19 @@ test("veyzl: a new third-party host is high", () => {
   assert.equal(reviewFailed(findings, "high"), true);
 });
 
+test("veyzl: allows exact Compose service names but rejects lookalike domains", () => {
+  assert.deepEqual(reviewDiff(added("deploy/compose.yml", [
+    "FACE_EMBED_URL: http://face-embed:8001",
+    "TRANSCRIBE_URL: http://whisper:8000/v1",
+  ])), []);
+  const findings = reviewDiff(added("deploy/compose.yml", [
+    "FACE_EMBED_URL: http://evil.face-embed:8001",
+    "TRANSCRIBE_URL: http://whisper.evil.example:8000/v1",
+  ]));
+  assert.equal(findings.length, 2);
+  assert.equal(reviewFailed(findings, "high"), true);
+});
+
 test("veyzl: identity reads and unmasked phone logs are high", () => {
   const diff = added("app/api/join/route.ts", [
     'const ip = req.headers.get("x-forwarded-for");',

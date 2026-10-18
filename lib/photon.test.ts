@@ -159,6 +159,15 @@ test("photon: sends through user, space, then message, and stays quiet without c
     });
     assert.equal(calls[0].authorization, "Bearer pho_sk_test");
 
+    process.env.PHOTON_PLATFORM = "imessage";
+    await photon.reply({
+      text: "iMessage is connected",
+      spaceId: "pho_spc_shared",
+      senderId: "pho_usr_line",
+      parentMessageId: "pho_msg_shared_in",
+      idempotencyKey: "reply:pho_msg_shared_in",
+    });
+
     delete process.env.PHOTON_API_KEY;
     delete process.env.PHOTON_PROJECT_ID;
     delete process.env.PHOTON_AGENT_USER_ID;
@@ -178,6 +187,7 @@ test("photon: sends through user, space, then message, and stays quiet without c
       "https://api.photon.codes/v1/projects/pho_prj_test/spaces",
       "https://api.photon.codes/v1/projects/pho_prj_test/messages",
       "https://api.photon.codes/v1/projects/pho_prj_test/messages",
+      "https://api.photon.codes/v1/projects/pho_prj_test/messages",
     ],
   );
   assert.deepEqual(calls[0].body, { platform: "sms", handle: "+14155550999" });
@@ -195,4 +205,10 @@ test("photon: sends through user, space, then message, and stays quiet without c
     parentMessageId: "pho_msg_in",
     content: { type: "text", format: "plain", text: "Dumpster is open" },
   });
+  assert.deepEqual(calls[4].body, {
+    spaceId: "pho_spc_shared",
+    senderId: "pho_usr_line",
+    content: { type: "text", format: "plain", text: "iMessage is connected" },
+  });
+  assert.equal(calls[4].key, "reply:pho_msg_shared_in");
 });

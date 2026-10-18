@@ -1,0 +1,100 @@
+name: dump-production
+
+x-app: &app
+  env_file: .env
+  environment:
+    NODE_ENV: production
+    MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in deploy/.env}
+    NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?Set NEXT_PUBLIC_APP_URL in deploy/.env}
+    FACE_EMBED_URL: http://face-embed:8001
+  restart: unless-stopped
+  init: true
+  volumes:
+    - media:/app/.data/storage
+  depends_on:
+    face-embed:
+      condition: service_healthy
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  web:
+    <<: *app
+    # Keep the website and inbound webhooks available during model cold starts.
+    depends_on: {}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: web
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?Set NEXT_PUBLIC_APP_URL in deploy/.env}
+        NEXT_PUBLIC_PHOTON_NUMBER: ${NEXT_PUBLIC_PHOTON_NUMBER:-}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  worker:
+    <<: *app
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: worker
+    stop_grace_period: 2m
+    depends_on:
+      face-embed:
+        condition: service_healthy
+      whisper:
+        condition: service_healthy
+
+  whisper:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    restart: unless-stopped
+    init: true
+    environment:
+      WHISPER__INFERENCE_DEVICE: cpu
+      WHISPER__COMPUTE_TYPE: int8
+      WHISPER__CPU_THREADS: "2"
+      PRELOAD_MODELS: '["Systran/faster-whisper-small"]'
+      ENABLE_UI: "false"
+      LOG_LEVEL: info
+    volumes:
+      - whisper-cache:/home/ubuntu/.cache/huggingface/hub
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10m
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  face-embed:
+    build: ../services/face-embed
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  media:
+  whisper-cache:
