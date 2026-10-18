@@ -1,53 +1,124 @@
 # dump
 
-AI implementation: hosted Perceptron vision and Backboard language APIs, self-hosted InsightFace and Whisper, and local BiRefNet sticker inference. See [AI.md](AI.md) for model calls, entry points, and data flows; the API adapters live in `lib/ai-*.ts`.
+**Live:** [dumpster.photo](https://dumpster.photo)
 
-dump is one shared photo pile for a group. A party, a hike, a wedding, a tailgate. Someone opens a dumpster, passes the link or the QR code, and everyone dumps in what they shot. You get in from that link, then sign in to that one dumpster. The first time, that's your name, a quick selfie (take one or upload one), and, if you want texts, your phone number. After that your name alone gets you back in, on any phone. There are no accounts: the sign-in is for this dumpster only and burns with it.
+dump is one shared photo pile for a group. A party, a hike, a wedding, a tailgate. Someone opens a dumpster, passes the link or the QR code, and everyone dumps in what they shot. It runs in the phone browser, and you can add it to your home screen. There are no accounts. You sign in to that one dumpster, and the sign-in burns with it.
 
 The pile lasts 24, 48, or 72 hours. Then the photos, the videos, the names, and the phone numbers are deleted.
 
-A dumpster has no owner. Nothing records who opened it or who uploaded a shot. Anyone with the link can take a shot back out. People in the photos are visible to everyone who has the link. The link is the lock.
+A dumpster has no owner. Nothing records who opened it or who uploaded a shot. Anyone who is signed in can delete any photo or video. People in the photos are visible to everyone in that dumpster. The link is the lock: each id is 25 random characters.
 
-## Start one
+Group chats keep half the photos. A shared album needs the same kind of phone. A drive folder asks every person for space. dump is the bin on the table. Scan the code, dump the pictures, find yourself, and let it go after the weekend.
 
-On the home page, name the dumpster, pick 24, 48, or 72 hours, and open it. You land on its sign-in like everyone else.
+## How a dumpster goes
 
-Or start by iMessage: on the home page, enter your phone number. dump registers it with Photon if needed and looks up your
-assigned iMessage number and opens Messages with a create command. Edit the name
-and hours, then send it. The text creates the dumpster and the reply includes its
-link and QR page. Submitting a fresh number uses one of the demo’s 25 iMessage slots; existing numbers reuse their slot. If the demo is full, joining by link or QR still works.
+```mermaid
+flowchart TD
+  open["Open one on the site or by text"] --> share["Share the link and the QR code"]
+  share --> name["Sign in with your name"]
+  name --> first{"First time with this name?"}
+  first -->|Yes| selfie["A quick selfie, and a number if you want texts"]
+  first -->|No| in["Your name gets you back in"]
+  selfie --> pile["Drop photos and videos"]
+  in --> pile
+  pile --> find["Find yourself, search, and start fires"]
+  find --> burn["It burns. Photos, names, and numbers go with it"]
+```
+
+Signing in is the door. The pile stays behind it until you have a name on this dumpster.
+
+## Open one
+
+On the home page, name the dumpster, pick 24, 48, or 72 hours, and open it. Videos are on unless you turn them off. You land on its sign-in like everyone else.
+
+Or start by iMessage. Enter your phone number on the home page. dump registers it with Photon if needed, looks up your assigned iMessage number, and opens Messages with a create command ready to send. Edit the name and the hours, then send it. The reply comes back in that conversation with the link and a QR page.
 
 ```text
 create dumpster "Mt. Si Hike" 48h
 ```
 
-Pass the link or QR code to everyone else. Joining needs no phone number.
+Pass the link or the QR code around. Joining takes a name. The phone number is only for texts.
 
-Hours are only 24, 48, or 72. Anything else becomes 24. `help` lists the commands. A dumpster opened by text accepts photos and videos.
+A few rules for texts:
 
-With Backboard configured, a looser text works too, such as "open one for the hike, two days". Paste a dumpster link and the reply tells you how many shots are in it, how many fires the top shot has, and when it burns.
+- Hours are only 24, 48, or 72. Anything else becomes 24.
+- `help` lists the commands.
+- A dumpster opened by text takes photos and videos.
+- With Backboard configured, a looser text works too, such as "open one for the hike, two days".
+- Paste a dumpster link and the reply tells you how many shots are in it, how many fires the top shot has, and when it burns.
+
+Submitting a fresh number uses one of the demo’s 25 iMessage slots. A number that is already registered reuses its slot. If the demo is full, joining by link or QR still works.
 
 ## On a phone
 
-**Sign in.** Type your name. If someone already signed in here with that name, dump shows their face from the pile and asks whether it's you; yes lets you straight in, no asks for another name. If nobody signed in with it but faces in the pile are already called that, dump shows those faces and asks the same; yes claims them when you finish signing in. A new name goes on to a selfie. If the selfie looks like someone already signed in, dump asks whether that's you. If your face is already in the pile, dump shows those faces and you pick the ones that are you; their shots, and new shots of you after that, are yours. Then an optional phone number for texts when you show up in new photos or videos. Names are unique within a dumpster, ignoring capitals and spacing.
+A dumpster is six tabs along the bottom: **Drop**, **dump**, **Fire**, **Map**, **Pack**, and **Me**.
 
-A dumpster is six tabs along the bottom.
+### Sign in
 
-**Drop.** dump photos, and videos when this dumpster allows them. If the signal dies, the phone keeps the files and sends them when it comes back. The same screen has the QR code, the copy-link button, and a link to the big-screen view.
+Type your name. Names are unique in a dumpster, ignoring capitals and spacing.
 
-**dump.** The pile. Faces from the photos sit across the top, named people first. Tap a person to see their shots. Tap **+ name** under a face to name it (anyone can, and anyone can fix it). If someone here already has that name, even someone who signed in, dump shows both faces and asks whether they're the same person: same moves the face into theirs, different asks for another name. That fixes shots of you that weren't recognized, or that were named after someone else: name the face after you and confirm. Only that face moves; anyone it was wrongly credited to keeps their sign-in. A stranger in the background? Tap **+ name** under their face and **Hide face**, or tap their tag on a shot: the face leaves the row and the shots, and new shots of it stay hidden. Only faces nobody has claimed can be hidden. Hid one by mistake? The face row ends with **N hidden**; tap it, then tap the face to unhide it. Type to filter. A word has to show up in the picture, on a sign, in something someone said, in a face's name, or in a place. Every word in the box has to match. Or tap the camera next to the search box and search with a photo: a face finds that person's shots, anything else finds shots with the same things in them. The search photo is not kept. Tap **Select** to pick shots and save them. One saves directly; several come down as a zip. The same photo uploaded twice stays hidden until you tap to show the dupes. All shots is a grid. Moments groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
+- If someone already signed in with that name, dump shows their face and asks whether it is you.
+- If nobody has signed in with it, but faces in the pile are already called that, dump shows those faces and asks the same. Yes claims them when you finish.
+- A new name goes on to a selfie. Take one or upload one. If it looks like someone already signed in, dump asks whether that is you. If your face is already in the pile, you pick the shots that are you.
+- Then an optional phone number, for texts when you show up.
 
-**Fire.** The leaderboard. Open a shot and tap the flaming can. The shot with the most fires is on top. Hearts, laughs, and the other reactions only break a tie. The order comes from those taps.
+The next time, on any phone, your name alone gets you back in. The selfie is used to find your face and is not kept.
 
-**Map.** Every shot with a location, as a small thumbnail on a paper-and-ink map. Shots with a fire have an orange edge. Zoom in (pinch, or the + and − buttons) and the thumbnails stay the same size while the map grows under them, so they separate; shots taken at the same spot spread apart. Zooming out shrinks them so they fit; tap one to open it. Drag with two fingers so the page can still scroll (the map says so once per sign-in), or tap **Full screen** to fill the phone and pan with one finger. Under the map, the moments are listed in order; tap one to flip through it. The map loads tiles for that area from OpenFreeMap. Those tiles use the same rounded locations already on the pins.
+### Drop
 
-**Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick a person, an object, or everyone in the frame. dump removes the background and draws a white sticker edge. On an iPhone, Add to Stickers shares one PNG. Send it from Messages with the text field empty, touch and hold the sticker, and tap Save to Stickers. It stays in the sticker library (Messages, +, Stickers). The same share sheet still sends that PNG to WhatsApp. Download saves the PNG. Press and hold a sticker to save it too. **Delete** takes a sticker out of everyone's pack.
+Dump photos, and videos when this dumpster allows them. If the signal dies, the phone keeps the files and sends them when it comes back. The same screen has the QR code, **Copy Dumpster link**, and a link to the big-screen view. Each file can be up to 150MB.
 
-**Me.** Who you signed in as and how many shots you're in. Change your name or take a new selfie here; your name goes on your face in the dump. If the new name is already someone's, dump asks whether you're the same person and merges you if so. The selfie is used to find your face and is not kept. Texts are optional. Add your number on the last step of your first sign-in, or later here: enter your registered demo number, then send the connection message to your assigned number. That message stays the same every time you reconnect. It expires after ten minutes and only works from the number you entered. Once connected, dump waits two minutes, then texts you once with how many new photos of you landed in that time. A video that says the name on your face is included in that same text. About two hours before the dumpster burns, everyone connected gets one warning and a link, so they can save what they want. Change your number or disconnect in Me. Sign out forgets you on this phone only; type your name to get back in. Forget me deletes your name (from your faces too), face match and number for good. The connection expires with the dumpster.
+### dump
 
-Open a shot to see who is in it. Only people are tagged: captions, writing, objects and words from a video are not shown, but the search box still finds them. Named people come first in that list. Each face is a name or Unnamed · Person N. Tap an unnamed tag and its face is outlined in orange on the photo, so two unnamed people can be told apart; tap **That's me** to claim it. The face takes your name, and new shots of it count as yours. From there you can react, save a copy, cut a sticker, or delete it for everyone.
+The pile. Faces sit across the top, named people first.
 
-If Ask is on, the dump search box grows an Ask button. Ask answers the sentence and shows the shots it means. The word filter still works either way. Ask only appears when `BACKBOARD_API_KEY` is set. The key stays on the server.
+- Tap a person to see their shots.
+- Tap **+ name** under a face to name it. Anyone can, and anyone can fix it. If someone here already has that name, dump shows both faces and asks whether they are the same person. Same moves that face into theirs. Different asks for another name. Only that face moves. A wrong credit does not take away the other person’s sign-in.
+- A stranger in the background: tap **+ name** and **Hide face**, or tap their tag on a shot. The face leaves the row and the shots, and new shots of it stay hidden. Only a face nobody has claimed can be hidden. The row ends with **N hidden**. Tap it, then tap the face, to bring it back.
+- Type to filter. A word has to show up in the picture, on a sign, in something someone said, in a face’s name, or in a place. Every word in the box has to match.
+- Tap the camera next to the search box and search with a photo. A face finds that person’s shots. Anything else finds shots with the same things in them. The search photo is not kept.
+- The same photo uploaded twice stays hidden until you tap to show the dupes.
+- **All shots** is a grid, newest first by when the shot was taken. A shot with no capture time uses when it was dropped. **Moments** groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
+- Tap **Select** to save shots. On an iPhone or iPad, Save opens the system share sheet so Save Image and Save Video can put the files in the camera roll. Several shots stay separate files. More than 25 come through in batches. On other phones, one shot downloads as a file and several come down as a zip.
+
+If Ask is on, the search box grows an **Ask** button. Ask answers the sentence and shows the shots it means. The word filter still works either way. Ask appears when `BACKBOARD_API_KEY` is set. The key stays on the server.
+
+### Fire
+
+The leaderboard. Open a shot and react. The reactions are the flaming can, a heart, a laugh, wow, a cry, and applause. Tap the flaming can to give it a Dumpster Fire. The shot with the most fires is on top. The other reactions only break a tie, then whoever got there first. The order comes from those taps.
+
+### Map
+
+Every shot with a location, as a thumbnail on a paper-and-ink map. Shots with a fire have an orange edge. Pinch, or use + and −, to zoom. Drag with two fingers so the page can still scroll. The map says so once per sign-in. **Full screen** fills the phone so you can pan with one finger. Under the map, the moments are listed in order. Tap one to flip through it.
+
+The map loads tiles for that area from OpenFreeMap. Those tiles use the same rounded locations already on the pins. Without WebGL, the pins fall back to a grid.
+
+### Pack
+
+Stickers cut out of a photo. Open a shot, tap Sticker, and pick a person, an object, or everyone in the frame. dump removes the background on this machine and draws a white sticker edge. The photo is not sent anywhere to make the sticker.
+
+- On an iPhone, **Add to Stickers** shares one PNG named `sticker.png`. Send it from Messages with the text field empty, touch and hold the sticker, and tap Save to Stickers. It stays in Messages under Stickers.
+- The same share sheet still sends that PNG to WhatsApp. On other phones the button is **Add to phone**.
+- **Download** saves the PNG. Press and hold a sticker in the pack to save it too.
+- **Delete** takes a sticker out of everyone’s pack.
+
+### Me
+
+Who you signed in as, and how many shots you are in.
+
+- Change your name or take a new selfie here. Your name goes on your face in the dump. If the new name is already someone’s, dump asks whether you are the same person and merges you if so. The new selfie is not kept.
+- Texts are optional. Add your number on the last step of the first sign-in, or later here. Enter your registered demo number, then send the connection message to your assigned number. That message stays the same every time you reconnect. It expires after ten minutes and only works from the number you entered.
+- Once you are connected, dump waits two minutes, then texts you once. That text counts the new photos of you, and it includes a video that says the name on your face.
+- About two hours before the dumpster burns, everyone connected gets one warning, with the link, so they can save what they want.
+- Change your number or disconnect in Me.
+- **Sign out** forgets you on this phone only. Type your name to get back in.
+- **Forget me** deletes your name, including on your faces, plus the face match and the number. The connection expires with the dumpster either way.
+
+### Open a shot
+
+You see who is in it. Only people are tagged. Captions, writing, objects, and words from a video stay out of that list, and the search box still finds them. Named people come first. Each face is a name, or Unnamed · Person N. Tap an unnamed tag and its face is outlined, so two unnamed people can be told apart. Tap **That’s me** to claim it. The face takes your name, and new shots of it count as yours.
+
+From the shot you can react, save a copy, cut a sticker, or delete it for everyone.
 
 ## On a screen at the venue
 
@@ -55,7 +126,56 @@ Open `/your-dumpster-id/stage` on a TV or a projector. Back to the dumpster sits
 
 ## When it burns
 
-At the end of the timer, the worker deletes that dumpster's files, face data, names, phone numbers, reactions, stickers, and Ask assistant. The link starts showing a burned page. Mongo also expires the records on its own, so they go away even if the worker is down. A browser may keep a public image in its cache for up to an hour. The service worker does not cache photos.
+At the end of the timer, the worker deletes that dumpster’s files, face data, names, phone numbers, reactions, stickers, and Ask assistant. The link starts showing a burned page. MongoDB also expires the records on its own, so they go away even if the worker is down.
+
+The service worker does not cache photos. A phone can still hold a copy it already loaded: previews for up to a day, a full file served from the app’s own disk for up to an hour. A link out to object storage is remembered for two minutes. After the burn, those URLs stop working.
+
+## How a photo gets in
+
+```mermaid
+flowchart LR
+  phone["Phone"] --> queue["Held on the phone until the upload lands"]
+  queue --> worker["Worker"]
+  worker --> clean["Camera data stripped, web version made"]
+  clean --> models["Caption, faces, speech, duplicates"]
+  models --> pile["The shot shows up for everyone"]
+  pile --> text["One text after two minutes, if you opted in"]
+  pile --> gone["Deleted when the timer ends"]
+```
+
+Each model is optional. A photo still publishes if one of them is down. Face matching and speech run on the same machine as the site, with no public port. Captions and Ask call out. The Dumpster Fire board counts taps.
+
+```mermaid
+flowchart TB
+  phone["Phone browser"] --> web["Website"]
+  messages["iMessage"] --> photon["Photon"]
+  photon --> web
+  web --> worker["Worker"]
+  web --> mongo["MongoDB"]
+  worker --> mongo
+  worker --> files["Photos and videos"]
+  worker --> vision["Perceptron"]
+  worker --> faces["Face matching"]
+  worker --> speech["Speech"]
+  worker --> photon
+  web --> ask["Backboard"]
+```
+
+| Piece | Where it runs | What it does |
+|---|---|---|
+| Website | Next.js 15, React 19, Tailwind CSS 4, installable as a PWA | The phone app, the stage, and the iMessage webhook |
+| Worker | Same server | Sorts uploads, sends texts, and burns expired dumpsters |
+| Perceptron Mk1.5 | Hosted | Objects, people, writing, a caption, tags, a venue name, and boxes on each photo |
+| Face matching | Private, on the server | Groups faces and matches a selfie. The vectors stay on the server. |
+| Speech | Private faster-whisper, on the server | Makes words in a video searchable, and notices when a video says your name |
+| Stickers | On the server, BiRefNet | Cuts a person or object out of a shot |
+| Backboard | Hosted | Ask, and texts that are not a fixed command. One assistant per dumpster, deleted when it burns. A loose text uses a throwaway assistant that is deleted before the reply goes out. |
+| Photon 2.0 | Hosted iMessage | Creates a dumpster from a text, and sends photo alerts, mention lines, and the burn warning. Every send has an idempotency key, so a retry does not double-text. The sender’s number is not stored on the dumpster and is not sent to Backboard. |
+| MongoDB | Hosted, separate from the app | Dumpsters, shots, faces, stickers, and reactions, with an expiration on every collection |
+| TigerData | Optional | Drops per minute, and a record of each cleanup. Without it, those numbers come from MongoDB. |
+| Files | A disk on the server, or Cloudflare R2 | The photos and videos. Local development uses a folder on disk. |
+
+Model calls, entry points, and data flows are in [AI.md](AI.md). The privacy rules for reviewers are in [VEYZL.md](VEYZL.md). CI runs the privacy check and the VEYZL diff review on every pull request and on pushes to main. The build fails if retention is outside 24, 48, or 72 hours, if data could outlive its dumpster, if face data could reach the browser, or if a creator or uploader identity is stored.
 
 ## Run it locally
 
@@ -69,7 +189,7 @@ npm run worker
 
 The site is at http://localhost:3000. Run the worker in a second terminal. It sorts uploads, sends texts, and deletes expired dumpsters. It reads `.env.local` when that file exists. Variables already set in the environment win.
 
-The first sticker downloads a cutout model, about 214MB, into `.data/models`. After that, cutting someone out runs on this machine. The photo is not sent anywhere to make the sticker.
+The first sticker downloads a cutout model, about 214MB, into `.data/models`. After that, cutting someone out runs on this machine.
 
 Face matching is a separate service. The first build downloads the models, about 300MB:
 
@@ -82,7 +202,7 @@ You can click through the app with no API keys.
 - Photos still publish. Captions, writing, and object tags show up once Perceptron is set. Faces group once face-embed is running.
 - Texts print in the worker console. A text that is not the create command gets the command list.
 - Search stays a word filter. The Ask button stays hidden.
-- Drops per minute come from Mongo.
+- Drops per minute come from MongoDB.
 - Files land in `./.data/storage`.
 
 Checks:
@@ -100,30 +220,12 @@ curl -X POST localhost:3000/api/photon/webhook -H "content-type: application/jso
   -H "x-photon-secret: change-me" -d "{\"from\":\"+12065550123\",\"text\":\"Create dumpster \\\"Mt. Si Hike\\\" 48h\"}"
 ```
 
-Live texts arrive as Photon `message.received` events, signed as Standard Webhooks (`webhook-id`, `webhook-timestamp`, `webhook-signature`). The reply goes back in that same conversation. Ordinary commands do not store the sender's number. An explicit `connect CODE` message binds a guest's alerts to that verified conversation until the dumpster expires.
+Live texts arrive as Photon `message.received` events, signed as Standard Webhooks (`webhook-id`, `webhook-timestamp`, `webhook-signature`). The reply goes back in that same conversation. Ordinary commands do not store the sender’s number. An explicit `connect CODE` message binds a guest’s alerts to that verified conversation until the dumpster expires.
 
-## Production deployment
+To exercise connection lifecycle tests against a disposable MongoDB, set `TEST_MONGODB_URI` before `npm test`. These tests create and drop a separate `dump_connection_test_*` database. CI supplies its own MongoDB service.
 
-See [deploy/README.md](deploy/README.md) for the production Docker Compose stack
-(web app, worker, internal face embedding, and Whisper), environment setup, and
-HTTPS proxy requirements.
+## Production
 
-## What you can turn on
+The live site is [dumpster.photo](https://dumpster.photo). Production is one Vultr machine running the Docker Compose stack in [deploy/README.md](deploy/README.md): the website, the worker, private face matching, and private speech transcription. Caddy sits in front for HTTPS, accepts uploads up to 150MB, and keeps the live photo stream flowing. MongoDB is hosted separately. TigerData and Cloudflare R2 are optional. Face matching and speech have no public port, so only this app can reach them.
 
-Each of these is optional. The app runs without them. The comments in `.env.example` name the variables.
-
-| Piece | What it adds |
-|---|---|
-| Perceptron | Looks at each photo: objects and people, writing, a caption, tags, and a venue name. One Mk1.5 chat completion. Boxes come back as `<point_box>` markup. If it is down, the photo still publishes. |
-| Face embed | Groups faces and matches a selfie. Vectors stay on the server. |
-| Transcription | Any Whisper-compatible endpoint. This is how video search and "your name was mentioned" texts work. |
-| Photon 2.0 | Creates a dumpster by text, and sends photo alerts, mention alerts, and the burn warning. Needs the API key, project id, and platforms:read / platforms:write permissions. The homepage returns the submitted participant’s assigned number. Me connects each guest’s alerts to their verified conversation; different guests can use different assigned lines. |
-| Backboard | Ask the dump, and texts that are not a fixed command. One assistant per dumpster, deleted when the dumpster burns. A loose text uses a throwaway assistant that is deleted before the reply goes out. New photos still arrive on the site's own live feed. |
-| TigerData | Drops per minute, and a record of each cleanup. Without it, those numbers come from Mongo. |
-| Object storage | Cloudflare R2 or another S3-compatible bucket. A shared persistent volume is the production fallback; local development uses a folder on disk. |
-
-The privacy rules for reviewers are in `VEYZL.md`. CI runs the privacy check and the VEYZL diff review on every pull request and on pushes to main.
-
-To exercise connection lifecycle tests against a disposable MongoDB, set
-`TEST_MONGODB_URI` before `npm test`. These tests create and drop a separate
-`dump_connection_test_*` database. CI supplies its own MongoDB service.
+The comments in `.env.example` name every variable. Each integration is optional. The app runs without them.
