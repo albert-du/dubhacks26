@@ -7,7 +7,7 @@ One shared, self-destructing photo and video pile for group events.
 - Photos group themselves into moments, and the crowd picks the best disasters with 🔥 reactions.
 - After 24, 48 or 72 hours, everything is deleted.
 
-Rooms are anonymous and have no hosts. Nobody owns a room, nothing records who made it or who uploaded what, and anyone in a room can delete anything.
+Dumpsters are anonymous and have no hosts. Nobody owns a dumpster, nothing records who made it or who uploaded what, and anyone in a dumpster can delete anything.
 
 ## Architecture
 
@@ -30,7 +30,7 @@ Rooms are anonymous and have no hosts. Nobody owns a room, nothing records who m
 | **Perceptron** | `lib/perceptron.ts`: one grounded call per image returns every primary object and person with boxes (tags, stickers, overlays), all legible text (OCR search), captions and venue text (Venue Board) |
 | **Photon 2.0** | `lib/photon.ts` and `app/api/photon/webhook`: text-to-create, batched "N new photos of you" texts, video-mention alerts, burn-warning digests (`lib/alerts.ts`) |
 | **VEYZL** | `VEYZL.md` policy (anonymity, unguessable ids, retention, complete deletion), `scripts/privacy-audit.ts`, `.github/workflows/privacy-audit.yml` |
-| **MongoDB** | `lib/mongo.ts`: rooms, guests, media and detections, face clusters, stickers, reactions. Every collection has a TTL index |
+| **MongoDB** | `lib/mongo.ts`: dumpsters, guests, media and detections, face clusters, stickers, reactions. Every collection has a TTL index |
 | **Vultr** | `worker/` and `services/face-embed/` run on Vultr instances; media lives in Vultr Object Storage |
 | **Backboard** | `lib/backboard.ts`: realtime fan-out to stage displays. The SSE route is the always-on fallback |
 | **TigerData** | `sql/tigerdata.sql`: hypertables, a continuous aggregate for drops per minute, a cleanup queue, and the `overdue_cleanups` compliance view |
@@ -83,7 +83,7 @@ curl -X POST localhost:3000/api/photon/webhook -H 'content-type: application/jso
 Built for portrait phones 375–430px wide.
 
 - `/`: start a Dumpster.
-- `/{id}`: the room, with these tabs:
+- `/{id}`: the dumpster, with these tabs:
   - **Drop:** upload.
   - **Pool:** face gallery, search, all shots or moments.
   - **Fire:** the leaderboard.

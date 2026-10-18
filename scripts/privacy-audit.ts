@@ -7,7 +7,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { TTL_OPTIONS } from "../lib/config";
-import { ROOM_ID_ALPHABET, ROOM_ID_LENGTH } from "../lib/dumpsters";
+import { DUMPSTER_ID_ALPHABET, DUMPSTER_ID_LENGTH } from "../lib/dumpsters";
 import { EPHEMERAL_COLLECTIONS } from "../lib/mongo";
 
 const root = path.resolve(__dirname, "..");
@@ -43,13 +43,13 @@ for (const f of files) {
   }
 }
 
-// R4: the file route only serves public renders of live rooms.
+// R4: the file route only serves public renders of live dumpsters.
 const filesRoute = files.find((f) => f.p === "app/api/files/[...key]/route.ts");
 if (!filesRoute?.src.includes("isPublicKey(key)") || !filesRoute.src.includes("getLiveDumpster")) {
   fail("R4", "file route must gate on isPublicKey() and getLiveDumpster()");
 }
 
-// R5: anonymity. Rooms and media carry no creator/uploader/host identity, and no request IPs are read.
+// R5: anonymity. Dumpsters and media carry no creator/uploader/host identity, and no request IPs are read.
 const types = files.find((f) => f.p === "lib/types.ts")?.src ?? "";
 for (const iface of ["Dumpster", "Media"]) {
   const body = types.match(new RegExp(String.raw`export interface ${iface} \{([\s\S]*?)\n\}`))?.[1];
@@ -64,11 +64,11 @@ for (const f of files) {
   if (/x-forwarded-for|x-real-ip|\breq\.ip\b|x-host-token/i.test(f.src)) fail("R5", `${f.p} reads client identity (IP/host token)`);
 }
 
-// R6: room URLs are unguessable and malformed ids are rejected before any lookup.
-const bits = ROOM_ID_LENGTH * Math.log2(ROOM_ID_ALPHABET.length);
-if (bits < 122) fail("R6", `room ids carry only ${bits.toFixed(0)} bits of entropy`);
+// R6: dumpster URLs are unguessable and malformed ids are rejected before any lookup.
+const bits = DUMPSTER_ID_LENGTH * Math.log2(DUMPSTER_ID_ALPHABET.length);
+if (bits < 122) fail("R6", `dumpster ids carry only ${bits.toFixed(0)} bits of entropy`);
 const dumpsters = files.find((f) => f.p === "lib/dumpsters.ts")?.src ?? "";
-if (!dumpsters.includes("if (!isRoomId(id)) return null")) fail("R6", "getLiveDumpster must validate the id format");
+if (!dumpsters.includes("if (!isDumpsterId(id)) return null")) fail("R6", "getLiveDumpster must validate the id format");
 
 // R7: selfies are never persisted.
 const enroll = files.find((f) => f.p === "lib/enroll.ts")?.src ?? "";

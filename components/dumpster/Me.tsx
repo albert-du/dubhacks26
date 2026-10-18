@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PublicDumpster, RoomState } from "@/lib/types";
+import type { PublicDumpster, DumpsterState } from "@/lib/types";
 
 export function Me(props: {
   dumpster: PublicDumpster;
-  me?: RoomState["me"];
+  me?: DumpsterState["me"];
   photosOfMe: number;
   onEnrolled: () => Promise<void>;
   onShowMine: () => void;

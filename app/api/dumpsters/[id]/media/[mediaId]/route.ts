@@ -7,7 +7,7 @@ import { storage } from "@/lib/storage";
 
 type Ctx = { params: Promise<{ id: string; mediaId: string }> };
 
-/** Open moderation: anyone in the room can pull any photo or video. Blobs go immediately. */
+/** Open moderation: anyone in the dumpster can pull any photo or video. Blobs go immediately. */
 export const DELETE = route<Ctx>(async (_req, { params }) => {
   const { id, mediaId } = await params;
   const d = await getLiveDumpster(id);

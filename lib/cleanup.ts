@@ -5,7 +5,7 @@ import { tiger } from "./tiger";
 
 /**
  * Hard delete of everything an event produced: blobs (originals, public renders, stickers),
- * media docs, face clusters + centroids, guest selfie vectors and phones, reactions, the room itself.
+ * media docs, face clusters + centroids, guest selfie vectors and phones, reactions, the dumpster itself.
  */
 export async function purgeDumpster(id: string, reason: "expired" | "host" | "orphan") {
   const c = await cols();
@@ -29,7 +29,7 @@ export async function purgeDumpster(id: string, reason: "expired" | "host" | "or
   return counts;
 }
 
-/** Purges every expired Dumpster, then sweeps storage for prefixes with no live room. */
+/** Purges every expired Dumpster, then sweeps storage for prefixes with no live dumpster. */
 export async function purgeExpired() {
   const { dumpsters } = await cols();
   const expired = await dumpsters.find({ expiresAt: { $lte: new Date() } }, { projection: { _id: 1 } }).toArray();

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { TTL_OPTIONS } from "@/lib/config";
-import { createDumpster, roomUrl } from "@/lib/dumpsters";
+import { createDumpster, dumpsterUrl } from "@/lib/dumpsters";
 import { route } from "@/lib/http";
 
 const Body = z.object({
@@ -12,7 +12,7 @@ const Body = z.object({
   settings: z.object({ allowVideo: z.boolean().optional() }).optional(),
 });
 
-/** Creates a room. Nothing about the creator is recorded — there is no owner. */
+/** Creates a dumpster. Nothing about the creator is recorded — there is no owner. */
 export const POST = route(async (req) => {
   const body = Body.parse(await req.json());
   const dumpster = await createDumpster({
@@ -20,5 +20,5 @@ export const POST = route(async (req) => {
     ttlHours: body.ttlHours as (typeof TTL_OPTIONS)[number],
     settings: body.settings,
   });
-  return NextResponse.json({ id: dumpster._id, url: roomUrl(dumpster._id) }, { status: 201 });
+  return NextResponse.json({ id: dumpster._id, url: dumpsterUrl(dumpster._id) }, { status: 201 });
 });

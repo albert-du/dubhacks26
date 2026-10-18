@@ -1,18 +1,18 @@
 import { config } from "./config";
 
 /**
- * Backboard realtime fan-out. The worker and API publish room events here so stage
+ * Backboard realtime fan-out. The worker and API publish dumpster events here so stage
  * displays and galleries update instantly. Browsers always have the SSE fallback
  * (/api/dumpsters/[id]/stream), so this stays fire-and-forget.
  * VERIFY the publish endpoint against Backboard's docs.
  */
-export type RoomEvent =
+export type DumpsterEvent =
   | { type: "media"; mediaId: string }
   | { type: "sticker"; stickerId: string }
   | { type: "clusters" }
   | { type: "destroyed" };
 
-export async function publish(dumpsterId: string, event: RoomEvent) {
+export async function publish(dumpsterId: string, event: DumpsterEvent) {
   if (!config.backboard.url) return;
   try {
     await fetch(`${config.backboard.url}/channels/dumpster-${dumpsterId}/events`, {

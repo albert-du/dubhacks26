@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import { MarkBlock } from "@/components/Brand";
 import { Burned } from "@/components/Burned";
 import { Countdown } from "@/components/ui";
-import { useRoom } from "@/lib/client/useRoom";
+import { useDumpster } from "@/lib/client/useDumpster";
 import { useUploader } from "@/lib/client/useUploader";
-import type { PublicMedia, RoomState } from "@/lib/types";
+import type { PublicMedia, DumpsterState } from "@/lib/types";
 import { Drop } from "./Drop";
 import { EventMap } from "./EventMap";
 import { Fire } from "./Fire";
@@ -40,13 +40,13 @@ export function inFilter(m: PublicMedia, filter: Filter | null) {
   return true;
 }
 
-export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: boolean; showMine: boolean }) {
+export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterState; isNew: boolean; showMine: boolean }) {
   const id = initial.dumpster.id;
   const uploader = useUploader(id);
-  const room = useRoom(initial, uploader.settle);
-  const { state } = room;
+  const dumpster = useDumpster(initial, uploader.settle);
+  const { state } = dumpster;
 
-  const mineFilter = (s: RoomState): Filter | null =>
+  const mineFilter = (s: DumpsterState): Filter | null =>
     s.me && s.me.clusterIds.length ? { kind: "faces", ids: s.me.clusterIds, label: "You", name: s.me.name } : null;
 
   const [tab, setTab] = useState<Tab>(showMine ? "pool" : isNew || !initial.media.length ? "drop" : "pool");
@@ -66,7 +66,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
     return n;
   }, [state.media]);
 
-  if (room.destroyed) return <Burned />;
+  if (dumpster.destroyed) return <Burned />;
 
   const copyLink = async () => {
     const url = `${window.location.origin}/${id}`;
@@ -133,7 +133,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
             goTo={setTab}
           />
         )}
-        {tab === "fire" && <Fire media={state.media} onReact={room.react} onOpen={open} />}
+        {tab === "fire" && <Fire media={state.media} onReact={dumpster.react} onOpen={open} />}
         {tab === "map" && (
           <EventMap
             media={state.media}
@@ -150,7 +150,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
             dumpster={state.dumpster}
             me={state.me}
             photosOfMe={state.me ? state.media.filter((m) => inFilter(m, mineFilter(state))).length : 0}
-            onEnrolled={room.refresh}
+            onEnrolled={dumpster.refresh}
             onShowMine={() => {
               setFilter(mineFilter(state));
               setTab("pool");
@@ -194,9 +194,9 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
           byId={byId}
           onIndex={(index) => setViewing({ ...viewing, index })}
           onClose={() => setViewing(null)}
-          onReact={room.react}
-          onDelete={room.remove}
-          onSticker={room.makeSticker}
+          onReact={dumpster.react}
+          onDelete={dumpster.remove}
+          onSticker={dumpster.makeSticker}
         />
       )}
     </div>

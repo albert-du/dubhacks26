@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { FireIcon } from "@/components/Brand";
 import { Burned } from "@/components/Burned";
 import { Countdown } from "@/components/ui";
-import { useRoom } from "@/lib/client/useRoom";
+import { useDumpster } from "@/lib/client/useDumpster";
 import { fireRank } from "@/lib/reactions";
-import type { RoomState } from "@/lib/types";
+import type { DumpsterState } from "@/lib/types";
 
 interface Stats {
   velocity: { t: string; n: number }[];
@@ -16,8 +16,8 @@ interface Stats {
 }
 
 /** Projector / TV view: live mosaic, giant QR, upload velocity, countdown. */
-export function Stage({ initial }: { initial: RoomState }) {
-  const { state, destroyed } = useRoom(initial);
+export function Stage({ initial }: { initial: DumpsterState }) {
+  const { state, destroyed } = useDumpster(initial);
   const [stats, setStats] = useState<Stats | null>(null);
   const id = state.dumpster.id;
 

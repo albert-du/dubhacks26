@@ -1,7 +1,7 @@
 "use client";
 
 import type { PublicSticker } from "@/lib/types";
-import type { Tab } from "./Room";
+import type { Tab } from "./DumpsterView";
 
 const tilt = (id: string) => ((id.split("").reduce((s, c) => s + c.charCodeAt(0), 0) % 9) - 4) * 1.1;
 

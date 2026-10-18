@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { ReactionKey } from "@/lib/reactions";
-import type { PublicCluster, PublicMedia, PublicSticker, RoomState } from "@/lib/types";
+import type { PublicCluster, PublicMedia, PublicSticker, DumpsterState } from "@/lib/types";
 
 function sortMedia(list: PublicMedia[]) {
   return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-/** Room state + live updates over SSE. `onReady` gets the ids of media that just finished processing. */
-export function useRoom(initial: RoomState, onReady?: (ids: string[]) => void) {
+/** Dumpster state + live updates over SSE. `onReady` gets the ids of media that just finished processing. */
+export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) => void) {
   const [state, setState] = useState(initial);
   const [destroyed, setDestroyed] = useState(false);
   const id = initial.dumpster.id;
@@ -47,7 +47,7 @@ export function useRoom(initial: RoomState, onReady?: (ids: string[]) => void) {
     es.addEventListener("destroyed", () => {
       setDestroyed(true);
       es.close();
-      navigator.serviceWorker?.controller?.postMessage({ type: "forget-room", path: `/${id}` });
+      navigator.serviceWorker?.controller?.postMessage({ type: "forget-dumpster", path: `/${id}` });
     });
     return () => es.close();
   }, [id, initial.cursor, mergeMedia]);

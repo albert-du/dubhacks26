@@ -39,7 +39,7 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Pages: network-first so rooms are fresh; fall back to the last copy when offline.
+  // Pages: network-first so dumpsters are fresh; fall back to the last copy when offline.
   if (req.mode === "navigate") {
     e.respondWith(
       fetch(req)
@@ -53,9 +53,9 @@ self.addEventListener("fetch", (e) => {
   }
 });
 
-// The page tells us when a room burns so its cached shell goes too.
+// The page tells us when a dumpster burns so its cached shell goes too.
 self.addEventListener("message", (e) => {
-  if (e.data?.type === "forget-room" && typeof e.data.path === "string") {
+  if (e.data?.type === "forget-dumpster" && typeof e.data.path === "string") {
     caches.open(CACHE).then((c) => Promise.all([c.delete(e.data.path), c.delete(`${e.data.path}/stage`)]));
   }
 });

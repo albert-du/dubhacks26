@@ -9,7 +9,7 @@ import type {
   PublicDumpster,
   PublicMedia,
   PublicSticker,
-  RoomState,
+  DumpsterState,
   Sticker,
 } from "./types";
 
@@ -73,7 +73,7 @@ export function publicSticker(s: Sticker): PublicSticker {
   return { id: s._id, mediaId: s.mediaId, label: s.label, url: s.publicKey ? fileUrl(s.publicKey) : undefined, status: s.status };
 }
 
-/** Face gallery: every person detected in the room, largest groups first. Names come from guests who enrolled. */
+/** Face gallery: every person detected in the dumpster, largest groups first. Names come from guests who enrolled. */
 export async function publicClusters(d: Dumpster): Promise<PublicCluster[]> {
   const { clusters, guests, media } = await cols();
   const list = await clusters.find({ dumpsterId: d._id }, { projection: { centroid: 0 } }).toArray();
@@ -109,7 +109,7 @@ export async function publicClusters(d: Dumpster): Promise<PublicCluster[]> {
     .sort((a, b) => b.count - a.count);
 }
 
-export async function roomState(d: Dumpster, viewer: string): Promise<RoomState> {
+export async function dumpsterState(d: Dumpster, viewer: string): Promise<DumpsterState> {
   const { media, stickers, guests, clusters } = await cols();
   const cursor = new Date();
   const list = await media

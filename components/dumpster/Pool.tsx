@@ -5,8 +5,8 @@ import { FireIcon } from "@/components/Brand";
 import { FaceThumb, frameNo } from "@/components/ui";
 import { groupMoments } from "@/lib/moments";
 import { matchSources, SOURCE_LABEL, type MatchSource } from "@/lib/search";
-import type { PublicCluster, PublicMedia, RoomState } from "@/lib/types";
-import { inFilter, type Filter, type Tab } from "./Room";
+import type { PublicCluster, PublicMedia, DumpsterState } from "@/lib/types";
+import { inFilter, type Filter, type Tab } from "./DumpsterView";
 
 type View = "grid" | "moments";
 
@@ -16,7 +16,7 @@ export function Pool(props: {
   frames: Map<string, number>;
   names: Map<string, string>;
   clusters: PublicCluster[];
-  me?: RoomState["me"];
+  me?: DumpsterState["me"];
   filter: Filter | null;
   setFilter: (f: Filter | null) => void;
   mine: Filter | null;

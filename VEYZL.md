@@ -7,7 +7,7 @@ This file is the rulebook for the VEYZL PR audit. Every PR runs two layers:
 
 ## Design stance
 
-Dump is **anonymous and host-less**. Nobody owns a room, nothing records who created a room or who uploaded what, and everyone in a room has the same powers, including deleting any photo. The privacy guarantees come from four properties: rooms can't be found, nothing identifies contributors, retention is short, and deletion is complete.
+Dump is **anonymous and host-less**. Nobody owns a dumpster, nothing records who created a dumpster or who uploaded what, and everyone in a dumpster has the same powers, including deleting any photo. The privacy guarantees come from four properties: dumpsters can't be found, nothing identifies contributors, retention is short, and deletion is complete.
 
 ## Rules
 
@@ -16,16 +16,16 @@ Dump is **anonymous and host-less**. Nobody owns a room, nothing records who cre
 | R1 | Retention is only ever 24, 48 or 72 hours. | `TTL_OPTIONS` in `lib/config.ts`; the Photon parser clamps unknown values to 24h |
 | R2 | Every MongoDB collection has a TTL index, so data dies even if the worker is down. | `EPHEMERAL_COLLECTIONS` in `lib/mongo.ts` |
 | R3 | Face vectors (`embedding`, `centroid`) never reach a browser. | `lib/serialize.ts` is the only browser-facing shaper; Mongo projections exclude vectors |
-| R4 | Only public renders (`{room}/public/*`) of **live** rooms are served. Originals can't be reached. | `app/api/files/[...key]/route.ts` |
+| R4 | Only public renders (`{dumpster}/public/*`) of **live** dumpsters are served. Originals can't be reached. | `app/api/files/[...key]/route.ts` |
 | R5 | **Anonymity:** `Dumpster` and `Media` carry no creator, uploader, host, owner, phone or IP field, and no route reads client IPs. | `lib/types.ts`; text-to-create uses the sender's number for the one reply only |
-| R6 | **Unguessable rooms:** room ids are ≥122-bit CSPRNG ids, and malformed ids are rejected before any lookup. | `lib/dumpsters.ts` (25 chars × 32-symbol alphabet = 125 bits) |
+| R6 | **Unguessable dumpsters:** dumpster ids are ≥122-bit CSPRNG ids, and malformed ids are rejected before any lookup. | `lib/dumpsters.ts` (25 chars × 32-symbol alphabet = 125 bits) |
 | R7 | Selfies are embedded in memory and never stored. | `lib/enroll.ts` |
 | R8 | Expiry hard-deletes blobs, media, face clusters, guest vectors, names, phones, reactions and stickers. | `purgeDumpster()` in `lib/cleanup.ts`, run every 60s by the worker, plus an orphaned-blob sweep |
 | R9 | Phone numbers are never logged in full. | `maskPhone()` |
 
 ## What is stored, and for how long
 
-All of the following is deleted when the room burns.
+All of the following is deleted when the dumpster burns.
 
 | Data | Why | Who it identifies |
 |---|---|---|
@@ -44,11 +44,11 @@ The Dumpster Fire leaderboard is computed only from people's 🔥 reactions, wit
 
 ## Auditable deletion
 
-- TigerData `cleanup_queue` records when each room is due to burn. `cleanup_runs` records what was deleted and when.
+- TigerData `cleanup_queue` records when each dumpster is due to burn. `cleanup_runs` records what was deleted and when.
 - The `overdue_cleanups` view must be empty. Any row in it is a compliance violation.
 
 ## Known gaps (to be flagged, not hidden)
 
 - Open moderation means any guest can delete any media. That's intended, but there's no undo or rate limit yet.
-- People in photos are visible unblurred to everyone with the room link. The link is the only access control.
+- People in photos are visible unblurred to everyone with the dumpster link. The link is the only access control.
 - Browser HTTP caches may hold public renders for up to 1 hour after a burn. The service worker never caches media.

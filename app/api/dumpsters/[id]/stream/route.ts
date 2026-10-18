@@ -12,7 +12,7 @@ const POLL_MS = 2000;
 const OVERLAP_MS = 5000;
 
 /**
- * Server-Sent Events feed for a room. Works everywhere without extra infra; Backboard
+ * Server-Sent Events feed for a dumpster. Works everywhere without extra infra; Backboard
  * (lib/backboard.ts) carries the same events for stage displays when configured.
  */
 export async function GET(req: Request, { params }: Ctx) {

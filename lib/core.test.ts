@@ -5,7 +5,7 @@ import { parseCommand } from "./commands";
 import { cosine, nearest, updateCentroid } from "./faces";
 import { parseVision } from "./perceptron";
 import { emptyReactions, fireRank } from "./reactions";
-import { isRoomId, ROOM_ID_ALPHABET, ROOM_ID_LENGTH } from "./dumpsters";
+import { isDumpsterId, DUMPSTER_ID_ALPHABET, DUMPSTER_ID_LENGTH } from "./dumpsters";
 import { normalizeImage } from "./imaging";
 import { findMentions } from "./transcribe";
 
@@ -19,12 +19,12 @@ test("photon: parses create commands with smart quotes and TTL", () => {
   assert.equal(parseCommand("lol").type, "unknown");
 });
 
-test("rooms: ids are high-entropy and strictly validated", () => {
-  const bits = ROOM_ID_LENGTH * Math.log2(ROOM_ID_ALPHABET.length);
+test("dumpsters: ids are high-entropy and strictly validated", () => {
+  const bits = DUMPSTER_ID_LENGTH * Math.log2(DUMPSTER_ID_ALPHABET.length);
   assert.ok(bits >= 122, `only ${bits} bits`);
-  assert.ok(isRoomId("a".repeat(ROOM_ID_LENGTH)));
-  assert.ok(!isRoomId("mt-si-hike-7s9kz"));
-  assert.ok(!isRoomId("../../etc/passwd"));
+  assert.ok(isDumpsterId("a".repeat(DUMPSTER_ID_LENGTH)));
+  assert.ok(!isDumpsterId("mt-si-hike-7s9kz"));
+  assert.ok(!isDumpsterId("../../etc/passwd"));
 });
 
 test("imaging: public renders carry no EXIF/GPS metadata", async () => {

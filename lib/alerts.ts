@@ -1,5 +1,5 @@
 import { config } from "./config";
-import { roomUrl } from "./dumpsters";
+import { dumpsterUrl } from "./dumpsters";
 import { cols } from "./mongo";
 import { maskPhone, photon } from "./photon";
 
@@ -23,7 +23,7 @@ export async function flushFaceAlerts() {
     if (!d || d.expiresAt.getTime() <= Date.now() || !g.phone) continue;
     const p = g.pendingPhotoAlerts;
     const mm = g.pendingMentionAlerts;
-    const url = `${roomUrl(d._id)}?me=1`;
+    const url = `${dumpsterUrl(d._id)}?me=1`;
     const lines: string[] = [];
     if (p > 0) lines.push(`📸 ${p} new photo${p === 1 ? "" : "s"} of you just dropped into the Dumpster "${d.name}"!`);
     if (mm > 0) lines.push(`🎙️ Your name was mentioned in ${mm === 1 ? "a new video" : `${mm} new videos`}.`);
@@ -61,7 +61,7 @@ export async function sendExpiryWarnings() {
     const text = [
       `🔥 "${d.name}" burns in ${left}.`,
       `${count} photo${count === 1 ? "" : "s"} & videos inside${fires ? ` — the top Dumpster Fire has ${fires} 🔥` : ""}.`,
-      `Save what you want before it's gone: ${roomUrl(d._id)}`,
+      `Save what you want before it's gone: ${dumpsterUrl(d._id)}`,
     ].join("\n");
 
     const phones = new Set<string>();

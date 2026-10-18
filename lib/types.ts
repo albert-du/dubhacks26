@@ -16,7 +16,7 @@ export interface Dumpster {
   expiresAt: Date;
   /** Mongo TTL backstop — the worker normally purges before this. */
   hardDeleteAt: Date;
-  // Deliberately no creator field: rooms are anonymous and nobody owns them.
+  // Deliberately no creator field: dumpsters are anonymous and nobody owns them.
   settings: DumpsterSettings;
   warningSent?: boolean;
 }
@@ -67,7 +67,7 @@ export interface Media {
   sha256: string;
   /** 64-bit pixel hash (images only), for near-duplicate detection. */
   phash?: string;
-  /** Set when this is a duplicate of an earlier upload in the same room. */
+  /** Set when this is a duplicate of an earlier upload in the same dumpster. */
   duplicateOf?: string;
   width?: number;
   height?: number;
@@ -177,7 +177,7 @@ export interface PublicDumpster {
   settings: DumpsterSettings;
 }
 
-export interface RoomState {
+export interface DumpsterState {
   dumpster: PublicDumpster;
   media: PublicMedia[];
   clusters: PublicCluster[];
