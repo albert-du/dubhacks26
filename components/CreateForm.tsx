@@ -24,7 +24,7 @@ export function CreateForm() {
     }).catch(() => null);
     const body = await r?.json().catch(() => ({}));
     if (!r?.ok) {
-      setError(body?.error ?? "Couldn’t reach Dump. Check your connection and try again.");
+      setError(body?.error ?? "Couldn’t reach dump. Check your connection and try again.");
       setBusy(false);
       return;
     }

@@ -32,7 +32,7 @@ export function Pack({
           pack
         </h2>
         <p className="mt-3 text-sm leading-snug">
-          Open a photo, tap <b>Sticker</b>, and pick a person. Dump cuts them out of the shot. <b>Add to phone</b> opens the
+          Open a photo, tap <b>Sticker</b>, and pick a person. dump cuts them out of the shot. <b>Add to phone</b> opens the
           share sheet with a PNG sticker, so Messages on an iPhone receives the sticker itself. Press and hold a sticker to save it too.
         </p>
       </div>

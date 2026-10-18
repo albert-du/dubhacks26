@@ -2,7 +2,7 @@ import type { StyleSpecification } from "maplibre-gl";
 
 /**
  * Paper-and-ink map for the scene tab. Vector tiles and glyphs come from
- * OpenFreeMap; the style itself stays in the app so the colors match Dump.
+ * OpenFreeMap; the style itself stays in the app so the colors match dump.
  * Water is blue. Grass is the working green. Motorways, including the
  * bridges drawn with them, are ink. Parks and woods stay a green washed
  * into the paper. Everything else is ink, bone, or smoke.
@@ -35,7 +35,7 @@ const PLACE = ["coalesce", ["get", "name_en"], ["get", "name"]];
 export function dumpMapStyle(): StyleSpecification {
   return {
     version: 8,
-    name: "Dump",
+    name: "dump",
     sources: {
       openmaptiles: { type: "vector", url: MAP_TILES },
     },

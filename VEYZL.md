@@ -1,4 +1,4 @@
-# VEYZL privacy & security policy for Dump
+# VEYZL privacy & security policy for dump
 
 This file is the rulebook for the VEYZL PR audit. Every PR runs two layers:
 
@@ -7,7 +7,7 @@ This file is the rulebook for the VEYZL PR audit. Every PR runs two layers:
 
 ## Design stance
 
-Dump is **account-free and host-less**. To use a dumpster you sign in to that one dumpster: a name and a selfie the first time, and the name alone after that. There are no accounts and the sign-in burns with the dumpster. Nobody owns a dumpster, nothing records who created a dumpster or who uploaded which photo, and everyone signed in has the same powers, including deleting any photo. The privacy guarantees come from four properties: dumpsters can't be found, uploads aren't tied to people, retention is short, and deletion is complete.
+dump is **account-free and host-less**. To use a dumpster you sign in to that one dumpster: a name and a selfie the first time, and the name alone after that. There are no accounts and the sign-in burns with the dumpster. Nobody owns a dumpster, nothing records who created a dumpster or who uploaded which photo, and everyone signed in has the same powers, including deleting any photo. The privacy guarantees come from four properties: dumpsters can't be found, uploads aren't tied to people, retention is short, and deletion is complete.
 
 ## Rules
 
@@ -55,7 +55,7 @@ The Dumpster Fire leaderboard is computed only from people's 🔥 reactions, wit
 - Open moderation means any guest can delete any media. That's intended, but there's no undo or rate limit yet.
 - A name is the only thing needed to sign back in. Anyone with the link who types a name already signed in here becomes that guest: their face match, and their alert connection (they can disconnect it or point it at their own number). No phone number or vector is revealed. This matches the stance that the link is the lock.
 - A first sign-in's selfie is checked against the pile before it is saved. If it looks like a signed-in guest, the browser is told that guest's name, so anyone with the link can learn which name a face belongs to. That name is already on the face in the gallery. The selfie is still analyzed in memory and not kept.
-- Anyone signed in can rename a face to someone's signed-in name and confirm "same person", which moves that face group to them. Renaming yourself in Me to a signed-in name and confirming merges your sign-in into theirs (phones, faces, and a verified text connection if they have none). Like deleting a shot or a sticker, this is open moderation with no undo. Hiding a face can be undone from the Dump's hidden list.
+- Anyone signed in can rename a face to someone's signed-in name and confirm "same person", which moves that face group to them. Renaming yourself in Me to a signed-in name and confirming merges your sign-in into theirs (phones, faces, and a verified text connection if they have none). Like deleting a shot or a sticker, this is open moderation with no undo. Hiding a face can be undone from the dump's hidden list.
 - People in photos are visible unblurred to everyone with the dumpster link. The link is the only access control.
 - Browser HTTP caches may hold public renders for up to 1 hour after a burn. The service worker never caches media.
 - The map tab loads OpenFreeMap vector tiles for the area around shots. A tile request tells OpenFreeMap that area. It is the same rounded GPS already shown to anyone with the dumpster link. No dumpster id, photo, or account is sent.

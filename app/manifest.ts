@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Dump — dumpster.photo",
-    short_name: "Dump",
+    name: "dump — dumpster.photo",
+    short_name: "dump",
     description: "One shared photo pile for your event. It burns after 24, 48 or 72 hours.",
     start_url: "/",
     display: "standalone",

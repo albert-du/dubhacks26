@@ -26,7 +26,7 @@ function spread(k: number, px: number, zoomedIn = 0): [number, number] {
 
 /**
  * The scene: every shot with a location, as a small thumbnail on an OpenFreeMap drawn in
- * Dump's paper and ink. Zoom in and the thumbnails keep their size while the map grows
+ * dump's paper and ink. Zoom in and the thumbnails keep their size while the map grows
  * under them, so they separate and each can be tapped; zoom out and they shrink to fit. The "use two fingers" hint shows once per sign-in. Full screen frees one-finger panning. Tile requests cover the area already
  * shown on the pins. While MapLibre and its tiles are still arriving, the same thumbnails
  * sit on a plain grid so the scene is not blank. If the phone has no WebGL, that grid stays.
