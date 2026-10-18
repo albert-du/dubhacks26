@@ -1,6 +1,7 @@
 import { backboard } from "./backboard";
 import { cols } from "./mongo";
 import { emptyReactions, type ReactionKey } from "./reactions";
+import { notificationStatus } from "./notifications";
 import type {
   Cluster,
   Dumpster,
@@ -126,7 +127,7 @@ export async function dumpsterState(d: Dumpster, viewer: string): Promise<Dumpst
     media: list.map((m) => publicMedia(m, mine.get(m._id) ?? [])),
     clusters: await publicClusters(d),
     stickers: (await stickers.find({ dumpsterId: d._id }).sort({ createdAt: -1 }).toArray()).map(publicSticker),
-    me: me ? { guestId: me._id, name: me.name, clusterIds: myClusters.map((c) => c._id) } : undefined,
+    me: me ? { guestId: me._id, name: me.name, clusterIds: myClusters.map((c) => c._id), notifications: notificationStatus(me) } : undefined,
     canAsk: backboard.enabled(),
     cursor: cursor.toISOString(),
   };

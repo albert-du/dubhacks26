@@ -9,14 +9,14 @@ import { tiger } from "./tiger";
 import type { Dumpster, Guest } from "./types";
 
 /**
- * Guest opt-in: name + optional phone + 1-second selfie.
+ * Guest opt-in: name + optional selfie. Messaging has its own verified connection.
  * The selfie is embedded in memory and discarded — only the vector is stored, and it
  * expires with the Dumpster. It names your face in the gallery and powers "new photos of you" texts.
  */
 export async function enrollGuest(
   d: Dumpster,
   viewerId: string,
-  input: { name: string; phone?: string; selfie?: Buffer },
+  input: { name: string; selfie?: Buffer },
 ): Promise<{ guestId: string; faceMatched: boolean; clustersClaimed: number }> {
   const { guests, clusters } = await cols();
 
@@ -36,7 +36,6 @@ export async function enrollGuest(
     dumpsterId: d._id,
     viewerId,
     name: input.name,
-    phone: input.phone,
     embedding: embedding ?? existing?.embedding,
     pendingPhotoAlerts: existing?.pendingPhotoAlerts ?? 0,
     pendingMentionAlerts: existing?.pendingMentionAlerts ?? 0,
@@ -44,7 +43,11 @@ export async function enrollGuest(
     createdAt: existing?.createdAt ?? new Date(),
     expiresAt: d.expiresAt,
   };
-  await guests.replaceOne({ _id: guest._id }, guest, { upsert: true });
+  // Updating a profile must not overwrite a connection verified by a concurrent webhook.
+  await guests.updateOne({ _id: guest._id }, {
+    $set: { dumpsterId: d._id, viewerId, name: guest.name, ...(embedding ? { embedding } : {}) },
+    $setOnInsert: { createdAt: guest.createdAt, expiresAt: d.expiresAt, pendingPhotoAlerts: 0, pendingMentionAlerts: 0 },
+  }, { upsert: true });
   await tiger.engagement(d._id, "enroll");
 
   if (!embedding) return { guestId: guest._id, faceMatched: false, clustersClaimed: 0 };

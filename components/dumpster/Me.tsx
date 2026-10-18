@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PublicDumpster, DumpsterState } from "@/lib/types";
+import { NotificationSettings } from "./NotificationSettings";
 
 export function Me(props: {
   dumpster: PublicDumpster;
@@ -12,7 +13,6 @@ export function Me(props: {
 }) {
   const [editing, setEditing] = useState(!props.me);
   const [name, setName] = useState(props.me?.name ?? "");
-  const [phone, setPhone] = useState("");
   const [consent, setConsent] = useState(false);
   const [selfie, setSelfie] = useState<Blob | null>(null);
   const [camera, setCamera] = useState(false);
@@ -27,7 +27,6 @@ export function Me(props: {
     setMsg(null);
     const form = new FormData();
     form.append("name", name);
-    form.append("phone", phone);
     form.append("consent", consent ? "yes" : "no");
     if (selfie) form.append("selfie", selfie, "selfie.jpg");
     const r = await fetch(`/api/dumpsters/${props.dumpster.id}/guests`, { method: "POST", body: form }).catch(() => null);
@@ -74,7 +73,7 @@ export function Me(props: {
               <br />
               yourself.
             </h2>
-            <p className="mt-2 text-sm leading-snug">Take a quick selfie to pull up every shot you’re in. Leave a number and we’ll text you when new ones land.</p>
+            <p className="mt-2 text-sm leading-snug">Take a quick selfie to pull up every shot you’re in. You can connect optional iMessage alerts after saving your name.</p>
           </div>
 
           <div className="border-3 border-ink">
@@ -108,15 +107,11 @@ export function Me(props: {
             <span className="label mb-1 block">Name (how friends say it in videos)</span>
             <input className="field" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required autoComplete="given-name" />
           </label>
-          <label className="block">
-            <span className="label mb-1 block">Phone (optional) — for “new photos of you” texts</span>
-            <input className="field" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
-          </label>
 
           <label className="flex cursor-pointer items-start gap-3 border-3 border-ink p-3">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 size-5 accent-[#46a65a]" />
             <span className="text-sm leading-snug">
-              Tag me in this Dumpster’s photos and text me when I show up. My selfie isn’t kept, and my name and number{" "}
+              Tag me in this Dumpster’s photos. My selfie isn’t kept, and my name{" "}
               <b>burn with this Dumpster</b>.
             </span>
           </label>
@@ -129,6 +124,7 @@ export function Me(props: {
         </form>
       )}
       {msg?.tone === "ok" && !editing && <p className="border-b-3 border-ink bg-green/20 p-3 text-sm">{msg.text}</p>}
+      {props.me && !editing && <NotificationSettings dumpsterId={props.dumpster.id} initial={props.me.notifications} onConnected={props.onEnrolled} />}
     </section>
   );
 }

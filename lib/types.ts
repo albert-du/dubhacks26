@@ -18,7 +18,6 @@ export interface Dumpster {
   hardDeleteAt: Date;
   // Deliberately no creator field: dumpsters are anonymous and nobody owns them.
   settings: DumpsterSettings;
-  warningSent?: boolean;
   /**
    * Ask-the-pool assistant. Created on the first question and deleted, with its
    * thread and memories, when the dumpster is purged.
@@ -32,6 +31,24 @@ export interface Guest {
   viewerId: string;
   name: string;
   phone?: string;
+  /** Verified routing for this guest only; never sent to another browser. */
+  notification?: {
+    spaceId: string;
+    agentUserId: string;
+    recipientUserId: string;
+    verifiedAt: Date;
+    connectedMessageId: string;
+  };
+  notificationPending?: {
+    codeHash: string;
+    phone: string;
+    agentNumber: string;
+    expiresAt: Date;
+  };
+  notificationRequestedAt?: Date;
+  expiryWarningSentAt?: Date;
+  /** Frozen retry payload, removed once the provider accepts it. */
+  expiryWarningText?: string;
   /** Face vector from the enrollment selfie. The selfie image itself is never stored. */
   embedding?: number[];
   pendingPhotoAlerts: number;
@@ -187,8 +204,11 @@ export interface DumpsterState {
   media: PublicMedia[];
   clusters: PublicCluster[];
   stickers: PublicSticker[];
-  me?: { guestId: string; name: string; clusterIds: string[] };
+  me?: { guestId: string; name: string; clusterIds: string[]; notifications?: NotificationStatus };
   /** True when BACKBOARD_API_KEY is set. The browser never receives the key. */
   canAsk: boolean;
   cursor: string;
 }
+
+/** Connection state only. Private routing and guest numbers stay on the server. */
+export type NotificationStatus = { state: "disconnected" | "connected" } | { state: "pending"; expiresAt: string };

@@ -16,7 +16,7 @@ test("photon: reads a message.received event", () => {
         status: "received",
         sentBy: { id: "pho_usr_human", kind: "human", handle: "+1 (206) 555-0123" },
         receivedBy: { id: "pho_usr_agent", kind: "agent", handle: "+14155550188" },
-        space: { id: "pho_spc_dm" },
+        space: { id: "pho_spc_dm", kind: "direct" },
         content: { type: "text", format: "plain", text: 'Create dumpster "Mt. Si Hike" 48h' },
       },
     },
@@ -29,6 +29,10 @@ test("photon: reads a message.received event", () => {
       spaceId: "pho_spc_dm",
       agentUserId: "pho_usr_agent",
       messageId: "pho_msg_in",
+      platform: "imessage",
+      spaceKind: "direct",
+      agentHandle: "+14155550188",
+      senderUserId: "pho_usr_human",
     },
   });
 });
@@ -160,6 +164,7 @@ test("photon: sends through user, space, then message, and stays quiet without c
     assert.equal(calls[0].authorization, "Bearer pho_sk_test");
 
     process.env.PHOTON_PLATFORM = "imessage";
+    delete process.env.PHOTON_AGENT_USER_ID;
     await photon.reply({
       text: "iMessage is connected",
       spaceId: "pho_spc_shared",
