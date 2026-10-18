@@ -67,7 +67,19 @@ export const perceptron = {
       model: config.perceptron.model,
       temperature: 0,
       max_completion_tokens: 512,
-      response_format: { type: "json_object" },
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "vision_review",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: { safe: { type: "boolean" }, grounded: { type: "boolean" } },
+            required: ["safe", "grounded"],
+            additionalProperties: false,
+          },
+        },
+      },
       messages: [{ role: "system", content: VISION_REVIEW_POLICY }, { role: "user", content: [
         { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpeg.toString("base64")}` } },
         { type: "text", text: JSON.stringify({ question: prompt, proposedAnswer: answer }) },

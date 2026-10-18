@@ -48,6 +48,8 @@ test("vision HTTP endpoint passes real image bytes and the prompt to the SDK", a
     const call = calls.at(-2);
     assert.equal(call.messages[0].role, "system");
     assert.match(call.messages[0].content, /Never invent/);
+    assert.equal(calls.at(-1).response_format.type, "json_schema");
+    assert.equal(calls.at(-1).response_format.json_schema.strict, true);
     assert.equal(call.model, config.perceptron.model);
     assert.equal(call.messages[1].content[1].text, "What color is this?");
     const forwarded = Buffer.from(call.messages[1].content[0].image_url.url.split(",")[1], "base64");
