@@ -120,6 +120,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         <SignIn
           dumpster={state.dumpster}
           me={state.me}
+          clusters={state.clusters}
           onSignedIn={dumpster.refresh}
           onEnrolled={() => setOnboarding(true)}
           onDone={() => setOnboarding(false)}

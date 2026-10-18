@@ -1,7 +1,7 @@
 import { MongoServerError } from "mongodb";
 import { nanoid } from "nanoid";
 import { config } from "./config";
-import { identityScore } from "./faces";
+import { cosine, identityScore } from "./faces";
 import { faceEmbed } from "./faceEmbed";
 import { HttpError } from "./http";
 import { cols } from "./mongo";
@@ -19,6 +19,58 @@ const taken = (name: string) =>
 
 const isDuplicateName = (e: unknown) => e instanceof MongoServerError && e.code === 11000;
 
+/** The biggest face in a selfie, embedded in memory. Undefined when face matching is off or down. */
+async function embedSelfie(selfie: Buffer): Promise<number[] | undefined> {
+  if (!faceEmbed.enabled()) return undefined;
+  const { jpeg } = await normalizeImage(selfie);
+  const faces = await faceEmbed.detect(jpeg).catch(() => null);
+  if (faces && !faces.length) throw new HttpError(422, "Couldn't find a face. More light, closer to the camera.");
+  const area = (b: number[]) => (b[2] - b[0]) * (b[3] - b[1]);
+  return faces?.sort((a, b) => area(b.box) - area(a.box))[0].embedding;
+}
+
+/**
+ * Before a first sign-in is saved: who does this selfie look like?
+ * `guest` is someone already signed in here with this face (ask "is that you?").
+ * `faceIds` are unclaimed faces in the pile that look like you (offer to claim them).
+ * The selfie is not kept; the browser sends it again to sign in.
+ */
+export async function matchSelfie(
+  d: Dumpster,
+  viewerId: string,
+  selfie: Buffer,
+): Promise<{ guest?: { name: string }; faceIds: string[] }> {
+  const embedding = await embedSelfie(selfie);
+  if (!embedding) return { faceIds: [] };
+  const { guests, clusters } = await cols();
+  const self = await guests.findOne({ dumpsterId: d._id, viewerIds: viewerId }, { projection: { _id: 1 } });
+  const threshold = config.faceMatchThreshold;
+
+  const hits = (await clusters.find({ dumpsterId: d._id }).toArray())
+    .map((c) => ({ c, score: identityScore(c, embedding) }))
+    .filter((h) => h.score >= threshold);
+
+  // The closest other guest, by a face they've claimed or by their own selfie.
+  const scores = new Map<string, number>();
+  for (const { c, score } of hits) {
+    if (c.guestId && c.guestId !== self?._id) scores.set(c.guestId, Math.max(scores.get(c.guestId) ?? 0, score));
+  }
+  const enrolled = await guests
+    .find({ dumpsterId: d._id, embedding: { $exists: true }, ...(self ? { _id: { $ne: self._id } } : {}) }, { projection: { embedding: 1 } })
+    .toArray();
+  for (const g of enrolled) {
+    const score = cosine(g.embedding!, embedding);
+    if (score >= threshold) scores.set(g._id, Math.max(scores.get(g._id) ?? 0, score));
+  }
+  const best = [...scores.entries()].sort((a, b) => b[1] - a[1])[0];
+  const guest = best ? await guests.findOne({ _id: best[0] }, { projection: { name: 1 } }) : null;
+
+  return {
+    ...(guest ? { guest: { name: guest.name } } : {}),
+    faceIds: hits.filter((h) => !h.c.guestId).sort((a, b) => b.score - a.score).map((h) => h.c._id),
+  };
+}
+
 /**
  * The first sign-in to a dumpster: a name and a quick selfie. There are no accounts; the
  * sign-in lives on this dumpster only and burns with it. After this, the name alone gets
@@ -31,7 +83,8 @@ const isDuplicateName = (e: unknown) => e instanceof MongoServerError && e.code 
 export async function enrollGuest(
   d: Dumpster,
   viewerId: string,
-  input: { name: string; selfie: Buffer },
+  /** `claim`: the matched faces they said are them. Left out (a new selfie from Me), every match is claimed. */
+  input: { name: string; selfie: Buffer; claim?: string[] },
 ): Promise<{ guestId: string; faceMatched: boolean; clustersClaimed: number }> {
   const { guests, clusters } = await cols();
   const key = nameKey(input.name);
@@ -40,14 +93,7 @@ export async function enrollGuest(
   const holder = await guests.findOne({ dumpsterId: d._id, nameKey: key }, { projection: { _id: 1 } });
   if (holder && holder._id !== existing?._id) throw taken(input.name);
 
-  let embedding: number[] | undefined;
-  if (faceEmbed.enabled()) {
-    const { jpeg } = await normalizeImage(input.selfie);
-    const faces = await faceEmbed.detect(jpeg).catch(() => null);
-    if (faces && !faces.length) throw new HttpError(422, "Couldn't find a face. More light, closer to the camera.");
-    const area = (b: number[]) => (b[2] - b[0]) * (b[3] - b[1]);
-    embedding = faces?.sort((a, b) => area(b.box) - area(a.box))[0].embedding;
-  }
+  const embedding = await embedSelfie(input.selfie);
 
   const guestId = existing?._id ?? nanoid(12);
   // Updating a sign-in must not overwrite a connection verified by a concurrent webhook.
@@ -67,11 +113,15 @@ export async function enrollGuest(
   await clusters.updateMany({ dumpsterId: d._id, guestId }, { $set: { name: input.name, updatedAt: new Date() } });
   if (!embedding) return { guestId, faceMatched: false, clustersClaimed: 0 };
 
-  // Claim every unclaimed face that looks like you, and name it.
+  // Claim the unclaimed faces that look like you (the ones you picked), and name them.
   const candidates = await clusters
     .find({ dumpsterId: d._id, $or: [{ guestId: { $exists: false } }, { guestId }] })
     .toArray();
-  const matched = candidates.filter((c) => identityScore(c, embedding!) >= config.faceMatchThreshold).map((c) => c._id);
+  const picked = input.claim && new Set(input.claim);
+  const matched = candidates
+    .filter((c) => identityScore(c, embedding!) >= config.faceMatchThreshold)
+    .filter((c) => c.guestId === guestId || !picked || picked.has(c._id))
+    .map((c) => c._id);
 
   if (matched.length) {
     await clusters.updateMany({ _id: { $in: matched } }, { $set: { guestId, name: input.name, updatedAt: new Date() } });

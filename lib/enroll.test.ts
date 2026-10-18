@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import sharp from "sharp";
 import { config } from "./config";
-import { claimFaces, enrollGuest, forgetGuest, nameKey, renameGuest, signInByName, signOutGuest } from "./enroll";
+import { claimFaces, enrollGuest, forgetGuest, matchSelfie, nameKey, renameGuest, signInByName, signOutGuest } from "./enroll";
 import { faceEmbed } from "./faceEmbed";
 import { HttpError } from "./http";
 import { closeMongo, cols, db } from "./mongo";
@@ -79,6 +79,58 @@ test("enroll: first sign-in takes a selfie, then the name alone gets you back in
     assert.equal(await signInByName(d, "phone", "Sammy", false), "new");
   } finally {
     faceEmbed.enabled = enabled;
+    await (await db()).dropDatabase();
+    await closeMongo();
+    config.mongoUri = saved.uri;
+    config.mongoDb = saved.name;
+    config.tigerUrl = saved.tiger;
+  }
+});
+
+test("enroll: a selfie finds the guest it looks like and the unclaimed faces to claim", { skip: !process.env.TEST_MONGODB_URI }, async () => {
+  const saved = { uri: config.mongoUri, name: config.mongoDb, tiger: config.tigerUrl };
+  const { enabled, detect } = faceEmbed;
+  await closeMongo();
+  config.mongoUri = process.env.TEST_MONGODB_URI!;
+  config.mongoDb = `dump_connection_test_match_${process.pid}_${Date.now()}`;
+  config.tigerUrl = undefined;
+  let face = [1, 0, 0];
+  faceEmbed.enabled = () => true;
+  faceEmbed.detect = async () => [{ box: [0, 0, 1, 1], embedding: face, score: 1 }];
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 3600_000);
+  const d: Dumpster = { _id: "demo", name: "Demo", ttlHours: 24, createdAt: now, expiresAt, hardDeleteAt: new Date(expiresAt.getTime() + 3600_000), settings: { allowVideo: false } };
+  const selfie = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#888" } }).jpeg().toBuffer();
+  const cluster = (id: string, centroid: number[]) => ({ _id: id, dumpsterId: d._id, centroid, n: 2, expiresAt, updatedAt: now });
+  try {
+    const { dumpsters, clusters } = await cols();
+    await dumpsters.insertOne(d);
+    // Lee's face is in the pile twice (two groups) before Lee signs in; Kai's face once.
+    await clusters.insertMany([cluster("lee-1", [1, 0, 0]), cluster("lee-2", [0.99, 0.1, 0]), cluster("kai", [0, 1, 0])]);
+
+    const first = await matchSelfie(d, "lee-phone", selfie);
+    assert.equal(first.guest, undefined);
+    assert.deepEqual(first.faceIds.sort(), ["lee-1", "lee-2"]);
+
+    // Lee keeps one group and says the other isn't them.
+    await enrollGuest(d, "lee-phone", { name: "Lee", selfie, claim: ["lee-1"] });
+    assert.deepEqual((await dumpsterState(d, "lee-phone")).me?.clusterIds, ["lee-1"]);
+    assert.equal((await clusters.findOne({ _id: "lee-2" }))?.guestId, undefined);
+    assert.equal((await clusters.findOne({ _id: "lee-1" }))?.name, "Lee");
+
+    // The same face on another phone: we ask whether they're Lee.
+    const again = await matchSelfie(d, "lee-laptop", selfie);
+    assert.deepEqual(again.guest, { name: "Lee" });
+    assert.deepEqual(again.faceIds, ["lee-2"]);
+
+    // Lee's own phone isn't told it looks like Lee.
+    assert.equal((await matchSelfie(d, "lee-phone", selfie)).guest, undefined);
+
+    // Someone else gets only their own unclaimed face.
+    face = [0, 1, 0];
+    assert.deepEqual(await matchSelfie(d, "kai-phone", selfie), { faceIds: ["kai"] });
+  } finally {
+    Object.assign(faceEmbed, { enabled, detect });
     await (await db()).dropDatabase();
     await closeMongo();
     config.mongoUri = saved.uri;

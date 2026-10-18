@@ -12,7 +12,8 @@ const Name = z.string().trim().min(1, "What should we call you?").max(40);
 /**
  * Sign in to this dumpster.
  * JSON `{ name, confirm? }`: the name alone, for anyone who has signed in here before.
- * Form data `{ name, selfie }`: the first time (or a new selfie from Me).
+ * Form data `{ name, selfie, claim? }`: the first time (or a new selfie from Me). `claim` is a JSON
+ * list of the matched faces they said are them (see /guests/match).
  */
 export const POST = route<Ctx>(async (req, { params }) => {
   const d = await getLiveDumpster((await params).id);
@@ -30,7 +31,8 @@ export const POST = route<Ctx>(async (req, { params }) => {
   if (!(selfieFile instanceof File) || !selfieFile.size) throw new HttpError(400, "Add a selfie so people can find your photos");
   if (selfieFile.size > 15 * 1024 * 1024) throw new HttpError(413, "That selfie is too large");
 
-  const result = await enrollGuest(d, await viewerId(), { name, selfie: Buffer.from(await selfieFile.arrayBuffer()) });
+  const claim = form.has("claim") ? z.array(z.string().max(40)).max(200).parse(JSON.parse(String(form.get("claim")))) : undefined;
+  const result = await enrollGuest(d, await viewerId(), { name, selfie: Buffer.from(await selfieFile.arrayBuffer()), claim });
   return NextResponse.json(result);
 });
 
