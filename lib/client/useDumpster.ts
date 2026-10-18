@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { ReactionKey } from "@/lib/reactions";
+import { newestShotFirst } from "@/lib/shotOrder";
 import type { PublicCluster, PublicMedia, PublicSticker, DumpsterState, SameName, StickerTarget } from "@/lib/types";
 
-function sortMedia(list: PublicMedia[]) {
-  return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
+const sortMedia = (list: PublicMedia[]) => newestShotFirst(list);
 
 /** Dumpster state + live updates over SSE. `onReady` gets the ids of media that just finished processing. */
 export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) => void) {
