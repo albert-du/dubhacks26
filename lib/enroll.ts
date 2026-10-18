@@ -7,12 +7,10 @@ import { HttpError } from "./http";
 import { cols } from "./mongo";
 import { normalizeImage } from "./imaging";
 import { tiger } from "./tiger";
+import { nameHolders, nameKey, sameNameError } from "./names";
 import type { Dumpster, Guest } from "./types";
 
-/** Names are unique within a dumpster, ignoring case and spacing, so the name alone finds you again. */
-export function nameKey(name: string) {
-  return name.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
-}
+export { nameKey };
 
 const taken = (name: string) =>
   new HttpError(409, `Someone already signed in as ${name}. If that's you, sign in with just your name. If not, add a last initial.`);
@@ -92,6 +90,11 @@ export async function enrollGuest(
   const existing = await guests.findOne({ dumpsterId: d._id, viewerIds: viewerId }, { projection: { _id: 1 } });
   const holder = await guests.findOne({ dumpsterId: d._id, nameKey: key }, { projection: { _id: 1 } });
   if (holder && holder._id !== existing?._id) throw taken(input.name);
+  // Faces someone already called this name are this person, if they said so; otherwise pick another name.
+  const named = existing ? [] : (await nameHolders(d, input.name)).faces.filter((c) => !c.guestId);
+  if (named.length && !named.every((c) => input.claim?.includes(c._id))) {
+    throw sameNameError(await nameHolders(d, input.name), `There’s already a ${named[0].name} here. Same person?`);
+  }
 
   const embedding = await embedSelfie(input.selfie);
 
@@ -109,7 +112,8 @@ export async function enrollGuest(
   }
   await tiger.engagement(d._id, "enroll");
 
-  // Your name goes on any face that's already yours.
+  // Your name goes on any face that's already yours, and on the faces already called your name.
+  if (named.length) await claimFaces(d, { _id: guestId, name: input.name }, named.map((c) => c._id));
   await clusters.updateMany({ dumpsterId: d._id, guestId }, { $set: { name: input.name, updatedAt: new Date() } });
   if (!embedding) return { guestId, faceMatched: false, clustersClaimed: 0 };
 
@@ -142,32 +146,47 @@ export async function enrollGuest(
 }
 
 /**
- * Coming back: the name alone. "new" means nobody has that name here yet (take a selfie next).
- * "returning" asks the browser to confirm it's really them before `confirm` signs it in.
+ * Coming back: the name alone.
+ * - "new": nobody goes by that name here yet (take a selfie next).
+ * - "returning": someone signed in with it. `faceIds` are their faces in the pile so the browser can
+ *   show them and ask "is this you?" before `confirm` signs it in.
+ * - "named": nobody signed in with it, but faces in the pile are called that. If those are you, the
+ *   selfie step claims them; if not, pick another name.
  */
 export async function signInByName(
   d: Dumpster,
   viewerId: string,
   name: string,
   confirm: boolean,
-): Promise<"new" | "returning" | "signed-in"> {
-  const { guests } = await cols();
-  const g = await guests.findOne({ dumpsterId: d._id, nameKey: nameKey(name) }, { projection: { _id: 1 } });
-  if (!g) return "new";
-  if (!confirm) return "returning";
+): Promise<{ status: "new" | "returning" | "named" | "signed-in"; name?: string; faceIds?: string[] }> {
+  const { guests, clusters } = await cols();
+  const g = await guests.findOne({ dumpsterId: d._id, nameKey: nameKey(name) }, { projection: { _id: 1, name: 1 } });
+  if (!g) {
+    const { faces } = await nameHolders(d, name);
+    return faces.length ? { status: "named", name: faces[0].name, faceIds: faces.map((c) => c._id) } : { status: "new" };
+  }
+  if (!confirm) {
+    const theirs = await clusters.find({ dumpsterId: d._id, guestId: g._id }, { projection: { _id: 1, n: 1 } }).sort({ n: -1 }).toArray();
+    return { status: "returning", name: g.name, faceIds: theirs.map((c) => c._id) };
+  }
   // One browser is one person in a dumpster.
   await guests.updateMany({ dumpsterId: d._id, viewerIds: viewerId, _id: { $ne: g._id } }, { $pull: { viewerIds: viewerId } });
   await guests.updateOne({ _id: g._id }, { $addToSet: { viewerIds: viewerId } });
-  return "signed-in";
+  return { status: "signed-in", name: g.name };
 }
 
-/** Rename yourself: your sign-in and every face that's yours. */
-export async function renameGuest(d: Dumpster, viewerId: string, name: string) {
+/**
+ * Rename yourself: your sign-in and every face that's yours. If faces in the pile are already
+ * called the new name, `group` says they're you and claims them; without it, the browser is asked.
+ */
+export async function renameGuest(d: Dumpster, viewerId: string, name: string, group = false) {
   const { guests, clusters } = await cols();
   const g = await guests.findOne({ dumpsterId: d._id, viewerIds: viewerId }, { projection: { _id: 1 } });
   if (!g) throw new HttpError(401, "Sign in to this dumpster first.");
-  const holder = await guests.findOne({ dumpsterId: d._id, nameKey: nameKey(name) }, { projection: { _id: 1 } });
-  if (holder && holder._id !== g._id) throw taken(name);
+  const holders = await nameHolders(d, name, { guestId: g._id });
+  if (holders.guest || holders.faces.some((c) => c.guestId)) throw taken(name);
+  if (holders.faces.length && !group) throw sameNameError(holders, `There’s already a face called ${holders.name}. Is that you?`);
+  if (holders.faces.length) await claimFaces(d, { _id: g._id, name }, holders.faces.map((c) => c._id));
   try {
     await guests.updateOne({ _id: g._id }, { $set: { name, nameKey: nameKey(name) } });
   } catch (e) {
@@ -202,6 +221,6 @@ export async function forgetGuest(d: Dumpster, viewerId: string) {
   const { guests, clusters } = await cols();
   const g = await guests.findOne({ dumpsterId: d._id, viewerIds: viewerId }, { projection: { _id: 1 } });
   if (!g) return;
-  await clusters.updateMany({ guestId: g._id }, { $unset: { guestId: "" }, $set: { updatedAt: new Date() } });
+  await clusters.updateMany({ guestId: g._id }, { $unset: { guestId: "", name: "" }, $set: { updatedAt: new Date() } });
   await guests.deleteOne({ _id: g._id });
 }

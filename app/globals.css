@@ -222,6 +222,10 @@ textarea:focus-visible {
 .dump-map .maplibregl-marker:focus-within {
   z-index: 1;
 }
+/* After the first time a sign-in sees "use two fingers", the hint stays hidden. Two fingers are still needed. */
+.dump-map.dump-map-quiet .maplibregl-cooperative-gesture-screen {
+  display: none;
+}
 .dump-map .maplibregl-cooperative-gesture-screen {
   background: rgb(18 18 18 / 0.72);
   font-family: var(--font-mono);

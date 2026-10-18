@@ -5,6 +5,8 @@ export class HttpError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Extra fields for the browser to act on, sent next to `error`. */
+    public extra?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -18,7 +20,7 @@ export function route<C>(fn: Handler<C>): Handler<C> {
     try {
       return await fn(req, ctx);
     } catch (e) {
-      if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
+      if (e instanceof HttpError) return NextResponse.json({ error: e.message, ...e.extra }, { status: e.status });
       if (e instanceof ZodError) return NextResponse.json({ error: e.issues[0]?.message ?? "Invalid input" }, { status: 400 });
       console.error(e);
       return NextResponse.json({ error: "Something broke in the dumpster." }, { status: 500 });

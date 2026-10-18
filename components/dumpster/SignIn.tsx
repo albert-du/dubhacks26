@@ -6,7 +6,7 @@ import type { DumpsterState, PublicCluster, PublicDumpster } from "@/lib/types";
 import { NotificationSettings } from "./NotificationSettings";
 import { SelfiePicker } from "./Selfie";
 
-type Step = "name" | "returning" | "selfie" | "sameFace" | "claim" | "phone";
+type Step = "name" | "returning" | "named" | "selfie" | "sameFace" | "claim" | "phone";
 type Match = { guest?: { name: string }; faceIds: string[] };
 
 /**
@@ -30,6 +30,10 @@ export function SignIn({ dumpster, me, clusters, onSignedIn, onEnrolled, onDone 
   const [selfie, setSelfie] = useState<Blob | null>(null);
   const [match, setMatch] = useState<Match>({ faceIds: [] });
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  /** Who already goes by the typed name: their spelling and their faces in the pile. */
+  const [holder, setHolder] = useState<{ name: string; faceIds: string[] } | null>(null);
+  /** Faces already called this name that they said are them; claimed when they sign in. */
+  const [namedFaces, setNamedFaces] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const base = `/api/dumpsters/${dumpster.id}/guests`;
@@ -54,8 +58,17 @@ export function SignIn({ dumpster, me, clusters, onSignedIn, onEnrolled, onDone 
     e.preventDefault();
     if (!name.trim()) return;
     const body = await byName(false);
-    if (body) setStep(body.status === "returning" ? "returning" : "selfie");
+    if (!body) return;
+    setNamedFaces([]);
+    setHolder(body.name ? { name: body.name, faceIds: body.faceIds ?? [] } : null);
+    setStep(body.status === "returning" ? "returning" : body.status === "named" ? "named" : "selfie");
   }
+
+  /** Not them: two people can't share a name, so back to the name with a hint. */
+  const notMe = () => {
+    setError(`Someone here is already ${holder?.name ?? name.trim()}. Add a last initial or a nickname.`);
+    setStep("name");
+  };
 
   async function confirmReturning() {
     const body = await byName(true);
@@ -71,7 +84,10 @@ export function SignIn({ dumpster, me, clusters, onSignedIn, onEnrolled, onDone 
     form.append("selfie", selfie, "selfie.jpg");
     const r = await send({ body: form, url: `${base}/match` });
     if (!r) return;
-    const found: Match = { guest: r.guest, faceIds: (r.faceIds ?? []).filter((id: string) => clusters.some((c) => c.id === id)) };
+    const found: Match = {
+      guest: r.guest,
+      faceIds: (r.faceIds ?? []).filter((id: string) => clusters.some((c) => c.id === id) && !namedFaces.includes(id)),
+    };
     setMatch(found);
     setPicked(new Set(found.faceIds));
     if (found.guest) setStep("sameFace");
@@ -89,7 +105,7 @@ export function SignIn({ dumpster, me, clusters, onSignedIn, onEnrolled, onDone 
     const form = new FormData();
     form.append("name", name.trim());
     form.append("selfie", selfie, "selfie.jpg");
-    form.append("claim", JSON.stringify(claim));
+    form.append("claim", JSON.stringify([...new Set([...claim, ...namedFaces])]));
     if (!(await send({ body: form }))) return;
     onEnrolled();
     setStep("phone");
@@ -106,18 +122,53 @@ export function SignIn({ dumpster, me, clusters, onSignedIn, onEnrolled, onDone 
   const errorBox = error && <p className="border-3 border-fire bg-fire/15 p-3 text-sm" role="alert">{error}</p>;
   const stepLabel = (n: number, label: string) => <p className="label">Step {n} of 3 · {label}</p>;
 
-  if (step === "returning")
+  // Their face from the pile, so "is this you?" can be answered by looking.
+  const faces = (holder?.faceIds ?? [])
+    .map((id) => clusters.find((c) => c.id === id))
+    .filter((c): c is PublicCluster => !!c?.cover)
+    .slice(0, 3);
+  const pictures = faces.length > 0 && (
+    <div className="flex gap-2">
+      {faces.map((c) => (
+        <span key={c.id} className="border-3 border-ink">
+          <FaceThumb cover={c.cover!} size={96} />
+        </span>
+      ))}
+    </div>
+  );
+
+  if (step === "returning" || step === "named")
     return (
       <div className="space-y-5 px-4 pt-6 pb-10">
         {title}
         <p className="text-lg">
-          Someone already signed in here as <b>{name.trim()}</b>. Is that you?
+          {step === "returning" ? (
+            <>
+              Someone already signed in here as <b>{holder?.name ?? name.trim()}</b>.
+            </>
+          ) : (
+            <>
+              {faces.length > 1 ? "These faces are" : "This face is"} already called <b>{holder?.name ?? name.trim()}</b>.
+            </>
+          )}{" "}
+          {faces.length ? "Is this you?" : "Is that you?"}
         </p>
+        {pictures}
         {errorBox}
-        <button className="btn btn-green w-full !py-5 !text-xl" disabled={busy} onClick={() => void confirmReturning()}>
+        <button
+          className="btn btn-green w-full !py-5 !text-xl"
+          disabled={busy}
+          onClick={() => {
+            if (step === "returning") return void confirmReturning();
+            // Their faces are already here; the selfie step signs them in and claims them.
+            setNamedFaces(holder?.faceIds ?? []);
+            setError(null);
+            setStep("selfie");
+          }}
+        >
           {busy ? "Getting you in…" : "That’s me →"}
         </button>
-        <button className="btn btn-ghost w-full" disabled={busy} onClick={() => { setError(null); setStep("name"); }}>
+        <button className="btn btn-ghost w-full" disabled={busy} onClick={notMe}>
           Not me. Use another name
         </button>
       </div>
