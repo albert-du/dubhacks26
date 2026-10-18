@@ -7,11 +7,23 @@ import { dumpMapStyle } from "@/lib/mapStyle";
 import { groupMoments } from "@/lib/moments";
 import type { PublicMedia } from "@/lib/types";
 
+/** Smallest and largest thumbnail on the map, in px. */
+const PIN_MIN = 34;
+const PIN_MAX = 168;
+
+/** Shots at the same rounded spot fan out in a spiral, by a share of the thumbnail size. */
+function spread(k: number, px: number): [number, number] {
+  if (k === 0) return [0, 0];
+  const r = px * 0.9 * Math.sqrt(k);
+  const a = k * 2.39996; // golden angle
+  return [Math.round(r * Math.cos(a)), Math.round(r * Math.sin(a))];
+}
+
 /**
- * The scene: moments with a location, on an OpenFreeMap drawn in Dump's
- * paper and ink. Pins are numbered by moment (same time, same place).
- * Tile requests cover the area already shown on the pins. The style is ours.
- * If the phone has no WebGL, the same pins fall back to the local grid.
+ * The scene: every shot with a location, as a small thumbnail on an OpenFreeMap drawn in
+ * Dump's paper and ink. Zoom in and the thumbnails grow and spread apart so each can be
+ * tapped. Full screen frees one-finger panning. Tile requests cover the area already
+ * shown on the pins. If the phone has no WebGL, the same thumbnails fall back to a grid.
  */
 export function EventMap({
   media,
@@ -27,22 +39,18 @@ export function EventMap({
     [media],
   );
 
+  /** One pin per located shot; `k` is its place among shots at the exact same spot. */
   const pins = useMemo(() => {
-    return moments.flatMap((mo, i) => {
-      if (!mo.center) return [];
-      return [
-        {
-          id: mo.id,
-          n: i + 1,
-          lng: mo.center.lng,
-          lat: mo.center.lat,
-          fire: mo.ids.some((id) => (byId.get(id)?.reactions.fire ?? 0) > 0),
-          count: mo.ids.length,
-          ids: mo.ids,
-        },
-      ];
+    const seen = new Map<string, number>();
+    return media.flatMap((m) => {
+      if (!m.gps) return [];
+      const spot = `${m.gps.lat},${m.gps.lng}`;
+      const k = seen.get(spot) ?? 0;
+      seen.set(spot, k + 1);
+      return [{ m, lng: m.gps.lng, lat: m.gps.lat, k }];
     });
-  }, [moments, byId]);
+  }, [media]);
+  const pinKey = pins.map((p) => `${p.m.id}:${p.m.url}:${p.m.reactions.fire > 0 ? 1 : 0}`).join("|");
 
   const proj = useMemo(() => {
     if (!pins.length) return null;
@@ -60,7 +68,6 @@ export function EventMap({
     };
   }, [pins]);
 
-
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
   const mediaRef = useRef(media);
@@ -68,13 +75,37 @@ export function EventMap({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
-  const markersRef = useRef<Marker[]>([]);
-  const fittedRef = useRef(false);
+  const markersRef = useRef<{ marker: Marker; k: number }[]>([]);
+  const fitZoomRef = useRef<number | null>(null);
   const pinsRef = useRef(pins);
   pinsRef.current = pins;
   const [engine, setEngine] = useState<"map" | "grid">("map");
   const [ready, setReady] = useState(false);
+  const [full, setFull] = useState(false);
+  const fullRef = useRef(full);
+  fullRef.current = full;
   const showMap = engine === "map" && pins.length > 0;
+
+  /** Open a shot among every located shot, so swiping walks the map's pile. */
+  const openShot = (id: string) => {
+    const located = mediaRef.current.filter((m) => m.gps);
+    if (located.some((m) => m.id === id)) onOpenRef.current(located, id);
+  };
+  const openShotRef = useRef(openShot);
+  openShotRef.current = openShot;
+
+  /** Thumbnails grow as you zoom in past the fitted view, and same-spot shots spread with them. */
+  const rescale = () => {
+    const map = mapRef.current;
+    const el = containerRef.current;
+    if (!map || !el) return;
+    const base = fitZoomRef.current ?? map.getZoom();
+    const px = Math.round(Math.min(PIN_MAX, Math.max(PIN_MIN, PIN_MIN * Math.pow(1.55, map.getZoom() - base))));
+    el.style.setProperty("--pin", `${px}px`);
+    for (const { marker, k } of markersRef.current) marker.setOffset(spread(k, px));
+  };
+  const rescaleRef = useRef(rescale);
+  rescaleRef.current = rescale;
 
   useEffect(() => {
     if (!showMap) return;
@@ -95,8 +126,9 @@ export function EventMap({
           style: dumpMapStyle(),
           center: [first?.lng ?? 0, first?.lat ?? 0],
           zoom: 14,
+          maxZoom: 20,
           attributionControl: { compact: false },
-          cooperativeGestures: true,
+          cooperativeGestures: !fullRef.current,
           dragRotate: false,
           pitchWithRotate: false,
           touchPitch: false,
@@ -113,6 +145,7 @@ export function EventMap({
       map.touchZoomRotate.disableRotation();
       map.keyboard.disableRotation();
       map.addControl(new ml.ScaleControl({ maxWidth: 72, unit: "metric" }), "bottom-left");
+      map.on("zoom", () => rescaleRef.current());
       mapRef.current = map;
       map.once("load", () => {
         if (cancelled) return;
@@ -126,8 +159,8 @@ export function EventMap({
     return () => {
       cancelled = true;
       setReady(false);
-      fittedRef.current = false;
-      for (const marker of markersRef.current) marker.remove();
+      fitZoomRef.current = null;
+      for (const { marker } of markersRef.current) marker.remove();
       markersRef.current = [];
       map?.remove();
       mapRef.current = null;
@@ -141,91 +174,158 @@ export function EventMap({
 
     void import("maplibre-gl").then((ml) => {
       if (cancelled || mapRef.current !== map) return;
-      for (const marker of markersRef.current) marker.remove();
-      markersRef.current = pins.map((pin) => {
+      for (const { marker } of markersRef.current) marker.remove();
+      // Oldest first, so the newest shot at a spot sits on top of the pile.
+      markersRef.current = [...pinsRef.current].reverse().map((pin) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = pin.fire
-          ? "dump-pin display grid size-8 place-items-center border-2 border-ink bg-fire text-sm"
-          : "dump-pin display grid size-8 place-items-center border-2 border-ink bg-green text-sm";
-        button.textContent = String(pin.n);
-        button.setAttribute("aria-label", `Moment ${pin.n}, ${pin.count} shots`);
-        button.addEventListener("click", () => {
-          const current = new Map(mediaRef.current.map((item) => [item.id, item]));
-          const list = pin.ids.map((id) => current.get(id)).filter((item): item is PublicMedia => !!item);
-          if (list.length) onOpenRef.current(list, list[0].id);
-        });
-        return new ml.Marker({ element: button, anchor: "center" }).setLngLat([pin.lng, pin.lat]).addTo(map);
+        button.className = `dump-pin dump-photo-pin${pin.m.reactions.fire > 0 ? " is-fire" : ""}`;
+        button.setAttribute("aria-label", pin.m.venue ? `Shot at ${pin.m.venue}` : "Shot");
+        const thumb = document.createElement(pin.m.kind === "image" ? "img" : "video");
+        if (thumb instanceof HTMLImageElement) {
+          thumb.src = pin.m.url;
+          thumb.alt = "";
+          thumb.loading = "lazy";
+        } else {
+          thumb.src = `${pin.m.url}#t=0.1`;
+          thumb.muted = true;
+          thumb.preload = "metadata";
+          thumb.playsInline = true;
+        }
+        button.appendChild(thumb);
+        button.addEventListener("click", () => openShotRef.current(pin.m.id));
+        return { marker: new ml.Marker({ element: button, anchor: "center" }).setLngLat([pin.lng, pin.lat]).addTo(map), k: pin.k };
       });
 
-      if (!fittedRef.current && pins.length) {
+      if (fitZoomRef.current === null && pinsRef.current.length) {
         const bounds = new ml.LngLatBounds();
-        for (const pin of pins) bounds.extend([pin.lng, pin.lat]);
-        map.fitBounds(bounds, { padding: { top: 44, bottom: 52, left: 28, right: 28 }, maxZoom: 16, duration: 0 });
-        fittedRef.current = true;
+        for (const pin of pinsRef.current) bounds.extend([pin.lng, pin.lat]);
+        map.fitBounds(bounds, { padding: { top: 56, bottom: 64, left: 40, right: 40 }, maxZoom: 16, duration: 0 });
+        fitZoomRef.current = map.getZoom();
       }
+      rescaleRef.current();
     });
 
     return () => {
       cancelled = true;
     };
-  }, [ready, pins]);
+  }, [ready, pinKey]);
+
+  // Full screen: cover the app, let one finger pan, and give Escape a way out.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map) {
+      if (full) map.cooperativeGestures.disable();
+      else map.cooperativeGestures.enable();
+      requestAnimationFrame(() => map.resize());
+    }
+    if (!full) return;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setFull(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [full, ready]);
 
   const openMoment = (ids: string[]) => {
     const list = ids.map((id) => byId.get(id)).filter((item): item is PublicMedia => !!item);
     if (list.length) onOpen(list, list[0].id);
   };
   const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  const number = new Map(moments.map((mo, i) => [mo.id, i + 1]));
+  const located = pins.length;
 
   return (
     <section>
       <div className="flex items-baseline justify-between border-b-3 border-ink px-4 pt-5 pb-3">
         <h2 className="display text-4xl">The scene</h2>
-        <span className="label">{moments.length} moments</span>
+        <span className="label">
+          {located} {located === 1 ? "shot" : "shots"} on the map
+        </span>
       </div>
 
-      <div className="relative aspect-square overflow-hidden border-b-3 border-ink bg-paper">
-        {pins.length === 0 ? (
-          <p className="z-labels absolute inset-0 grid place-items-center p-8 text-center">
-            <span>
-              <span className="display block text-2xl">No pins yet.</span>
-              Shots taken with location on show up here.
-            </span>
-          </p>
-        ) : showMap ? (
-          <div className="absolute inset-0">
-            <div ref={containerRef} className="dump-map h-full w-full" />
-          </div>
-        ) : (
-          proj && <Grid pts={proj.pts} meters={proj.meters} onOpen={openMoment} />
-        )}
-        <span className="display pointer-events-none absolute top-2 left-3 z-labels text-xl">N↑</span>
+      <div
+        className={
+          full
+            ? "fixed inset-0 z-dialog bg-paper pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+            : "relative aspect-square overflow-hidden border-b-3 border-ink bg-paper"
+        }
+      >
+        <div className="relative h-full w-full overflow-hidden">
+          {pins.length === 0 ? (
+            <p className="z-labels absolute inset-0 grid place-items-center p-8 text-center">
+              <span>
+                <span className="display block text-2xl">No pins yet.</span>
+                Shots taken with location on show up here.
+              </span>
+            </p>
+          ) : showMap ? (
+            <div className="absolute inset-0">
+              <div ref={containerRef} className="dump-map h-full w-full" />
+            </div>
+          ) : (
+            proj && <Grid pts={proj.pts} meters={proj.meters} onOpen={openShot} />
+          )}
+          <span className="display pointer-events-none absolute top-2 left-3 z-labels text-xl">N↑</span>
+          {pins.length > 0 && (
+            <div className="absolute top-2 right-2 z-labels flex flex-col gap-2">
+              <button
+                className="display border-2 border-ink bg-paper px-2 py-1 text-sm"
+                onClick={() => setFull((v) => !v)}
+                aria-pressed={full}
+              >
+                {full ? "✕ Exit" : "⛶ Full screen"}
+              </button>
+              {showMap && ready && (
+                <div className="ml-auto flex flex-col border-2 border-ink bg-paper">
+                  <button className="display size-9 text-xl" onClick={() => mapRef.current?.zoomIn()} aria-label="Zoom in">
+                    +
+                  </button>
+                  <button className="display size-9 border-t-2 border-ink text-xl" onClick={() => mapRef.current?.zoomOut()} aria-label="Zoom out">
+                    −
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {moments.length > 0 && (
         <ol>
-          {[...moments].reverse().map((mo) => (
-            <li key={mo.id} className="border-b border-ink">
-              <button onClick={() => openMoment(mo.ids)} className="grid w-full grid-cols-[2.75rem_1fr_auto] items-center gap-3 py-2 pr-3 text-left">
-                <span className={`display grid h-full place-items-center border-r border-ink text-lg ${mo.center ? "" : "text-smoke"}`}>
-                  {number.get(mo.id)}
-                </span>
-                <span className="min-w-0">
-                  <span className="display block truncate text-lg">{mo.label ?? "Untitled moment"}</span>
-                  <span className="label">
-                    {time(mo.start)}
-                    {mo.end - mo.start > 60_000 ? `–${time(mo.end)}` : ""}
+          {[...moments].reverse().map((mo) => {
+            const cover = byId.get(mo.ids[0]);
+            return (
+              <li key={mo.id} className="border-b border-ink">
+                <button onClick={() => openMoment(mo.ids)} className="grid w-full grid-cols-[3.5rem_1fr_auto] items-center gap-3 py-2 pr-3 pl-2 text-left">
+                  <Thumb m={cover} className={`size-14 border-2 object-cover ${mo.center ? "border-ink" : "border-smoke opacity-60"}`} />
+                  <span className="min-w-0">
+                    <span className="display block truncate text-lg">{mo.label ?? "Untitled moment"}</span>
+                    <span className="label">
+                      {time(mo.start)}
+                      {mo.end - mo.start > 60_000 ? `–${time(mo.end)}` : ""}
+                      {mo.center ? "" : " · no location"}
+                    </span>
                   </span>
-                </span>
-                <span className="label">{mo.ids.length} →</span>
-              </button>
-            </li>
-          ))}
+                  <span className="label">{mo.ids.length} →</span>
+                </button>
+              </li>
+            );
+          })}
         </ol>
       )}
-
     </section>
+  );
+}
+
+function Thumb({ m, className }: { m?: PublicMedia; className: string }) {
+  if (!m) return <span className={`block bg-bone ${className}`} />;
+  return m.kind === "image" ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={m.url} alt="" loading="lazy" className={className} />
+  ) : (
+    <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className={className} />
   );
 }
 
@@ -234,9 +334,9 @@ function Grid({
   meters,
   onOpen,
 }: {
-  pts: { pin: { id: string; n: number; fire: boolean; count: number; ids: string[] }; x: number; y: number }[];
+  pts: { pin: { m: PublicMedia; k: number }; x: number; y: number }[];
   meters: number;
-  onOpen: (ids: string[]) => void;
+  onOpen: (id: string) => void;
 }) {
   return (
     <>
@@ -248,19 +348,20 @@ function Grid({
           </g>
         ))}
       </svg>
-      {pts.map(({ pin, x, y }) => (
-        <button
-          key={pin.id}
-          onClick={() => onOpen(pin.ids)}
-          className={`display absolute z-labels grid size-8 -translate-x-1/2 -translate-y-1/2 place-items-center border-2 border-ink text-sm ${
-            pin.fire ? "bg-fire" : "bg-green"
-          }`}
-          style={{ left: `${x}%`, top: `${y}%` }}
-          aria-label={`Moment ${pin.n}, ${pin.count} shots`}
-        >
-          {pin.n}
-        </button>
-      ))}
+      {pts.map(({ pin, x, y }) => {
+        const [dx, dy] = spread(pin.k, PIN_MIN);
+        return (
+          <button
+            key={pin.m.id}
+            onClick={() => onOpen(pin.m.id)}
+            className={`absolute z-labels size-[34px] overflow-hidden border-2 bg-paper ${pin.m.reactions.fire > 0 ? "border-fire" : "border-ink"}`}
+            style={{ left: `calc(${x}% + ${dx}px - 17px)`, top: `calc(${y}% + ${dy}px - 17px)` }}
+            aria-label="Shot"
+          >
+            <Thumb m={pin.m} className="size-full object-cover" />
+          </button>
+        );
+      })}
       <span className="label absolute right-2 bottom-2 z-labels bg-paper px-1">≈ {meters} m across</span>
     </>
   );
