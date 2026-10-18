@@ -46,15 +46,24 @@ Format only (the words in angle brackets are placeholders, not content):
 export const perceptron = {
   enabled: () => !!config.perceptron.apiKey,
 
-  async analyze(jpeg: Buffer): Promise<VisionResult> {
-    if (!config.perceptron.apiKey) throw new Error("perceptron is not configured");
-    // The OpenAI SDK is a client for Perceptron's compatible API, not OpenAI hosting.
-    const client = new OpenAI({
-      apiKey: config.perceptron.apiKey,
-      baseURL: config.perceptron.baseUrl,
-      timeout: 60_000,
-      maxRetries: 0,
+  /** Stateless image questions, using the same provider as gallery enrichment. */
+  async describe(jpeg: Buffer, prompt: string): Promise<string> {
+    const completion = await visionClient().chat.completions.create({
+      model: config.perceptron.model,
+      temperature: 0,
+      max_completion_tokens: 2048,
+      messages: [{ role: "user", content: [
+        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpeg.toString("base64")}` } },
+        { type: "text", text: prompt },
+      ] }],
     });
+    const content = visionContent(completion).trim();
+    if (!content) throw new Error("perceptron: empty response");
+    return content;
+  },
+
+  async analyze(jpeg: Buffer): Promise<VisionResult> {
+    const client = visionClient();
     const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & {
       vision_config: { annotation_format: "box" };
     } = {
@@ -80,6 +89,16 @@ export const perceptron = {
     return parseVision(visionContent(completion));
   },
 };
+
+function visionClient() {
+  if (!config.perceptron.apiKey) throw new Error("perceptron is not configured");
+  return new OpenAI({
+    apiKey: config.perceptron.apiKey,
+    baseURL: config.perceptron.baseUrl,
+    timeout: 60_000,
+    maxRetries: 0,
+  });
+}
 
 /** Final answer only. Reasoning stays in message.reasoning_content and is ignored. */
 export function visionContent(body: unknown): string {

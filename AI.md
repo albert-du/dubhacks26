@@ -1,5 +1,13 @@
 # AI implementation
 
+## HTTP vision endpoint
+
+`POST /api/ai/vision` accepts JSON `{ "prompt": "Describe what you see in this image.", "image": "<base64 or data:image/jpeg;base64,...>" }`. It returns `{ "analysis": "<real model response>", "model": "perceptron-mk1.5" }`. The model name follows `PERCEPTRON_MODEL`. No event id or browser sign-in is needed, matching the anonymous photo-search API. Images are limited to 5 MiB, normalized and metadata-stripped in memory, and never stored. Remote image URLs are not fetched. Missing configuration returns 503; invalid input returns 400/413/415; failed inference returns 502, never a placeholder success.
+
+For VEYZL backend audits, set the base URL to `https://dumpster.photo` and manually select **POST `/api/ai/vision`** as the vision target. The SSE stream and Photon webhook are not inference targets; `/embed` belongs to the private face service and is not exposed on the public origin. Use JSON `prompt` and `image` fields, with no authentication header.
+
+## Providers
+
 Dump uses hosted AI inference APIs and self-hosted pretrained models. It does not train a model or ship a training dataset. The Perceptron vision adapter uses the official `openai` JavaScript SDK with `baseURL` set to the Perceptron API. It calls `client.chat.completions.create()` with the configured Perceptron model, image input, and vision prompt. Other provider adapters use native `fetch`. The SDK does not change the inference provider or require an OpenAI API key.
 
 | Implementation (actual inference calls) | Model/service | Product use and entry points |
