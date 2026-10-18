@@ -97,6 +97,28 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
     [id],
   );
 
+  /** Name (or clear) one or more faces. Optimistic; the stream confirms. */
+  const nameFaces = useCallback(
+    async (faceIds: string[], name: string) => {
+      const clean = name.trim().slice(0, 40);
+      setState((s) => ({
+        ...s,
+        clusters: s.clusters.map((c) => (faceIds.includes(c.id) ? { ...c, name: clean || undefined } : c)),
+      }));
+      const results = await Promise.all(
+        faceIds.map((faceId) =>
+          fetch(`/api/dumpsters/${id}/faces/${faceId}`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ name: clean }),
+          }).then((r) => r.ok, () => false),
+        ),
+      );
+      return results.every(Boolean);
+    },
+    [id],
+  );
+
   const makeSticker = useCallback(
     async (mediaId: string, object: number) => {
       const r = await fetch(`/api/dumpsters/${id}/media/${mediaId}/sticker`, {
@@ -113,5 +135,5 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
     [id],
   );
 
-  return { state, destroyed, refresh, react, remove, makeSticker };
+  return { state, destroyed, refresh, react, remove, makeSticker, nameFaces };
 }

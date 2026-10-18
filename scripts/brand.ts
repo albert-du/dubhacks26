@@ -12,7 +12,7 @@ const root = path.resolve(__dirname, "..");
 const out = path.join(root, "public", "brand");
 const INK = "#121212";
 const GREEN = "#46a65a";
-const PAPER = "#f1eee4";
+const WHITE = "#ffffff";
 
 const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 
@@ -65,10 +65,10 @@ async function main() {
   // Reaction icon (shown 22–56px tall), full color.
   await webp(fire, 168, "fire.webp");
 
-  await icon(markGreen, 512, INK, 0.62, "icon-512.png");
-  await icon(markGreen, 192, INK, 0.66, "icon-192.png");
-  await icon(markGreen, 180, INK, 0.66, "apple-touch-icon.png");
-  await icon(markInk, 64, PAPER, 0.84, "favicon.png");
+  await icon(markGreen, 512, WHITE, 0.62, "icon-512.png");
+  await icon(markGreen, 192, WHITE, 0.66, "icon-192.png");
+  await icon(markGreen, 180, WHITE, 0.66, "apple-touch-icon.png");
+  await icon(markGreen, 64, WHITE, 0.84, "favicon.png");
   console.log("brand assets written to public/brand and public/");
 }
 

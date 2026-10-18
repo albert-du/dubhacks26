@@ -64,9 +64,17 @@ export const storage = {
   },
 
   /** For S3: a short-lived presigned URL (S3 handles Range requests for iOS video). */
-  async signedUrl(key: string): Promise<string | null> {
+  async signedUrl(key: string, downloadAs?: string): Promise<string | null> {
     if (!s3) return null;
-    return getSignedUrl(s3, new GetObjectCommand({ Bucket, Key: key }), { expiresIn: 120 });
+    return getSignedUrl(
+      s3,
+      new GetObjectCommand({
+        Bucket,
+        Key: key,
+        ...(downloadAs ? { ResponseContentDisposition: `attachment; filename="${downloadAs}"` } : {}),
+      }),
+      { expiresIn: 120 },
+    );
   },
 
   /** Local-disk streaming with Range support (needed for Safari video playback). */

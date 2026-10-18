@@ -5,7 +5,9 @@ import { HttpError } from "./http";
 import { closeMongo, cols, db } from "./mongo";
 import { connectFromMessage, disconnectNotifications, getNotificationStatus, hashConnectionCode, notificationStatus, requestNotificationConnection, sendGuestNotification } from "./notifications";
 import { photon, type InboundText } from "./photon";
+import sharp from "sharp";
 import { enrollGuest } from "./enroll";
+import { faceEmbed } from "./faceEmbed";
 import { flushFaceAlerts, sendExpiryWarnings } from "./alerts";
 import { dumpsterState } from "./serialize";
 import type { Dumpster, Guest } from "./types";
@@ -22,7 +24,7 @@ function photonEnvironment() {
 
 function fixtureGuest(id = "guest-a"): Guest {
   return {
-    _id: id, dumpsterId: "demo", viewerId: `viewer-${id}`, name: "Demo guest",
+    _id: id, dumpsterId: "demo", viewerId: `viewer-${id}`,
     pendingPhotoAlerts: 0, pendingMentionAlerts: 0, createdAt: new Date(), expiresAt: new Date(Date.now() + 3600_000),
   };
 }
@@ -141,7 +143,12 @@ test("notifications: verify, retry, edit, isolate, and disconnect real guest rec
     assert.match((await connectFromMessage(inbound, now))!, /alerts connected/);
     assert.match((await connectFromMessage(inbound, now))!, /alerts connected/);
     assert.match((await connectFromMessage({ ...inbound, messageId: "message-reuse" }, now))!, /invalid or expired/);
-    await enrollGuest(d, a.viewerId, { name: "Updated name" });
+    // Re-taking the selfie must not clobber the verified connection.
+    const { enabled, detect } = faceEmbed;
+    faceEmbed.enabled = () => true;
+    faceEmbed.detect = async () => [{ box: [0, 0, 1, 1], embedding: Array(512).fill(0), score: 1 }];
+    const selfie = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#888" } }).jpeg().toBuffer();
+    try { await enrollGuest(d, a.viewerId, { selfie }); } finally { Object.assign(faceEmbed, { enabled, detect }); }
     assert.equal((await collection.guests.findOne({ _id: a._id }))?.notification?.spaceId, "space-a");
     const state = await dumpsterState(d, a.viewerId);
     assert.deepEqual(state.me?.notifications, { state: "connected" });

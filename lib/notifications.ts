@@ -30,7 +30,7 @@ export function imessageAvailable() {
 async function ownGuest(d: Dumpster, viewer: string) {
   const { guests } = await cols();
   const guest = await guests.findOne({ dumpsterId: d._id, viewerId: viewer, expiresAt: { $gt: new Date() } });
-  if (!guest) throw new HttpError(400, "Save your name in Me before connecting alerts.");
+  if (!guest) throw new HttpError(400, "Take your selfie in Me before connecting texts.");
   return guest;
 }
 

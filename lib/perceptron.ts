@@ -24,18 +24,23 @@ export interface VisionResult {
   objects: DetectedObject[];
 }
 
-const PROMPT = `Label this party photo. Reply with a JSON object first, then flat point_box annotations. Do not use collections, tracks, points, or polygons.
+// Keep the examples abstract: a concrete example noun (it used to be "cake") gets copied
+// into photos that don't contain it.
+const PROMPT = `Label this photo. Reply with a JSON object first, then flat point_box annotations. Do not use collections, tracks, points, or polygons.
 
-{"caption":"one short playful sentence","tags":["up to 8 lowercase scene or activity tags"],"venue":"venue, landmark, or event signage name visible in the image, or null"}
+{"caption":"one short playful sentence about what is actually happening","tags":["up to 8 lowercase scene or activity tags"],"venue":"venue, landmark, or event signage name visible in the image, or null"}
+
+Only label what you can clearly see in this image. Never guess, never infer things from the setting, and leave out anything you are unsure of. An empty list is fine.
 
 After the JSON, emit one <point_box> per item. Quote mention, set asset_idx="0", and use a normalized 0-1000 grid: top-left corner, then bottom-right.
 - Every human face, including people in the background: mention="face"
-- Every primary object and every person, most prominent first, at most 20. People are mention="object:person". Other objects are mention="object:<lowercase noun>".
+- Every clearly visible primary object and every person, most prominent first, at most 20. People are mention="object:person". Other objects are mention="object:<lowercase noun>".
 - Every legible line of text on a sign, shirt, banner, or label: mention="text:<exact text as written>". Skip text that is too small or obscured to read.
 
-<point_box mention="face" asset_idx="0"> (100,150) (300,350) </point_box>
-<point_box mention="object:cake" asset_idx="0"> (400,400) (600,700) </point_box>
-<point_box mention="text:MAIN STAGE" asset_idx="0"> (0,0) (500,80) </point_box>`;
+Format only (the words in angle brackets are placeholders, not content):
+<point_box mention="face" asset_idx="0"> (x1,y1) (x2,y2) </point_box>
+<point_box mention="object:<noun>" asset_idx="0"> (x1,y1) (x2,y2) </point_box>
+<point_box mention="text:<exact text>" asset_idx="0"> (x1,y1) (x2,y2) </point_box>`;
 
 export const perceptron = {
   enabled: () => !!config.perceptron.apiKey,
@@ -190,6 +195,9 @@ function boxFromGrid(body: string): Box | null {
   return [x1 / 1000, y1 / 1000, x2 / 1000, y2 / 1000];
 }
 
+/** The prompt's format template leaking back as content ("<noun>", "<exact text>"). */
+const isPlaceholder = (s: string) => /^<[^<>]*>$/.test(s.trim()) || /^(noun|lowercase noun|exact text)$/i.test(s.trim());
+
 function fromMarkup(boxes: ParsedBox[]): Pick<VisionResult, "faces" | "text" | "objects"> {
   const faces: VisionResult["faces"] = [];
   const text: VisionResult["text"] = [];
@@ -204,11 +212,11 @@ function fromMarkup(boxes: ParsedBox[]): Pick<VisionResult, "faces" | "text" | "
     }
     if (lower.startsWith("text:")) {
       const line = raw.slice(lower.indexOf(":") + 1).trim();
-      if (line) text.push({ text: line, box });
+      if (line && !isPlaceholder(line)) text.push({ text: line, box });
       continue;
     }
     const label = (lower.startsWith("object:") ? raw.slice(lower.indexOf(":") + 1) : raw).trim().toLowerCase();
-    if (label) objects.push({ label, box });
+    if (label && !isPlaceholder(label)) objects.push({ label, box });
   }
   return { faces, text: text.slice(0, 60), objects: objects.slice(0, 20) };
 }

@@ -32,7 +32,7 @@ export function Drop({
     <section className="space-y-4 p-4">
       <label className="flex min-h-[42dvh] cursor-pointer flex-col justify-between border-3 border-ink bg-green p-5 active:translate-x-[2px] active:translate-y-[2px]">
         <span className="label">Tap to drop · photos{dumpster.settings.allowVideo ? " + videos" : ""}</span>
-        <span className="display text-[clamp(3.75rem,19vw,6.5rem)]">
+        <span className="display text-[clamp(2.75rem,14vw,5rem)]">
           Throw
           <br />
           it in.
@@ -40,21 +40,6 @@ export function Drop({
         <span className="label">Everything here burns {dumpster.ttlHours}h after it opened</span>
         <input type="file" multiple accept={accept} onChange={pick} className="sr-only" />
       </label>
-
-      <div className="grid grid-cols-2 gap-3">
-        <label className="btn cursor-pointer">
-          Camera
-          <input type="file" accept="image/*" capture="environment" onChange={pick} className="sr-only" />
-        </label>
-        {dumpster.settings.allowVideo ? (
-          <label className="btn btn-ghost cursor-pointer">
-            Video
-            <input type="file" accept="video/*" capture="environment" onChange={pick} className="sr-only" />
-          </label>
-        ) : (
-          <span className="btn btn-ghost opacity-40">Photos only</span>
-        )}
-      </div>
 
       {uploader.items.length > 0 && (
         <ul className="border-3 border-ink">

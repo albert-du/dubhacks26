@@ -3,22 +3,84 @@
 import { useEffect, useState } from "react";
 import { FireIcon } from "@/components/Brand";
 import { Burned } from "@/components/Burned";
-import { Countdown } from "@/components/ui";
+import { downloadUrl, MediaStage } from "@/components/MediaStage";
+import { Countdown, useNow } from "@/components/ui";
 import { useDumpster } from "@/lib/client/useDumpster";
-import { fireRank } from "@/lib/reactions";
-import type { DumpsterState } from "@/lib/types";
+import { fireRank, REACTIONS } from "@/lib/reactions";
+import type { DumpsterState, PublicMedia } from "@/lib/types";
+
+/** How long the newest shot wears the Just dropped badge. */
+const JUST_DROPPED_MS = 5 * 60_000;
 
 interface Stats {
-  velocity: { t: string; n: number }[];
   photos: number;
   people: number;
   faces: number;
 }
 
-/** Projector / TV view: live mosaic, giant QR, upload velocity, countdown. */
+/** Reactions on a tile, as pictures: the burning can for fires, emoji for the rest. */
+function Reactions({ m }: { m: PublicMedia }) {
+  const shown = REACTIONS.filter((r) => m.reactions[r.key] > 0);
+  if (!shown.length) return null;
+  return (
+    <span className="z-labels absolute right-2 bottom-2 flex items-center gap-2 bg-ink/80 px-2 py-1">
+      {shown.map((r) => (
+        <span key={r.key} className="flex items-center gap-1">
+          {r.key === "fire" ? <FireIcon size={22} /> : <span className="text-lg leading-none">{"emoji" in r ? r.emoji : ""}</span>}
+          <span className="display text-sm tabular-nums">{m.reactions[r.key]}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Tap-in viewer for the big screen: swipe or arrow through, download, close. */
+function StageViewer({ list, index, onIndex, onClose }: { list: PublicMedia[]; index: number; onIndex: (i: number) => void; onClose: () => void }) {
+  const m = list[index];
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft" && index > 0) onIndex(index - 1);
+      if (e.key === "ArrowRight" && index < list.length - 1) onIndex(index + 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [index, list.length, onIndex, onClose]);
+  if (!m) return null;
+  return (
+    <div className="fixed inset-0 z-dialog flex flex-col bg-ink text-paper" role="dialog" aria-modal aria-label="Photo">
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b border-paper/30 px-4">
+        <span className="label">
+          {index + 1}/{list.length}
+        </span>
+        <a href={downloadUrl(m.url)} download className="btn btn-green ml-auto !px-3 !py-2 !text-sm">
+          Download
+        </a>
+        <button onClick={onClose} className="display px-2 text-2xl" aria-label="Close">
+          ✕
+        </button>
+      </div>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <MediaStage
+          m={m}
+          prev={list[index - 1]}
+          next={list[index + 1]}
+          onPrev={() => onIndex(index - 1)}
+          onNext={() => onIndex(index + 1)}
+          overlay={<Reactions m={m} />}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Projector / TV view: live mosaic, giant QR, counts, countdown. */
 export function Stage({ initial }: { initial: DumpsterState }) {
   const { state, destroyed } = useDumpster(initial);
   const [stats, setStats] = useState<Stats | null>(null);
+  // Track the open photo by id: new drops land at the front and would shift an index.
+  const [open, setOpen] = useState<string | null>(null);
+  const now = useNow(15_000);
   const id = state.dumpster.id;
 
   useEffect(() => {
@@ -35,33 +97,37 @@ export function Stage({ initial }: { initial: DumpsterState }) {
   if (destroyed) return <Burned />;
 
   const latest = state.media.filter((m) => m.kind === "image").slice(0, 11);
+  const all = state.media;
   const fire = fireRank(state.media.filter((m) => m.kind === "image"))[0];
-  const bars = buildBars(stats?.velocity ?? []);
-  const peak = Math.max(1, ...bars);
-  const perMin = bars.slice(-5).reduce((s, n) => s + n, 0) / 5;
 
   return (
-    <div className="grid min-h-dvh bg-ink text-paper lg:grid-cols-[1fr_400px]">
+    <div className="stage-root grid min-h-dvh bg-ink text-paper lg:grid-cols-[1fr_400px]">
       <main className="grid auto-rows-[24vh] grid-cols-2 gap-[3px] p-[3px] md:grid-cols-4">
         {latest.length === 0 && (
           <div className="col-span-full row-span-3 grid place-items-center">
             <p className="display text-center text-[8vw]">
               Waiting for
               <br />
-              the first throw.
+              the first dump.
             </p>
           </div>
         )}
-        {latest.map((m, i) => (
-          <figure key={m.id} className={`relative overflow-hidden bg-[#222] ${i === 0 ? "col-span-2 row-span-2" : ""}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={m.url} alt="" className={`size-full object-cover ${i === 0 ? "animate-drop" : ""}`} />
-            {i === 0 && <figcaption className="display absolute top-3 left-3 bg-green px-2 py-1 text-xl text-ink">Just dropped</figcaption>}
-            {i === 0 && m.caption && (
-              <figcaption className="absolute right-0 bottom-0 left-0 bg-ink/85 p-3 text-lg">{m.caption}</figcaption>
-            )}
-          </figure>
-        ))}
+        {latest.map((m, i) => {
+          const fresh = i === 0 && now !== null && now - Date.parse(m.createdAt) < JUST_DROPPED_MS;
+          return (
+            <button
+              key={m.id}
+              onClick={() => setOpen(m.id)}
+              className={`relative block overflow-hidden bg-[#222] text-left ${i === 0 ? "col-span-2 row-span-2" : ""}`}
+              aria-label="Open photo"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={m.url} alt="" className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`} />
+              {fresh && <span className="label z-labels absolute top-2 left-2 bg-green px-1.5 py-0.5 text-ink">Just dropped</span>}
+              <Reactions m={m} />
+            </button>
+          );
+        })}
       </main>
 
       <aside className="flex flex-col gap-6 border-t-3 border-paper p-6 lg:border-t-0 lg:border-l-3">
@@ -93,18 +159,6 @@ export function Stage({ initial }: { initial: DumpsterState }) {
           ))}
         </dl>
 
-        <div>
-          <div className="mb-2 flex items-baseline justify-between">
-            <span className="label">Drops per minute</span>
-            <span className="display text-2xl tabular-nums">{perMin.toFixed(1)}</span>
-          </div>
-          <div className="flex h-20 items-end gap-[3px] border-b-3 border-paper" role="img" aria-label="Upload velocity">
-            {bars.map((n, i) => (
-              <div key={i} className={`flex-1 ${i === bars.length - 1 ? "bg-green" : "bg-paper"}`} style={{ height: `${(n / peak) * 100}%` }} />
-            ))}
-          </div>
-        </div>
-
         {fire && (
           <div className="grid grid-cols-[96px_1fr] border-3 border-fire">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -126,13 +180,15 @@ export function Stage({ initial }: { initial: DumpsterState }) {
           </div>
         </div>
       </aside>
+
+      {open && all.some((x) => x.id === open) && (
+        <StageViewer
+          list={all}
+          index={all.findIndex((x) => x.id === open)}
+          onIndex={(i) => all[i] && setOpen(all[i].id)}
+          onClose={() => setOpen(null)}
+        />
+      )}
     </div>
   );
-}
-
-/** 15 one-minute buckets ending now, zero-filled. */
-function buildBars(velocity: { t: string; n: number }[]) {
-  const now = Math.floor(Date.now() / 60_000);
-  const byMin = new Map(velocity.map((v) => [Math.floor(Date.parse(v.t) / 60_000), v.n]));
-  return Array.from({ length: 15 }, (_, i) => byMin.get(now - 14 + i) ?? 0);
 }
