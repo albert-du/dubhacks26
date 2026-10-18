@@ -19,7 +19,7 @@ Dump is **anonymous and host-less**. Nobody owns a dumpster, nothing records who
 | R4 | Only public renders (`{dumpster}/public/*`) of **live** dumpsters are served. Originals can't be reached. | `app/api/files/[...key]/route.ts` |
 | R5 | **Anonymity:** `Dumpster` and `Media` carry no creator, uploader, host, owner, phone or IP field, and no route reads client IPs. | `lib/types.ts`; text-to-create uses the sender's number for the reply only; explicit alert connections live on expiring guest records |
 | R6 | **Unguessable dumpsters:** dumpster ids are ≥122-bit CSPRNG ids, and malformed ids are rejected before any lookup. | `lib/dumpsters.ts` (25 chars × 32-symbol alphabet = 125 bits) |
-| R7 | Selfies are embedded in memory and never stored. | `lib/enroll.ts` |
+| R7 | Selfies and search-by-photo images are analyzed in memory and never stored. | `lib/enroll.ts`, `lib/photoSearch.ts` |
 | R8 | Expiry hard-deletes blobs, media, face clusters, guest vectors, names, phones, reactions and stickers, and the dumpster's Backboard assistant, thread, and memories. | `purgeDumpster()` in `lib/cleanup.ts`, run every 60s by the worker, plus an orphaned-blob sweep. Free-text turns delete their assistant before the reply returns |
 | R9 | Phone numbers are never logged in full. | `maskPhone()` |
 
@@ -32,10 +32,11 @@ All of the following is deleted when the dumpster burns.
 | Photos/videos (original and public render) | The product | Whoever is in them |
 | Detected objects, written text, captions, transcripts | Search and organization | — |
 | Pixel hash and byte hash | Duplicate detection | — |
-| Face clusters (vectors) | Face gallery and filtering | People in photos, unnamed unless they enroll |
-| Guest name, verified phone, selfie vector, iMessage conversation routing, pending connection-code hash | Opt-in "find me" and verified alerts; codes expire after ten minutes | The guest, by their own choice; routing and codes stay server-side and expire with the Dumpster |
+| Face clusters (vectors) and optional face names | Face gallery, filtering, mention texts | People in photos. A name appears only if someone in the dumpster adds one |
+| Guest verified phone, selfie vector, iMessage conversation routing, pending connection-code hash | Opt-in texts; codes expire after ten minutes | The guest, by their own choice. Routing and codes stay server-side. Deleted on Forget me or burn |
+| Search-by-photo query image | Photo search | Never stored. Analyzed in memory for the one request |
 | Reactions (per-browser random id) | Toggle a reaction instead of stacking | No one: the id is a random cookie, not linked to uploads |
-| Backboard assistant and thread | Ask the pool, and free-text Photon replies | No phone number and no face vector. Ask sees captions, tags, object labels, writing, transcript text, enrolled names, venue, and fire counts. A text turn is deleted before the reply is sent. Ask is deleted when the dumpster burns |
+| Backboard assistant and thread | Ask the dump, and free-text Photon replies | No phone number and no face vector. Ask sees captions, tags, object labels, writing, transcript text, face names, venue, and fire counts. A text turn is deleted before the reply is sent. Ask is deleted when the dumpster burns |
 
 Public renders have all EXIF and location metadata stripped. GPS shown on the map is rounded to about 11 m.
 

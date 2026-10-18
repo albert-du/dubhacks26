@@ -13,12 +13,11 @@ export default function Home() {
   return (
     <div className="mx-auto w-full max-w-[430px]">
       <header className="flex h-14 items-stretch border-b-3 border-ink">
-        <MarkBlock />
-        <span className="label flex flex-1 items-center justify-end px-3">dumpster.photo</span>
+        <MarkBlock divider={false} />
       </header>
 
       <section className="grid grid-cols-[1fr_auto] items-end gap-3 px-4 pt-6 pb-8">
-        <h1 className="display text-[clamp(3.6rem,19vw,5.4rem)]">
+        <h1 className="display min-w-0 text-[clamp(3.2rem,16vw,5rem)]">
           Throw
           <br />
           every
@@ -27,7 +26,7 @@ export default function Home() {
           <br />
           in.
         </h1>
-        <Logo className="h-36 self-start" />
+        <Logo className="h-32 self-start justify-self-end" />
         <p className="col-span-2 mt-4 text-[15px] leading-snug">
           One shared pile for the party, the hike, the wedding, the tailgate. Everyone adds what they shot, everyone finds
           themselves in it, and a day or three later it burns.
@@ -35,10 +34,7 @@ export default function Home() {
       </section>
 
       <section className="border-t-3 border-ink px-4 py-6">
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="display text-3xl">Start a Dumpster</h2>
-          <span className="label">01</span>
-        </div>
+        <h2 className="display mb-4 text-3xl">Start a Dumpster</h2>
         <StartByMessage />
       </section>
 

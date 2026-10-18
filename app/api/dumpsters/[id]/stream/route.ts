@@ -12,7 +12,7 @@ const POLL_MS = 2000;
 const OVERLAP_MS = 5000;
 
 /**
- * Server-Sent Events feed for a dumpster. Polls Mongo. This is how the pool and
+ * Server-Sent Events feed for a dumpster. Polls Mongo. This is how the dump and
  * the stage stay live. Backboard is not on this path.
  */
 export async function GET(req: Request, { params }: Ctx) {

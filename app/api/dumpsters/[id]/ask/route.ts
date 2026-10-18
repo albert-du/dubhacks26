@@ -11,7 +11,7 @@ const Body = z.object({
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** Natural-language search over one dumpster. Word search in the pool still works without this. */
+/** Natural-language search over one dumpster. Word search in the dump still works without this. */
 export const POST = route<Ctx>(async (req, { params }) => {
   if (!backboard.enabled()) throw new HttpError(503, "Ask isn't configured.");
   const d = await getLiveDumpster((await params).id);

@@ -19,7 +19,7 @@ export interface Dumpster {
   // Deliberately no creator field: dumpsters are anonymous and nobody owns them.
   settings: DumpsterSettings;
   /**
-   * Ask-the-pool assistant. Created on the first question and deleted, with its
+   * Ask-the-dump assistant. Created on the first question and deleted, with its
    * thread and memories, when the dumpster is purged.
    */
   backboard?: { assistantId: string; threadId: string };
@@ -29,7 +29,7 @@ export interface Guest {
   _id: string;
   dumpsterId: string;
   viewerId: string;
-  name: string;
+  // No name: people are named on their face (Cluster.name). A guest exists only to get texts.
   phone?: string;
   /** Verified routing for this guest only; never sent to another browser. */
   notification?: {
@@ -119,6 +119,10 @@ export interface Cluster {
   centroid: number[];
   n: number;
   guestId?: string;
+  /** A few face vectors from different angles, so one person stays one face. */
+  exemplars?: number[][];
+  /** Added by anyone in the dumpster from the face gallery. */
+  name?: string;
   cover?: { mediaId: string; box: Box };
   expiresAt: Date;
   updatedAt: Date;
@@ -204,7 +208,8 @@ export interface DumpsterState {
   media: PublicMedia[];
   clusters: PublicCluster[];
   stickers: PublicSticker[];
-  me?: { guestId: string; name: string; clusterIds: string[]; notifications?: NotificationStatus };
+  /** This browser's sign-up, if any. Only the last 4 digits of a verified number are sent back. */
+  me?: { guestId: string; phoneLast4?: string; clusterIds: string[]; notifications?: NotificationStatus };
   /** True when BACKBOARD_API_KEY is set. The browser never receives the key. */
   canAsk: boolean;
   cursor: string;

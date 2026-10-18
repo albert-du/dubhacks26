@@ -1,7 +1,8 @@
 import { nanoid } from "nanoid";
 import { config } from "./config";
 import { findDuplicate, pixelHash } from "./dedupe";
-import { cosine, nearest, updateCentroid } from "./faces";
+import { bestIdentity, cosine, updateCentroid, withExemplar } from "./faces";
+import { mergeDumpsterFaces } from "./faceIdentity";
 import { faceEmbed } from "./faceEmbed";
 import { cols } from "./mongo";
 import { perceptron, type VisionResult } from "./perceptron";
@@ -145,18 +146,19 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
   const list = await clusters.find({ dumpsterId: d._id }).toArray();
   const enrolled = await guests.find({ dumpsterId: d._id, embedding: { $exists: true } }).toArray();
 
+  let created = false;
   for (const f of pending) {
     const emb = f.embedding!;
-    const i = nearest(
-      list.map((c) => c.centroid),
-      emb,
-      config.faceMatchThreshold,
-    );
+    const i = bestIdentity(list, emb, config.faceMatchThreshold);
     if (i >= 0) {
       const c = list[i];
       c.centroid = updateCentroid(c.centroid, c.n, emb);
+      c.exemplars = withExemplar(c.exemplars, emb);
       const cover = c.cover ?? { mediaId, box: f.box };
-      await clusters.updateOne({ _id: c._id }, { $set: { centroid: c.centroid, cover, updatedAt: new Date() }, $inc: { n: 1 } });
+      await clusters.updateOne(
+        { _id: c._id },
+        { $set: { centroid: c.centroid, exemplars: c.exemplars, cover, updatedAt: new Date() }, $inc: { n: 1 } },
+      );
       c.n += 1;
       c.cover = cover;
       f.clusterId = c._id;
@@ -168,6 +170,7 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
       _id: nanoid(10),
       dumpsterId: d._id,
       centroid: emb,
+      exemplars: [emb],
       n: 1,
       cover: { mediaId, box: f.box },
       expiresAt: d.expiresAt,
@@ -177,11 +180,18 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
     await clusters.insertOne(c);
     list.push(c);
     f.clusterId = c._id;
+    created = true;
+  }
+  // A brand-new face group may be someone we already know from another angle.
+  // This photo's faces aren't saved yet, so remap them to the surviving groups.
+  if (created) {
+    const { remap } = await mergeDumpsterFaces(d._id);
+    for (const f of faces) if (f.clusterId && remap.has(f.clusterId)) f.clusterId = remap.get(f.clusterId);
   }
 }
 
 async function processVideo(m: Media, d: Dumpster) {
-  const { media, guests } = await cols();
+  const { media, guests, clusters } = await cols();
   const buf = await storage.get(m.originalKey);
   const ext = m.originalKey.split(".").pop() ?? "mp4";
   const duplicateOf = await detectDuplicate(m);
@@ -196,12 +206,13 @@ async function processVideo(m: Media, d: Dumpster) {
     }
   }
   if (transcript) {
-    const roster = await guests.find({ dumpsterId: d._id }, { projection: { name: 1 } }).toArray();
+    // Names live on faces. A mention texts whoever signed up and owns that face.
+    const named = await clusters.find({ dumpsterId: d._id, name: { $exists: true } }, { projection: { name: 1, guestId: 1 } }).toArray();
     mentions = findMentions(
       transcript,
-      roster.map((g) => g.name),
+      [...new Set(named.map((c) => c.name!))],
     );
-    const ids = roster.filter((g) => mentions.includes(g.name)).map((g) => g._id);
+    const ids = [...new Set(named.filter((c) => c.guestId && mentions.includes(c.name!)).map((c) => c.guestId!))];
     if (ids.length) await guests.updateMany({ _id: { $in: ids } }, { $inc: { pendingMentionAlerts: 1 } });
   }
 

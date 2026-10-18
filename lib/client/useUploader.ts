@@ -115,7 +115,7 @@ export function useUploader(dumpsterId: string) {
     [dumpsterId, pump],
   );
 
-  /** Called with ids that just went live in the pool; clears the matching rows. */
+  /** Called with ids that just went live in the dump; clears the matching rows. */
   const settle = useCallback((ids: string[]) => {
     if (!ids.length) return;
     const live = new Set(ids);

@@ -51,6 +51,12 @@ body {
 html {
   -webkit-tap-highlight-color: transparent;
   text-size-adjust: 100%;
+  /* Paint the root too: otherwise overscroll and the safe areas above/below the
+     page show the browser's default white as bars at the top and bottom. */
+  background-color: var(--color-paper);
+}
+html:has(.stage-root) {
+  background-color: var(--color-ink);
 }
 
 body {
