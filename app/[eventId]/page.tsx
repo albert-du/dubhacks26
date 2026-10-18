@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DumpsterView } from "@/components/dumpster/DumpsterView";
 import { getLiveDumpster } from "@/lib/dumpsters";
 import { dumpsterState } from "@/lib/serialize";
+import { initialTab } from "@/lib/tabs";
 import { tiger } from "@/lib/tiger";
 import { viewerId } from "@/lib/viewer";
 
@@ -24,5 +25,16 @@ export default async function DumpsterPage({ params, searchParams }: Props) {
   if (!d) notFound();
   const state = await dumpsterState(d, await viewerId());
   void tiger.engagement(d._id, "view");
-  return <DumpsterView initial={state} isNew={sp.new === "1"} showMine={sp.me === "1"} />;
+  return (
+    <DumpsterView
+      initial={state}
+      showMine={sp.me === "1"}
+      tab={initialTab({
+        requested: sp.tab,
+        showMine: sp.me === "1",
+        isNew: sp.new === "1",
+        hasMedia: state.media.length > 0,
+      })}
+    />
+  );
 }

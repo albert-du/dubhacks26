@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { FireIcon } from "@/components/Brand";
 import { FaceThumb, frameNo, ShotImage } from "@/components/ui";
 import { dropSavedShots, useSaveShots } from "@/lib/client/useSaveShots";
@@ -206,7 +206,7 @@ export function Dump(props: {
             onName={() => setNaming({ ids: [...myIds], value: myName ?? "" })}
           >
             {myCover ? (
-              <FaceThumb cover={myCover} size={64} />
+              <FaceThumb cover={myCover} size={64} group="dump-faces" order={0} row={4} priority={1} />
             ) : (
               <span className="display grid size-[64px] place-items-center bg-green text-lg">YOU</span>
             )}
@@ -221,7 +221,11 @@ export function Dump(props: {
             name={c.name}
             onName={() => setNaming({ ids: [c.id], value: c.name ?? "" })}
           >
-            {c.cover ? <FaceThumb cover={c.cover} size={64} /> : <span className="block size-[64px] bg-bone" />}
+            {c.cover ? (
+              <FaceThumb cover={c.cover} size={64} group="dump-faces" order={(myCover ? 1 : 0) + i} row={4} priority={1} />
+            ) : (
+              <span className="block size-[64px] bg-bone" />
+            )}
           </FaceButton>
         ))}
         {props.hiddenFaces.length > 0 && (
@@ -241,7 +245,7 @@ export function Dump(props: {
       {showHidden && props.hiddenFaces.length > 0 && (
         <div className="no-scrollbar flex items-center gap-3 overflow-x-auto border-b-3 border-ink bg-bone px-3 py-2">
           <span className="label shrink-0 !text-[9px]">Hidden</span>
-          {props.hiddenFaces.map((c) => (
+          {props.hiddenFaces.map((c, i) => (
             <button
               key={c.id}
               className="flex shrink-0 flex-col items-center gap-1"
@@ -252,7 +256,11 @@ export function Dump(props: {
                 if (props.hiddenFaces.length <= 1) setShowHidden(false);
               }}
             >
-              {c.cover ? <FaceThumb cover={c.cover} size={40} /> : <span className="block size-10 bg-paper" />}
+              {c.cover ? (
+                <FaceThumb cover={c.cover} size={40} group="dump-hidden" order={i} row={4} priority={2} />
+              ) : (
+                <span className="block size-10 bg-paper" />
+              )}
               <span className="label !text-[9px] underline">Unhide</span>
             </button>
           ))}
@@ -449,22 +457,27 @@ export function Dump(props: {
       ) : view === "grid" ? (
         <Grid list={results} {...props} selecting={selecting} selected={selected} onToggle={toggle} />
       ) : (
-        moments.map((mo, i) => {
-          const list = mo.ids.map((x) => props.byId.get(x)!).reverse();
-          const t = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-          return (
-            <section key={mo.id} className="border-b-3 border-ink">
-              <header className="px-3 pt-3 pb-2">
-                <h3 className="display text-xl leading-none break-words">{mo.label ?? `Moment ${moments.length - i}`}</h3>
-                <p className="label mt-1">
-                  {t(mo.start)}
-                  {mo.end - mo.start > 60_000 ? `–${t(mo.end)}` : ""} · {list.length} {list.length === 1 ? "shot" : "shots"}
-                </p>
-              </header>
-              <Grid list={list} {...props} selecting={selecting} selected={selected} onToggle={toggle} />
-            </section>
-          );
-        })
+        moments.reduce<{ nodes: ReactNode[]; orderBase: number }>(
+          (acc, mo, i) => {
+            const list = mo.ids.map((x) => props.byId.get(x)!).reverse();
+            const t = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+            acc.nodes.push(
+              <section key={mo.id} className="border-b-3 border-ink">
+                <header className="px-3 pt-3 pb-2">
+                  <h3 className="display text-xl leading-none break-words">{mo.label ?? `Moment ${moments.length - i}`}</h3>
+                  <p className="label mt-1">
+                    {t(mo.start)}
+                    {mo.end - mo.start > 60_000 ? `–${t(mo.end)}` : ""} · {list.length} {list.length === 1 ? "shot" : "shots"}
+                  </p>
+                </header>
+                <Grid list={list} orderBase={acc.orderBase} {...props} selecting={selecting} selected={selected} onToggle={toggle} />
+              </section>,
+            );
+            acc.orderBase += list.length;
+            return acc;
+          },
+          { nodes: [], orderBase: 0 },
+        ).nodes
       )}
 
       {selecting && (
@@ -555,6 +568,7 @@ function Grid({
   selecting,
   selected,
   onToggle,
+  orderBase = 0,
 }: {
   list: PublicMedia[];
   frames: Map<string, number>;
@@ -563,6 +577,8 @@ function Grid({
   selecting: boolean;
   selected: Set<string>;
   onToggle: (id: string) => void;
+  /** Keeps moment sections in one top-to-bottom queue. */
+  orderBase?: number;
 }) {
   return (
     <ul className="grid grid-cols-3 gap-[3px] bg-ink">
@@ -574,7 +590,7 @@ function Grid({
             className="relative block aspect-square w-full overflow-hidden bg-bone"
           >
             {m.kind === "image" ? (
-              <ShotImage url={m.url} alt={m.caption ?? ""} eager={i < 9} className="z-media relative size-full object-cover" />
+              <ShotImage url={m.url} alt={m.caption ?? ""} group="dump" order={orderBase + i} row={3} className="z-media relative size-full object-cover" />
             ) : (
               <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className="z-media relative size-full object-cover" />
             )}

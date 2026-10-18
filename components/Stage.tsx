@@ -164,7 +164,7 @@ function SelectGrid({ list, selected, onToggle }: { list: PublicMedia[]; selecte
             className="relative block aspect-square w-full overflow-hidden bg-[#222] text-left"
           >
             {m.kind === "image" ? (
-              <ShotImage url={m.url} eager={i < 8} className="z-media relative size-full object-cover" />
+              <ShotImage url={m.url} group="stage-select" order={i} row={4} className="z-media relative size-full object-cover" />
             ) : (
               <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className="z-media relative size-full object-cover" />
             )}
@@ -318,7 +318,9 @@ export function Stage({ initial }: { initial: DumpsterState }) {
                     <ShotImage
                       url={m.url}
                       edge={hero ? 960 : 320}
-                      eager={i < 5}
+                      group="stage"
+                      order={i}
+                      row={4}
                       className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`}
                     />
                   ) : (
