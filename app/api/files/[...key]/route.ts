@@ -1,11 +1,13 @@
 import { getLiveDumpster } from "@/lib/dumpsters";
 import { isPublicKey, storage } from "@/lib/storage";
+import { downloadBody, downloadFilename } from "@/lib/download";
 
 type Ctx = { params: Promise<{ key: string[] }> };
 
 const TYPES: Record<string, string> = {
   webp: "image/webp",
   png: "image/png",
+  jpg: "image/jpeg",
   mp4: "video/mp4",
   mov: "video/quicktime",
   webm: "video/webm",
@@ -24,18 +26,17 @@ export async function GET(req: Request, { params }: Ctx) {
   // ?download=1 saves the file instead of opening it (works for the S3 redirect too).
   const download = new URL(req.url).searchParams.get("download") === "1";
   const filename = `dump-${key.split("/").pop()}`;
-  // Stickers are proxied so the phone can read the bytes. A redirect to object storage
-  // is cross-origin, and the share sheet cannot turn that into a file.
-  if (download && key.includes("/public/sticker-")) {
+  // Proxy image exports for conversion and same-origin sticker sharing.
+  if (download && (/\.webp$/i.test(key) || key.includes("/public/sticker-"))) {
     try {
-      const body = await storage.get(key);
-      const stickerName = (key.split("/").pop() ?? "sticker.png").replace(/[^\w.-]+/g, "") || "sticker.png";
-      const ext = stickerName.split(".").pop() ?? "png";
+      const body = await downloadBody(key, await storage.get(key));
+      const exportName = `${key.includes("/public/sticker-") ? "" : "dump-"}${downloadFilename(key)}`.replace(/[^\w.-]+/g, "");
+      const ext = exportName.split(".").pop() ?? "png";
       return new Response(new Uint8Array(body), {
         headers: {
           "content-type": TYPES[ext] ?? "application/octet-stream",
           "content-length": String(body.length),
-          "content-disposition": `attachment; filename="${stickerName}"`,
+          "content-disposition": `attachment; filename="${exportName}"`,
           "cache-control": "private, no-store",
         },
       });
