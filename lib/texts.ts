@@ -1,4 +1,4 @@
-import { backboard, textAssistantName, type ToolDef, type ToolHandler } from "./backboard";
+import { backboard, textAssistantName, type ToolDef, type ToolHandler } from "./ai-backboard";
 import { clampTtl, parseCommand } from "./commands";
 import { createDumpster, dumpsterIdFrom, dumpsterUrl, getLiveDumpster } from "./dumpsters";
 import { cols } from "./mongo";

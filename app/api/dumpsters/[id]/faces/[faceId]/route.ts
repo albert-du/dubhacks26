@@ -5,7 +5,7 @@ import { nameKey } from "@/lib/enroll";
 import { requireGuest } from "@/lib/guestAuth";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
-import { findMentions } from "@/lib/transcribe";
+import { findMentions } from "@/lib/ai-transcribe";
 
 type Ctx = { params: Promise<{ id: string; faceId: string }> };
 

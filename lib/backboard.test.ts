@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createDumpSession, searchShots, shotFromMedia, type ShotCard } from "./ask";
-import { backboard, isStaleTextAssistant } from "./backboard";
+import { backboard, isStaleTextAssistant } from "./ai-backboard";
 import { dumpsterIdFrom } from "./dumpsters";
 import { emptyReactions } from "./reactions";
 import { HELP, answerText, formatCreated } from "./texts";

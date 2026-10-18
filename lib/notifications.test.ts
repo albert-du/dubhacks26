@@ -7,7 +7,7 @@ import { connectFromMessage, disconnectNotifications, getNotificationStatus, has
 import { photon, type InboundText } from "./photon";
 import sharp from "sharp";
 import { enrollGuest } from "./enroll";
-import { faceEmbed } from "./faceEmbed";
+import { faceEmbed } from "./ai-face-embed";
 import { flushFaceAlerts, sendExpiryWarnings } from "./alerts";
 import { dumpsterState } from "./serialize";
 import type { Dumpster, Guest } from "./types";

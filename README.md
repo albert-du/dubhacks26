@@ -1,5 +1,7 @@
 # Dump
 
+AI implementation: hosted Perceptron vision and Backboard language APIs, self-hosted InsightFace and Whisper, and local BiRefNet sticker inference. See [AI.md](AI.md) for model calls, entry points, and data flows; the API adapters live in `lib/ai-*.ts`.
+
 Dump is one shared photo pile for a group. A party, a hike, a wedding, a tailgate. Someone opens a dumpster, passes the link or the QR code, and everyone throws in what they shot. You get in from that link, then sign in to that one dumpster. The first time, that's your name, a quick selfie (take one or upload one), and, if you want texts, your phone number. After that your name alone gets you back in, on any phone. There are no accounts: the sign-in is for this dumpster only and burns with it.
 
 The pile lasts 24, 48, or 72 hours. Then the photos, the videos, the names, and the phone numbers are deleted.

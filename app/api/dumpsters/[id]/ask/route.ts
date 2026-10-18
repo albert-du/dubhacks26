@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { askDumpster } from "@/lib/ask";
-import { backboard } from "@/lib/backboard";
+import { backboard } from "@/lib/ai-backboard";
 import { getLiveDumpster } from "@/lib/dumpsters";
 import { HttpError, notFound, route } from "@/lib/http";
 

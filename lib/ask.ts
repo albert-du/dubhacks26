@@ -1,4 +1,4 @@
-import { backboard, dumpsterAssistantName, type ToolDef, type ToolHandler } from "./backboard";
+import { backboard, dumpsterAssistantName, type ToolDef, type ToolHandler } from "./ai-backboard";
 import { cols } from "./mongo";
 import { matchFields, tokenize, type MatchSource } from "./search";
 import type { Dumpster, Media } from "./types";

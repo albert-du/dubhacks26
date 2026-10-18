@@ -1,10 +1,10 @@
 import { config } from "./config";
 import { identityScore } from "./faces";
-import { faceEmbed } from "./faceEmbed";
+import { faceEmbed } from "./ai-face-embed";
 import { HttpError } from "./http";
 import { normalizeImage } from "./imaging";
 import { cols } from "./mongo";
-import { perceptron } from "./perceptron";
+import { perceptron } from "./ai-perceptron";
 import type { Dumpster } from "./types";
 
 export interface PhotoSearchResult {
