@@ -24,15 +24,15 @@ Analysis is enrichment: photos still publish when vision services are unavailabl
 The former `ALLOW_UNSCANNED_PUBLISH` setting is no longer used.
 
 Photon 2.0 requires `PHOTON_API_KEY`, `PHOTON_PROJECT_ID`, and
-`PHOTON_PLATFORM=imessage`. The key needs `project:read`, `project:write`, and
-`platforms:read`. The API base defaults to `https://api.photon.codes/v1`.
+`PHOTON_PLATFORM=imessage`. The key needs `project:read`, `project:write`,
+`platforms:read`, and `platforms:write`. The API base defaults to `https://api.photon.codes/v1`.
 Register the public `/api/photon/webhook` URL with Photon, subscribe it to
 `message.received`, and copy its Standard Webhooks signing secret into
 `PHOTON_WEBHOOK_SECRET`. Public HTTPS must work before testing replies.
 
-Manually register demo participants within your 25-slot allowance. The homepage
-looks up the submitted participant's assigned number without allocating slots;
-their create text opens the Dumpster. Anyone can join an existing link or QR code.
+The homepage registers fresh numbers through Photon and reuses existing assignments.
+Photon enforces the 25-slot project allowance atomically; when full, the homepage
+explains that link/QR joining still works. Sending the create text opens the Dumpster. Anyone can join an existing link or QR code.
 
 In Me, guests save their name, then optionally connect alerts by sending a
 one-time message from their registered number. The code is hashed, expires after

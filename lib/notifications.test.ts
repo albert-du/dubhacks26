@@ -77,26 +77,66 @@ test("notifications: assignment lookup only reads the roster and returns the req
   try {
     assert.equal(await photon.imessageAssignment("+12065550102"), "+12065550202");
     assert.equal(await photon.imessageAssignment("+12065550999"), null);
-    assert.ok(calls.every((c) => c.method === "GET" && c.url.endsWith("/platforms/imessage/assignments")));
+    assert.ok(calls.every((c) => c.method === "GET" && c.url.endsWith("/platforms/imessage/assignments?pageSize=200")));
   } finally { globalThis.fetch = original; restore(); }
 });
 
-test("homepage: lookup returns one assigned number and never creates a Dumpster", async () => {
+test("homepage: registration returns only a service number and handles a full demo", async () => {
   const restore = photonEnvironment();
-  const original = photon.imessageAssignment;
-  photon.imessageAssignment = async (handle) => handle === "+12065550101" ? "+12065550201" : null;
+  const original = photon.ensureImessageAssignment;
+  photon.ensureImessageAssignment = async (handle) => {
+    if (handle === "+12065550101") return "+12065550201";
+    throw new HttpError(409, "All demo iMessage slots are in use.");
+  };
   try {
     const { POST } = await import("../app/api/photon/assignment/route");
-    const request = (phone: string) => POST(new Request("http://localhost/api/photon/assignment", {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ phone }),
+    const request = (phone: string, origin?: string) => POST(new Request("http://localhost/api/photon/assignment", {
+      method: "POST", headers: { "content-type": "application/json", ...(origin ? { origin } : {}) }, body: JSON.stringify({ phone }),
     }), {});
     const found = await request("2065550101");
     assert.equal(found.status, 200);
     assert.deepEqual(await found.json(), { agentNumber: "+12065550201" });
     assert.match(found.headers.get("cache-control")!, /no-store/);
-    assert.equal((await request("+12065550999")).status, 422);
+    assert.equal((await request("+12065550999")).status, 409);
     assert.equal((await request("invalid")).status, 400);
-  } finally { photon.imessageAssignment = original; restore(); }
+    assert.equal((await request("+12065550101", new URL(config.appUrl).origin)).status, 200);
+    assert.equal((await request("+12065550101", "https://other.example")).status, 403);
+  } finally { photon.ensureImessageAssignment = original; restore(); }
+});
+
+test("registration: reuse seats, create idempotently, handle races and capacity", async () => {
+  const restore = photonEnvironment();
+  const original = globalThis.fetch;
+  const requests: { method: string; headers?: HeadersInit; body?: BodyInit | null }[] = [];
+  let existing = true;
+  let failure: string | undefined;
+  let lookups = 0;
+  globalThis.fetch = (async (_url: string | URL, init?: RequestInit) => {
+    requests.push({ method: init?.method ?? "GET", headers: init?.headers, body: init?.body });
+    if (!init?.method) {
+      lookups++;
+      return Response.json({ assignments: existing || (failure === "ASSIGNMENT_EXISTS" && lookups % 2 === 0)
+        ? [{ handle: "+12065550101", assignedPhoneNumber: "+12065550201" }] : [] });
+    }
+    return failure ? Response.json({ code: failure }, { status: 409 }) : Response.json({ assignedPhoneNumber: "+12065550201" }, { status: 201 });
+  }) as typeof fetch;
+  try {
+    assert.equal(await photon.ensureImessageAssignment("+12065550101"), "+12065550201");
+    assert.equal(requests.length, 1);
+    existing = false;
+    assert.equal(await photon.ensureImessageAssignment("+12065550101"), "+12065550201");
+    assert.equal(await photon.ensureImessageAssignment("+12065550101"), "+12065550201");
+    const writes = requests.filter((r) => r.method === "POST");
+    assert.deepEqual(JSON.parse(String(writes[0].body)), { handle: "+12065550101" });
+    const key = new Headers(writes[0].headers).get("idempotency-key");
+    assert.ok(key && !key.includes("1206555"));
+    assert.equal(key, new Headers(writes[1].headers).get("idempotency-key"));
+    failure = "SHARED_LINE_CAP_EXCEEDED";
+    await assert.rejects(photon.ensureImessageAssignment("+12065550101"), (e) => e instanceof HttpError && e.status === 409);
+    failure = "ASSIGNMENT_EXISTS";
+    lookups = 0;
+    assert.equal(await photon.ensureImessageAssignment("+12065550101"), "+12065550201");
+  } finally { globalThis.fetch = original; restore(); }
 });
 
 // Opt in with a disposable MongoDB instance. Each run creates and removes its own isolated database.

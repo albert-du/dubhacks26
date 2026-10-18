@@ -8,10 +8,10 @@ A dumpster has no owner. Nothing records who opened it or who uploaded a shot. A
 
 ## Start one
 
-On the home page, enter your registered demo phone number. Dump looks up your
+On the home page, enter your phone number. Dump registers it with Photon if needed and looks up your
 assigned iMessage number and opens Messages with a create command. Edit the name
 and hours, then send it. The text creates the dumpster and the reply includes its
-link and QR page. The website does not allocate Photon slots automatically.
+link and QR page. Submitting a fresh number uses one of the demo’s 25 iMessage slots; existing numbers reuse their slot. If the demo is full, joining by link or QR still works.
 
 ```text
 create dumpster "Mt. Si Hike" 48h
@@ -109,7 +109,7 @@ Each of these is optional. The app runs without them. The comments in `.env.exam
 | Perceptron | Looks at each photo: objects and people, writing, a caption, tags, and a venue name. One Mk1.5 chat completion. Boxes come back as `<point_box>` markup. If it is down, the photo still publishes. |
 | Face embed | Groups faces and matches a selfie. Vectors stay on the server. |
 | Transcription | Any Whisper-compatible endpoint. This is how video search and "your name was mentioned" texts work. |
-| Photon 2.0 | Creates a dumpster by text, and sends photo alerts, mention alerts, and the burn warning. Needs the API key, project id, and a manually registered demo roster. The homepage returns the submitted participant’s assigned number. Me connects each guest’s alerts to their verified conversation; different guests can use different assigned lines. |
+| Photon 2.0 | Creates a dumpster by text, and sends photo alerts, mention alerts, and the burn warning. Needs the API key, project id, and platforms:read / platforms:write permissions. The homepage returns the submitted participant’s assigned number. Me connects each guest’s alerts to their verified conversation; different guests can use different assigned lines. |
 | Backboard | Ask the dump, and texts that are not a fixed command. One assistant per dumpster, deleted when the dumpster burns. A loose text uses a throwaway assistant that is deleted before the reply goes out. New photos still arrive on the site's own live feed. |
 | TigerData | Drops per minute, and a record of each cleanup. Without it, those numbers come from Mongo. |
 | Object storage | Cloudflare R2 or another S3-compatible bucket. A shared persistent volume is the production fallback; local development uses a folder on disk. |
