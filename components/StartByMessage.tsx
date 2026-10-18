@@ -40,13 +40,13 @@ export function StartByMessage() {
         </>
       ) : (
         <form onSubmit={lookup} className="space-y-3">
-          <p className="text-sm">Start by iMessage. Enter your registered demo number to find where to send your first text.</p>
+          <p className="text-sm">Start by iMessage. Enter your number and we’ll register it for the demo and show you where to send your first text.</p>
           <label className="block">
             <span className="label mb-1 block">Your iMessage phone number</span>
             <input className="field" type="tel" inputMode="tel" autoComplete="tel" placeholder="+1 206 555 0123" maxLength={40} value={phone} onChange={(e) => setPhone(e.target.value)} required />
           </label>
           <button className="btn btn-green w-full !py-5" disabled={busy || !phone.trim()}>{busy ? "Finding your number…" : "Start by iMessage"}</button>
-          <p className="text-xs leading-snug">Already have a Dumpster link or QR code? Open it to join—no phone number needed.</p>
+          <p className="text-xs leading-snug">The demo has 25 iMessage slots. We’ll reuse yours if you’re already registered. Already have a Dumpster link or QR code? Open it to join—no phone number needed.</p>
         </form>
       )}
       {error && <p className="border-3 border-fire bg-fire/15 p-3 text-sm" role="alert">{error}</p>}
