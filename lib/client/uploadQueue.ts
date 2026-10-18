@@ -48,10 +48,36 @@ export const uploadQueue = {
   },
 };
 
+const UNREADABLE = "Couldn't read that clip on this phone. Drop it again.";
+
+/**
+ * Bytes the phone can actually upload.
+ * iOS Safari 26 sends a disk-backed File as an empty body when a service worker
+ * controls the page, and again after IndexedDB hands that File back. The upload
+ * 500s, and this queue retries it forever as "No signal" even on good Wi-Fi.
+ * arrayBuffer() still reads the bytes. A plain Blob made from them uploads.
+ */
+export async function blobToSend(blob: Blob, type: string): Promise<Blob> {
+  const mime = type || blob.type;
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await blob.arrayBuffer();
+  } catch {
+    throw new Error(UNREADABLE);
+  }
+  if (blob.size > 0 && bytes.byteLength === 0) throw new Error(UNREADABLE);
+  return new Blob([bytes], { type: mime });
+}
+
 /** Pull GPS + capture time before compression strips EXIF, then shrink big photos for weak signal. */
 export async function prepareFile(file: File): Promise<Omit<QueuedUpload, "id" | "dumpsterId" | "addedAt">> {
-  const base = { blob: file as Blob, name: file.name, type: file.type };
-  if (!file.type.startsWith("image/") || file.type === "image/gif") return base;
+  const snap = async (extra?: { lat?: number; lng?: number; takenAt?: number }) => ({
+    blob: await blobToSend(file, file.type),
+    name: file.name,
+    type: file.type,
+    ...extra,
+  });
+  if (!file.type.startsWith("image/") || file.type === "image/gif") return snap();
 
   let lat: number | undefined;
   let lng: number | undefined;
@@ -65,7 +91,7 @@ export async function prepareFile(file: File): Promise<Omit<QueuedUpload, "id" |
   } catch {}
 
   const heic = /heic|heif/.test(file.type);
-  if (!heic && file.size < 1.5 * 1024 * 1024) return { ...base, lat, lng, takenAt };
+  if (!heic && file.size < 1.5 * 1024 * 1024) return snap({ lat, lng, takenAt });
   try {
     const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
     const scale = Math.min(1, 2560 / Math.max(bmp.width, bmp.height));
@@ -76,5 +102,5 @@ export async function prepareFile(file: File): Promise<Omit<QueuedUpload, "id" |
     const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.86));
     if (blob) return { blob, name: file.name.replace(/\.\w+$/, ".jpg"), type: "image/jpeg", lat, lng, takenAt };
   } catch {}
-  return { ...base, lat, lng, takenAt };
+  return snap({ lat, lng, takenAt });
 }

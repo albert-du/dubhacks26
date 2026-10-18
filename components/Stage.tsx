@@ -182,7 +182,7 @@ function SelectGrid({ list, selected, onToggle }: { list: PublicMedia[]; selecte
   );
 }
 
-/** Projector / TV view: live mosaic, giant QR, counts, countdown. */
+/** Projector / TV view: QR and counts on top, then every shot. The page scrolls. */
 export function Stage({ initial }: { initial: DumpsterState }) {
   const { state, destroyed, react } = useDumpster(initial);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -222,74 +222,21 @@ export function Stage({ initial }: { initial: DumpsterState }) {
 
   if (destroyed) return <Burned />;
 
-  const latest = state.media.filter((m) => m.kind === "image").slice(0, 11);
   const all = state.media;
   const chosen = all.filter((m) => selected.has(m.id));
   const fire = fireRank(state.media.filter((m) => m.kind === "image"))[0];
 
   return (
-    <div className="stage-root grid min-h-dvh bg-ink text-paper lg:grid-cols-[1fr_400px]">
-      <main className={selecting ? "p-[3px] pb-28" : "relative grid auto-rows-[24vh] grid-cols-2 gap-[3px] p-[3px] md:grid-cols-4"}>
-        {selecting ? (
-          <SelectGrid list={all} selected={selected} onToggle={toggle} />
-        ) : (
-          <>
-            {all.length > 0 && (
-              <button
-                onClick={startSelecting}
-                className="label absolute top-3 right-3 z-labels border-2 border-paper bg-ink px-3 py-2 text-paper lg:hidden"
-                aria-pressed={false}
-              >
-                Select
-              </button>
-            )}
-            {latest.length === 0 && (
-              <div className="col-span-full row-span-3 grid place-items-center">
-                <p className="display text-center text-[8vw]">
-                  Waiting for
-                  <br />
-                  the first dump.
-                </p>
-              </div>
-            )}
-            {latest.map((m, i) => {
-              const fresh = i === 0 && now !== null && now - Date.parse(m.createdAt) < JUST_DROPPED_MS;
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => setOpen(m.id)}
-                  className={`relative block overflow-hidden bg-[#222] text-left ${i === 0 ? "col-span-2 row-span-2" : ""}`}
-                  aria-label="Open photo"
-                >
-                  <ShotImage url={m.url} edge={i === 0 ? 960 : 320} group="stage" order={i} row={4} className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`} />
-                  {fresh && <span className="label z-labels absolute top-2 left-2 bg-green px-1.5 py-0.5 text-ink">Just dropped</span>}
-                  <ReactionMarks m={m} />
-                </button>
-              );
-            })}
-          </>
-        )}
-      </main>
-
-      <aside className="flex flex-col gap-6 border-t-3 border-paper p-6 lg:border-t-0 lg:border-l-3">
-        <div>
+    <div className="stage-root min-h-dvh bg-ink text-paper">
+      <header className="flex flex-wrap items-end gap-6 border-b-3 border-paper p-6">
+        <div className="min-w-[12rem] flex-1">
           <p className="label text-green">Live Dumpster</p>
           <h1 className="display text-5xl break-words">{state.dumpster.name}</h1>
         </div>
 
-        {all.length > 0 && (
-          <button
-            onClick={() => (selecting ? stopSelecting() : startSelecting())}
-            className={`btn hidden w-full !py-3 lg:inline-flex ${selecting ? "btn-green" : "btn-ghost"}`}
-            aria-pressed={selecting}
-          >
-            Select
-          </button>
-        )}
-
         <div className="flex items-end gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/api/dumpsters/${id}/qr?theme=dark`} alt="Scan to join" className="w-44 border-3 border-paper" />
+          <img src={`/api/dumpsters/${id}/qr?theme=dark`} alt="Scan to join" className="w-36 border-3 border-paper" />
           <p className="display text-4xl">
             Scan
             <br />
@@ -297,7 +244,7 @@ export function Stage({ initial }: { initial: DumpsterState }) {
           </p>
         </div>
 
-        <dl className="grid grid-cols-3 border-3 border-paper">
+        <dl className="grid min-w-[18rem] flex-1 grid-cols-3 border-3 border-paper">
           {[
             ["Photos", stats?.photos ?? state.media.length],
             ["People", stats?.faces ?? state.clusters.length],
@@ -323,13 +270,75 @@ export function Stage({ initial }: { initial: DumpsterState }) {
           </div>
         )}
 
-        <div className="mt-auto">
+        <div>
           <p className="label mb-1">Burns in</p>
           <div className="hazard p-2">
             <Countdown expiresAt={state.dumpster.expiresAt} className="display block bg-ink px-3 text-5xl" />
           </div>
         </div>
-      </aside>
+
+        {all.length > 0 && (
+          <button
+            onClick={() => (selecting ? stopSelecting() : startSelecting())}
+            className={`btn !py-3 ${selecting ? "btn-green" : "btn-ghost"}`}
+            aria-pressed={selecting}
+          >
+            Select
+          </button>
+        )}
+      </header>
+
+      <main className={selecting ? "p-[3px] pb-28" : "relative grid auto-rows-[24vh] grid-cols-2 content-start gap-[3px] p-[3px] md:grid-cols-4"}>
+        {selecting ? (
+          <SelectGrid list={all} selected={selected} onToggle={toggle} />
+        ) : (
+          <>
+            {all.length === 0 && (
+              <div className="col-span-full row-span-3 grid place-items-center">
+                <p className="display text-center text-[8vw]">
+                  Waiting for
+                  <br />
+                  the first dump.
+                </p>
+              </div>
+            )}
+            {all.map((m, i) => {
+              const fresh = i === 0 && now !== null && now - Date.parse(m.createdAt) < JUST_DROPPED_MS;
+              const hero = i === 0;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setOpen(m.id)}
+                  className={`relative block overflow-hidden bg-[#222] text-left ${hero ? "col-span-2 row-span-2" : ""}`}
+                  aria-label={m.kind === "video" ? "Open clip" : "Open photo"}
+                >
+                  {m.kind === "image" ? (
+                    <ShotImage
+                      url={m.url}
+                      edge={hero ? 960 : 320}
+                      group="stage"
+                      order={i}
+                      row={4}
+                      className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`}
+                    />
+                  ) : (
+                    <video
+                      src={`${m.url}#t=0.1`}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`}
+                    />
+                  )}
+                  {m.kind === "video" && <span className="label z-labels absolute top-0 right-0 bg-paper px-1 !text-[9px] text-ink">▶ Clip</span>}
+                  {fresh && <span className="label z-labels absolute top-2 left-2 bg-green px-1.5 py-0.5 text-ink">Just dropped</span>}
+                  <ReactionMarks m={m} />
+                </button>
+              );
+            })}
+          </>
+        )}
+      </main>
 
       {selecting && (
         <StageSaveBar
