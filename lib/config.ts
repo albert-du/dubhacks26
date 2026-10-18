@@ -23,7 +23,7 @@ export const config = {
   perceptron: {
     apiKey: env("PERCEPTRON_API_KEY"),
     baseUrl: env("PERCEPTRON_BASE_URL") ?? "https://api.perceptron.inc/v1",
-    model: env("PERCEPTRON_MODEL") ?? "isaac-0.1",
+    model: env("PERCEPTRON_MODEL") ?? "perceptron-mk1.5",
   },
   faceEmbedUrl: env("FACE_EMBED_URL"),
   faceMatchThreshold: Number(env("FACE_MATCH_THRESHOLD") ?? 0.42),

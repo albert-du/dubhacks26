@@ -2,13 +2,17 @@ import { config } from "./config";
 import type { Box, DetectedObject } from "./types";
 
 /**
- * Perceptron vision adapter (Isaac / Mk1). One grounded call per image returns
- * every readable piece of text (OCR) with boxes, face boxes, every primary object and person
- * with a label and box, a caption, scene tags and venue/landmark text.
+ * Perceptron Mk1.5 vision adapter. One chat completion per image returns
+ * objects, people, faces, OCR lines, a caption, scene tags, and venue text.
  *
- * Uses an OpenAI-compatible chat-completions request with an inline image.
- * VERIFY against Perceptron's current API docs: base URL, model id, and whether
- * boxes come back in 0..1000 space (we assume so, and normalize to 0..1).
+ * Checked against https://docs.perceptron.inc/perceptron-mk1.5 (2026-10-17):
+ * POST /v1/chat/completions is the OpenAI-compatible API, and an image_url
+ * part accepts a base64 data URL. Grounded boxes are <point_box> markup in
+ * choices[0].message.content on a 0–1000 grid (top-left, then bottom-right),
+ * requested with vision_config.annotation_format "box". isaac-0.1 returns
+ * 404 model_not_found. /v1/detect returns pixel coordinates and is not used.
+ * JSON schema responses do not carry those boxes, so caption fields stay in
+ * a JSON object beside the markup. Coordinates outside 0–1000 are dropped.
  */
 
 export interface VisionResult {
@@ -20,20 +24,18 @@ export interface VisionResult {
   objects: DetectedObject[];
 }
 
-const PROMPT = `You are the vision system for a party photo-sharing app. Analyze the image and reply with ONLY a JSON object:
-{
-  "caption": "one short, playful sentence",
-  "tags": ["up to 8 lowercase scene/activity tags"],
-  "venue": "venue, landmark, or event signage name visible in the image, or null",
-  "faces": [{"box": [x1,y1,x2,y2]}],
-  "objects": [{"label": "lowercase noun, e.g. person, dog, cake, guitar", "box": [x1,y1,x2,y2]}],
-  "text": [{"text": "exact text as written", "box": [x1,y1,x2,y2]}]
-}
-Rules:
-- faces: every human face, including people in the background.
-- objects: every primary object and every person in the photo (label people "person"), most prominent first, max 20.
-- text: every legible word, sign, shirt print, banner or label, one entry per line of text.
-Boxes are integer pixel coordinates normalized to a 0-1000 grid.`;
+const PROMPT = `Label this party photo. Reply with a JSON object first, then flat point_box annotations. Do not use collections, tracks, points, or polygons.
+
+{"caption":"one short playful sentence","tags":["up to 8 lowercase scene or activity tags"],"venue":"venue, landmark, or event signage name visible in the image, or null"}
+
+After the JSON, emit one <point_box> per item. Quote mention, set asset_idx="0", and use a normalized 0-1000 grid: top-left corner, then bottom-right.
+- Every human face, including people in the background: mention="face"
+- Every primary object and every person, most prominent first, at most 20. People are mention="object:person". Other objects are mention="object:<lowercase noun>".
+- Every legible line of text on a sign, shirt, banner, or label: mention="text:<exact text as written>". Skip text that is too small or obscured to read.
+
+<point_box mention="face" asset_idx="0"> (100,150) (300,350) </point_box>
+<point_box mention="object:cake" asset_idx="0"> (400,400) (600,700) </point_box>
+<point_box mention="text:MAIN STAGE" asset_idx="0"> (0,0) (500,80) </point_box>`;
 
 export const perceptron = {
   enabled: () => !!config.perceptron.apiKey,
@@ -45,6 +47,9 @@ export const perceptron = {
       body: JSON.stringify({
         model: config.perceptron.model,
         temperature: 0,
+        reasoning_effort: "high",
+        max_completion_tokens: 8192,
+        vision_config: { annotation_format: "box" },
         messages: [
           {
             role: "user",
@@ -58,23 +63,36 @@ export const perceptron = {
       signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok) throw new Error(`perceptron ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    const body = await res.json();
-    const content: string = body.choices?.[0]?.message?.content ?? "";
-    return parseVision(content);
+    return parseVision(visionContent(await res.json()));
   },
 };
 
+/** Final answer only. Reasoning stays in message.reasoning_content and is ignored. */
+export function visionContent(body: unknown): string {
+  const root = record(body);
+  const choices = Array.isArray(root?.choices) ? root.choices : [];
+  const first = record(choices[0]);
+  const message = record(first?.message);
+  const calledTool = Array.isArray(message?.tool_calls) && message.tool_calls.length > 0;
+  if (first?.finish_reason !== "stop" || calledTool) {
+    const label = calledTool ? "tool_calls" : typeof first?.finish_reason === "string" ? first.finish_reason : "none";
+    throw new Error(`perceptron: incomplete response (${label})`);
+  }
+  return typeof message?.content === "string" ? message.content : "";
+}
+
 export function parseVision(content: string): VisionResult {
-  const start = content.indexOf("{");
-  const end = content.lastIndexOf("}");
-  if (start < 0 || end < start) throw new Error("perceptron: no JSON in response");
-  // Strip // comments the model may echo back from the prompt.
-  const raw = JSON.parse(content.slice(start, end + 1).replace(/\/\/[^\n"]*$/gm, ""));
-  const str = (v: unknown) => (typeof v === "string" && v && v !== "null" ? v : undefined);
+  const { boxes, prose } = extractPointBoxes(content);
+  const raw = parseJsonObject(prose);
+  const meta = {
+    caption: str(raw?.caption),
+    tags: Array.isArray(raw?.tags) ? raw.tags.filter((t: unknown) => typeof t === "string").slice(0, 8) : [],
+    venue: str(raw?.venue),
+  };
+  if (boxes.length) return { ...meta, ...fromMarkup(boxes) };
+  if (!raw) throw new Error("perceptron: no JSON or point_box annotations in response");
   return {
-    caption: str(raw.caption),
-    tags: Array.isArray(raw.tags) ? raw.tags.filter((t: unknown) => typeof t === "string").slice(0, 8) : [],
-    venue: str(raw.venue),
+    ...meta,
     faces: (raw.faces ?? []).map((f: { box: unknown }) => ({ box: toBox(f.box) })).filter((f: { box: Box | null }) => f.box),
     text: (raw.text ?? [])
       .map((t: { text: unknown; box: unknown }) => ({ text: String(t.text ?? "").trim(), box: toBox(t.box) }))
@@ -87,12 +105,134 @@ export function parseVision(content: string): VisionResult {
   };
 }
 
+interface ParsedBox {
+  mention?: string;
+  box: Box;
+}
+
+function extractPointBoxes(content: string): { boxes: ParsedBox[]; prose: string } {
+  const boxes: ParsedBox[] = [];
+  const kept: string[] = [];
+  const lower = content.toLowerCase();
+  let i = 0;
+  while (i < content.length) {
+    const start = lower.indexOf("<point_box", i);
+    if (start < 0) {
+      kept.push(content.slice(i));
+      break;
+    }
+    const afterName = start + "<point_box".length;
+    const boundary = content[afterName];
+    if (boundary !== undefined && boundary !== ">" && boundary !== "/" && !/\s/.test(boundary)) {
+      kept.push(content.slice(i, afterName));
+      i = afterName;
+      continue;
+    }
+    const tagEnd = scanTagEnd(content, afterName);
+    if (tagEnd < 0) {
+      kept.push(content.slice(i));
+      break;
+    }
+    const attrs = content.slice(afterName, tagEnd);
+    if (attrs.trimEnd().endsWith("/")) {
+      kept.push(content.slice(i, tagEnd + 1));
+      i = tagEnd + 1;
+      continue;
+    }
+    const close = lower.indexOf("</point_box>", tagEnd + 1);
+    if (close < 0) {
+      kept.push(content.slice(i));
+      break;
+    }
+    kept.push(content.slice(i, start));
+    const box = boxFromGrid(content.slice(tagEnd + 1, close));
+    const assetIdx = readAttr(attrs, "asset_idx");
+    if (box && (assetIdx === undefined || assetIdx === "0")) {
+      boxes.push({ mention: readAttr(attrs, "mention"), box });
+    }
+    i = close + "</point_box>".length;
+  }
+  return { boxes, prose: kept.join("") };
+}
+
+function scanTagEnd(content: string, from: number): number {
+  let quote: string | null = null;
+  for (let j = from; j < content.length; j++) {
+    const c = content[j];
+    if (quote) {
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+      continue;
+    }
+    if (c === ">") return j;
+  }
+  return -1;
+}
+
+function readAttr(raw: string, name: string): string | undefined {
+  const quoted = raw.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i"));
+  if (quoted) return quoted[1] ?? quoted[2] ?? "";
+  const bare = raw.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*([^\\s"'=<>]+)`, "i"));
+  return bare?.[1];
+}
+
+/** Markup coordinates are always the 0–1000 grid, even when both corners are below 1. */
+function boxFromGrid(body: string): Box | null {
+  const pairs = [...body.matchAll(/\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)/g)];
+  if (pairs.length !== 2) return null;
+  const nums = pairs.flatMap((pair) => [Number(pair[1]), Number(pair[2])]);
+  if (nums.some((n) => !Number.isFinite(n) || n < 0 || n > 1000)) return null;
+  const [x1, y1, x2, y2] = nums;
+  if (!(x2 > x1 && y2 > y1)) return null;
+  return [x1 / 1000, y1 / 1000, x2 / 1000, y2 / 1000];
+}
+
+function fromMarkup(boxes: ParsedBox[]): Pick<VisionResult, "faces" | "text" | "objects"> {
+  const faces: VisionResult["faces"] = [];
+  const text: VisionResult["text"] = [];
+  const objects: VisionResult["objects"] = [];
+  for (const { mention, box } of boxes) {
+    if (!mention?.trim()) continue;
+    const raw = mention.trim();
+    const lower = raw.toLowerCase();
+    if (lower === "face") {
+      faces.push({ box });
+      continue;
+    }
+    if (lower.startsWith("text:")) {
+      const line = raw.slice(lower.indexOf(":") + 1).trim();
+      if (line) text.push({ text: line, box });
+      continue;
+    }
+    const label = (lower.startsWith("object:") ? raw.slice(lower.indexOf(":") + 1) : raw).trim().toLowerCase();
+    if (label) objects.push({ label, box });
+  }
+  return { faces, text: text.slice(0, 60), objects: objects.slice(0, 20) };
+}
+
+function parseJsonObject(content: string): Record<string, any> | null {
+  const start = content.indexOf("{");
+  const end = content.lastIndexOf("}");
+  if (start < 0 || end < start) return null;
+  try {
+    const raw = JSON.parse(content.slice(start, end + 1).replace(/\/\/[^\n"]*$/gm, ""));
+    return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 function toBox(v: unknown): Box | null {
-  if (!Array.isArray(v) || v.length !== 4 || v.some((n) => typeof n !== "number")) return null;
+  if (!Array.isArray(v) || v.length !== 4 || v.some((n) => typeof n !== "number" || !Number.isFinite(n))) return null;
   const scale = v.some((n) => n > 1) ? 1000 : 1;
   const [x1, y1, x2, y2] = v.map((n) => clamp(n / scale, 0, 1));
   if (x2 <= x1 || y2 <= y1) return null;
   return [x1, y1, x2, y2];
 }
 
+const str = (v: unknown) => (typeof v === "string" && v && v !== "null" ? v : undefined);
+const record = (v: unknown) => (typeof v === "object" && v !== null ? (v as Record<string, unknown>) : undefined);
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));

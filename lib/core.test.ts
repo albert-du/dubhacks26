@@ -3,7 +3,7 @@ import { test } from "node:test";
 import sharp from "sharp";
 import { parseCommand } from "./commands";
 import { cosine, nearest, updateCentroid } from "./faces";
-import { parseVision } from "./perceptron";
+import { parseVision, visionContent } from "./perceptron";
 import { emptyReactions, fireRank } from "./reactions";
 import { isDumpsterId, DUMPSTER_ID_ALPHABET, DUMPSTER_ID_LENGTH } from "./dumpsters";
 import { normalizeImage } from "./imaging";
@@ -49,7 +49,27 @@ test("faces: clustering math", () => {
   assert.ok(Math.abs(Math.hypot(...m) - 1) < 1e-9);
 });
 
-test("perceptron: parses grounded JSON and normalizes 0-1000 boxes", () => {
+test("perceptron: parses point_box markup on a 0-1000 grid", () => {
+  const v = parseVision(`{"caption":"cake hits floor","tags":["cake"],"venue":null}
+    <point_box mention="face" asset_idx="0"> (100,200) (300,400) </point_box>
+    <point_box mention='text:MAIN STAGE'> (0,0) (500,100) </point_box>
+    <point_box mention="object:Cake"> (400,400) (600,600) </point_box>
+    <point_box mention="object:corner"> (0,0) (1,2) </point_box>
+    <point_box mention="object:edge" asset_idx="0"> (0,0) (1000,10) </point_box>
+    <point_box mention="object:bad"> (5,5) (1,1) </point_box>
+    <point_box mention="object:off"> (0,0) (1001,10) </point_box>
+    <point_box mention="object:other" asset_idx="1"> (10,10) (20,20) </point_box>
+    <point_box mention="text:a>b sign"> (10,10) (40,30) </point_box>`);
+  assert.equal(v.caption, "cake hits floor");
+  assert.equal(v.venue, undefined);
+  assert.deepEqual(v.faces[0].box, [0.1, 0.2, 0.3, 0.4]);
+  assert.deepEqual(v.text.map((t) => t.text), ["MAIN STAGE", "a>b sign"]);
+  assert.deepEqual(v.objects.map((o) => o.label), ["cake", "corner", "edge"]);
+  assert.deepEqual(v.objects[1].box, [0, 0, 0.001, 0.002]);
+  assert.deepEqual(v.objects[2].box, [0, 0, 1, 0.01]);
+});
+
+test("perceptron: falls back to JSON boxes when the answer has no point_box tags", () => {
   const v = parseVision(`Sure! {"caption":"cake hits floor","tags":["cake"],"venue":"null",
     "faces":[{"box":[100,200,300,400]}],"text":[{"text":" MAIN STAGE ","box":[0,0,500,100]}],
     "objects":[{"label":"Cake","box":[400,400,600,600]},{"label":"bad","box":[5,5,1,1]}]}`);
@@ -58,6 +78,15 @@ test("perceptron: parses grounded JSON and normalizes 0-1000 boxes", () => {
   assert.deepEqual(v.faces[0].box, [0.1, 0.2, 0.3, 0.4]);
   assert.equal(v.text[0].text, "MAIN STAGE");
   assert.deepEqual(v.objects.map((o) => o.label), ["cake"]);
+});
+
+test("perceptron: uses only a completed answer, not reasoning", () => {
+  const content = visionContent({
+    choices: [{ finish_reason: "stop", message: { content: '{"caption":"ok","tags":[]}', reasoning_content: "hidden" } }],
+  });
+  assert.equal(parseVision(content).caption, "ok");
+  assert.throws(() => visionContent({ choices: [{ finish_reason: "length", message: { content: "{}" } }] }), /length/);
+  assert.throws(() => visionContent({ choices: [{ finish_reason: "stop", message: { content: "{}", tool_calls: [{}] } }] }), /tool_calls/);
 });
 
 test("transcripts: whole-word first-name mentions", () => {
