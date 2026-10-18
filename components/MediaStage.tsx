@@ -211,6 +211,8 @@ function Panel({
           src={m.url}
           alt=""
           draggable={false}
+          decoding="async"
+          fetchPriority={current ? "high" : "low"}
           onLoad={(e) => onNatural?.({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
           className="z-media relative block size-full object-contain"
         />

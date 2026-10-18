@@ -63,7 +63,11 @@ export const storage = {
     return readFile(localPath(key));
   },
 
-  /** For S3: a short-lived presigned URL (S3 handles Range requests for iOS video). */
+  /**
+   * For S3: a presigned URL (S3 handles Range requests for iOS video).
+   * Five minutes is long enough for a cached redirect to stay valid while someone
+   * flips screens, and short enough that a copied link dies during the party.
+   */
   async signedUrl(key: string, downloadAs?: string): Promise<string | null> {
     if (!s3) return null;
     return getSignedUrl(
@@ -73,8 +77,20 @@ export const storage = {
         Key: key,
         ...(downloadAs ? { ResponseContentDisposition: `attachment; filename="${downloadAs}"` } : {}),
       }),
-      { expiresIn: 120 },
+      { expiresIn: 300 },
     );
+  },
+
+  /** Missing objects are null. Anything else (auth, network) still throws. */
+  async readIfExists(key: string): Promise<Buffer | null> {
+    try {
+      return await this.get(key);
+    } catch (e) {
+      const code = (e as { code?: string; name?: string }).code ?? (e as { name?: string }).name ?? "";
+      const status = (e as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+      if (code === "ENOENT" || code === "NoSuchKey" || code === "NotFound" || status === 404) return null;
+      throw e;
+    }
   },
 
   /** Local-disk streaming with Range support (needed for Safari video playback). */
