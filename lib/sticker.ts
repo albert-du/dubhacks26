@@ -58,12 +58,23 @@ export function stickerId(mediaId: string, target: StickerTarget): string {
   return `${mediaId}-${target.kind}-${target.index}`;
 }
 
-/** Safe download name. The label is already shown to anyone with the dumpster link. */
-export function stickerFilename(label: string): string {
-  const slug = label
-    .normalize("NFKD")
-    .replace(/[^\w.-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-  return `dump-${slug || "sticker"}.png`;
+/**
+ * Name on the share sheet and on download.
+ * iMessage prints the file name on the bubble when a share is titled or the
+ * image is not a sticker, so this stays a plain png name.
+ */
+export const STICKER_FILE_NAME = "sticker.png";
+
+export function isPng(bytes: Uint8Array): boolean {
+  return (
+    bytes.length > 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  );
 }

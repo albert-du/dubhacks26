@@ -50,6 +50,12 @@ export async function renderPublic(jpeg: Buffer) {
 
 const STICKER_SIZE = 512;
 
+/** Messages refuses a sticker at or above 500KB and sends the file name instead. */
+export const IMESSAGE_STICKER_MAX_BYTES = 500 * 1024;
+
+/** Largest sticker Messages lays out: 206 points at 3x. */
+const IMESSAGE_STICKER_MAX_EDGE = 618;
+
 /** Crop the selected window out of a public render. The matte is applied to this crop. */
 export async function cropSticker(image: Buffer, box: Box) {
   const meta = await sharp(image).metadata();
@@ -98,12 +104,36 @@ export async function composeSticker(crop: Buffer, mask: Buffer) {
     .toBuffer();
   const outlined = await dieCut(fitted);
   const sized = await sharp(outlined).resize(STICKER_SIZE, STICKER_SIZE, { fit: "inside" }).png().toBuffer();
-  return sharp({
+  const square = await sharp({
     create: { width: STICKER_SIZE, height: STICKER_SIZE, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
   })
     .composite([{ input: sized, gravity: "centre" }])
-    .png({ compressionLevel: 9 })
+    .png({ compressionLevel: 9, palette: false })
     .toBuffer();
+  return fitIMessageSticker(square);
+}
+
+/**
+ * PNG with transparency, at most 618px on a side, under 500KB.
+ * That is the file Messages will send as a sticker. Anything larger goes out as a named file.
+ */
+export async function fitIMessageSticker(input: Buffer): Promise<Buffer> {
+  let edge = IMESSAGE_STICKER_MAX_EDGE;
+  let last = input;
+  for (let step = 0; step < 8; step++) {
+    const colours = step === 0 ? undefined : step < 3 ? 128 : 32;
+    last = await sharp(input, { failOn: "none" })
+      .resize({ width: edge, height: edge, fit: "inside", withoutEnlargement: true })
+      .png(
+        colours
+          ? { compressionLevel: 9, palette: true, colours, quality: 50, dither: 0.3 }
+          : { compressionLevel: 9, palette: false },
+      )
+      .toBuffer();
+    if (last.length < IMESSAGE_STICKER_MAX_BYTES) return last;
+    if (step > 0) edge = Math.max(300, Math.round(edge * 0.75));
+  }
+  return last;
 }
 
 /** White border that follows the silhouette, sitting behind the subject so hair stays soft. */
