@@ -20,16 +20,16 @@ export function Fire({
 
   return (
     <section>
-      <div className="flex items-end justify-between gap-3 border-b-3 border-ink px-4 pt-5 pb-4">
-        <div>
-          <h2 className="display text-[clamp(2.5rem,12vw,4rem)]">
+      <div className="flex items-end justify-between gap-4 border-b-3 border-ink px-4 pt-5 pb-4">
+        <div className="min-w-0">
+          <h2 className="display text-[clamp(2.25rem,10.5vw,3.5rem)]">
             Dumpster
             <br />
             <span className="hl bg-fire">fire</span>
           </h2>
           <p className="mt-3 text-sm leading-snug">Tap the burning can on any shot. Most fires wins.</p>
         </div>
-        <FireIcon size={96} className="shrink-0" />
+        <FireIcon size={88} className="mr-1" />
       </div>
 
       {!top && (

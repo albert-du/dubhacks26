@@ -14,7 +14,7 @@ export default function Home() {
   return (
     <div className="mx-auto w-full max-w-[430px]">
       <header className="flex h-14 items-stretch border-b-3 border-ink">
-        <MarkBlock />
+        <MarkBlock divider={false} />
       </header>
 
       <section className="grid grid-cols-[1fr_auto] items-end gap-3 px-4 pt-6 pb-8">

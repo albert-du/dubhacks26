@@ -7,13 +7,13 @@ import Link from "next/link";
  */
 const LOCK = "block w-auto max-w-none shrink-0 object-contain";
 
-/** Green can on clean white — the app's corner mark. */
-export function MarkBlock({ className = "" }: { className?: string }) {
+/** Green can on the page's own background — the app's corner mark. `divider` adds a rule to its right. */
+export function MarkBlock({ className = "", divider = true }: { className?: string; divider?: boolean }) {
   return (
     <Link
       href="/"
       aria-label="Dump home"
-      className={`grid shrink-0 place-items-center border-r-3 border-ink bg-[#ffffff] px-3 ${className}`}
+      className={`grid shrink-0 place-items-center bg-transparent px-3 ${divider ? "border-r-3 border-ink" : ""} ${className}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/brand/mark-green.webp" alt="" width={21} height={36} className={`h-9 ${LOCK}`} />
