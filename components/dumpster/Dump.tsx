@@ -10,7 +10,7 @@ import { inFilter, type Filter, type Tab } from "./DumpsterView";
 
 type View = "grid" | "moments";
 
-export function Pool(props: {
+export function Dump(props: {
   id: string;
   media: PublicMedia[];
   byId: Map<string, PublicMedia>;
@@ -56,7 +56,7 @@ export function Pool(props: {
         return;
       }
       const ids = data.ids ?? [];
-      setAnswer(data.answer || (ids.length ? "Here's what matched." : "Nothing in the pool matched."));
+      setAnswer(data.answer || (ids.length ? "Here's what matched." : "Nothing in the dump matched."));
       setFilter({ kind: "shots", ids, label: "Asked" });
     } catch {
       setAskError("Ask didn't work. The word search still applies.");

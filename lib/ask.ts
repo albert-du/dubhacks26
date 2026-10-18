@@ -4,15 +4,15 @@ import { matchFields, tokenize, type MatchSource } from "./search";
 import type { Dumpster, Media } from "./types";
 
 /**
- * Ask the pool: one Backboard assistant per dumpster, with tools that search
+ * Ask the dump: one Backboard assistant per dumpster, with tools that search
  * captions, objects, writing, speech, names and places. The model only sees
  * those fields. Face vectors, phones and files stay in Mongo.
  */
 
 const ASK_PROMPT = `You answer questions about one dumpster's photos and videos.
-Call search_pool with the words that must all appear somewhere in a shot (objects, writing, speech, names, places, tags).
+Call search_dump with the words that must all appear somewhere in a shot (objects, writing, speech, names, places, tags).
 Then call show with the matching ids and one short sentence.
-Use only ids search_pool returned. If nothing matches, call show with an empty ids list and say so.
+Use only ids search_dump returned. If nothing matches, call show with an empty ids list and say so.
 Do not invent shots. Do not ask for phone numbers, faces, or exact locations.`;
 
 export type ShotCard = {
@@ -31,7 +31,7 @@ export type ShotCard = {
 const searchTool: ToolDef = {
   type: "function",
   function: {
-    name: "search_pool",
+    name: "search_dump",
     description: "Find shots where every word appears in the caption, objects, writing, speech, names, place, or tags.",
     parameters: {
       type: "object",
@@ -51,7 +51,7 @@ const showTool: ToolDef = {
     parameters: {
       type: "object",
       properties: {
-        ids: { type: "array", items: { type: "string" }, description: "Shot ids from search_pool." },
+        ids: { type: "array", items: { type: "string" }, description: "Shot ids from search_dump." },
         answer: { type: "string", description: "One short sentence." },
       },
       required: ["ids", "answer"],
@@ -118,19 +118,19 @@ export function searchShots(cards: ShotCard[], words: unknown, limit = 12) {
   return hits;
 }
 
-export type PoolSession = {
+export type DumpSession = {
   tools: ToolDef[];
   dispatch: ToolHandler;
   shown: () => { ids: string[]; answer: string } | null;
   lastIds: () => string[];
 };
 
-export function createPoolSession(cards: ShotCard[]): PoolSession {
+export function createDumpSession(cards: ShotCard[]): DumpSession {
   const allowed = new Set(cards.map((c) => c.id));
   let shown: { ids: string[]; answer: string } | null = null;
   let lastIds: string[] = [];
   const dispatch: ToolHandler = (name, args) => {
-    if (name === "search_pool") {
+    if (name === "search_dump") {
       const hits = searchShots(cards, args.words);
       lastIds = hits.map((h) => h.id);
       return { hits };
@@ -147,7 +147,7 @@ export function createPoolSession(cards: ShotCard[]): PoolSession {
 
 export async function askDumpster(d: Dumpster, question: string): Promise<{ answer: string; ids: string[] }> {
   const cards = await loadShots(d._id);
-  const session = createPoolSession(cards);
+  const session = createDumpSession(cards);
   const link = await ensureLink(d);
   const turn = await backboard.run({
     content: `Dumpster: ${d.name}\nShots: ${cards.length}\nQuestion: ${question}`,
@@ -160,7 +160,7 @@ export async function askDumpster(d: Dumpster, question: string): Promise<{ answ
   });
   const picked = session.shown();
   const ids = picked?.ids ?? session.lastIds();
-  const answer = (picked?.answer || turn.content || "Nothing in the pool matched.").slice(0, 400);
+  const answer = (picked?.answer || turn.content || "Nothing in the dump matched.").slice(0, 400);
   return { answer, ids };
 }
 

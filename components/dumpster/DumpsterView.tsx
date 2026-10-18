@@ -12,10 +12,10 @@ import { EventMap } from "./EventMap";
 import { Fire } from "./Fire";
 import { Me } from "./Me";
 import { Pack } from "./Pack";
-import { Pool } from "./Pool";
+import { Dump } from "./Dump";
 import { Viewer } from "./Viewer";
 
-export type Tab = "drop" | "pool" | "fire" | "map" | "pack" | "me";
+export type Tab = "drop" | "dump" | "fire" | "map" | "pack" | "me";
 
 export type Filter =
   | { kind: "faces"; ids: string[]; label: string; name?: string }
@@ -24,7 +24,7 @@ export type Filter =
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "drop", label: "Drop" },
-  { id: "pool", label: "Pool" },
+  { id: "dump", label: "Dump" },
   { id: "fire", label: "Fire" },
   { id: "map", label: "Map" },
   { id: "pack", label: "Pack" },
@@ -51,7 +51,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
   const mineFilter = (s: DumpsterState): Filter | null =>
     s.me && s.me.clusterIds.length ? { kind: "faces", ids: s.me.clusterIds, label: "You", name: s.me.name } : null;
 
-  const [tab, setTab] = useState<Tab>(showMine ? "pool" : isNew || !initial.media.length ? "drop" : "pool");
+  const [tab, setTab] = useState<Tab>(showMine ? "dump" : isNew || !initial.media.length ? "drop" : "dump");
   const [filter, setFilter] = useState<Filter | null>(() => (showMine ? mineFilter(initial) : null));
   const [q, setQ] = useState("");
   const [viewing, setViewing] = useState<{ ids: string[]; index: number } | null>(null);
@@ -110,8 +110,8 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
 
       <main>
         {tab === "drop" && <Drop dumpster={state.dumpster} uploader={uploader} onCopyLink={copyLink} copied={copied} />}
-        {tab === "pool" && (
-          <Pool
+        {tab === "dump" && (
+          <Dump
             id={id}
             media={state.media}
             byId={byId}
@@ -136,7 +136,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
             onOpen={open}
             onVenue={(venue) => {
               setFilter({ kind: "venue", venue, label: venue });
-              setTab("pool");
+              setTab("dump");
             }}
           />
         )}
@@ -149,7 +149,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
             onEnrolled={dumpster.refresh}
             onShowMine={() => {
               setFilter(mineFilter(state));
-              setTab("pool");
+              setTab("dump");
             }}
           />
         )}
@@ -159,7 +159,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         <ul className="grid grid-cols-6">
           {TABS.map((t, i) => {
             const active = tab === t.id;
-            const count = t.id === "pool" ? state.media.length : t.id === "pack" ? state.stickers.length : 0;
+            const count = t.id === "dump" ? state.media.length : t.id === "pack" ? state.stickers.length : 0;
             return (
               <li key={t.id} className={i ? "border-l border-ink" : ""}>
                 <button

@@ -20,7 +20,7 @@ export interface Dumpster {
   settings: DumpsterSettings;
   warningSent?: boolean;
   /**
-   * Ask-the-pool assistant. Created on the first question and deleted, with its
+   * Ask-the-dump assistant. Created on the first question and deleted, with its
    * thread and memories, when the dumpster is purged.
    */
   backboard?: { assistantId: string; threadId: string };

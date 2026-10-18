@@ -26,11 +26,11 @@ A dumpster is six tabs along the bottom.
 
 **Drop.** Throw in photos, and videos when this dumpster allows them. If the signal dies, the phone keeps the files and sends them when it comes back. The same screen has the QR code, the copy-link button, and a link to the big-screen view.
 
-**Pool.** The pile. Faces from the photos sit across the top. Tap a person to see their shots. Tap Find me to enroll. Type to filter. A word has to show up in the picture, on a sign, in something someone said, in a name, or in a place. Every word in the box has to match. The same photo uploaded twice stays hidden until you tap to show the dupes. All shots is a grid. Moments groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
+**Dump.** The pile. Faces from the photos sit across the top. Tap a person to see their shots. Tap Find me to enroll. Type to filter. A word has to show up in the picture, on a sign, in something someone said, in a name, or in a place. Every word in the box has to match. The same photo uploaded twice stays hidden until you tap to show the dupes. All shots is a grid. Moments groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
 
 **Fire.** The leaderboard. Open a shot and tap the flaming can. The shot with the most fires is on top. Hearts, laughs, and the other reactions only break a tie. The order comes from those taps.
 
-**Map.** Moments that have a location, drawn on a plain grid. Nothing is sent to a map company. Pins with a fire on them are marked. Under the map, the venue board lists places read off signs and landmarks. Tap a place to jump back to those shots in the pool.
+**Map.** Moments that have a location, drawn on a plain grid. Nothing is sent to a map company. Pins with a fire on them are marked. Under the map, the venue board lists places read off signs and landmarks. Tap a place to jump back to those shots in the dump.
 
 **Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick an object or the whole frame. Press and hold a finished sticker to save it.
 
@@ -38,7 +38,7 @@ A dumpster is six tabs along the bottom.
 
 Open a shot to see who is in it, what was recognized, any writing, and any words from a video. From there you can react, save a copy, cut a sticker, or delete it for everyone.
 
-If Ask is on, the Pool search box grows an Ask button. Ask answers the sentence and shows the shots it means. The word filter still works either way. Ask only appears when `BACKBOARD_API_KEY` is set. The key stays on the server.
+If Ask is on, the Dump search box grows an Ask button. Ask answers the sentence and shows the shots it means. The word filter still works either way. Ask only appears when `BACKBOARD_API_KEY` is set. The key stays on the server.
 
 ## On a screen at the venue
 
@@ -101,7 +101,7 @@ Each of these is optional. The app runs without them. The comments in `.env.exam
 | Face embed | Groups faces and matches a selfie. Vectors stay on the server. |
 | Transcription | Any Whisper-compatible endpoint. This is how video search and "your name was mentioned" texts work. |
 | Photon 2.0 | Creates a dumpster by text, and sends photo alerts, mention alerts, and the burn warning. Needs the API key, the project id, and the agent user id. A shared iMessage line only delivers after that person has texted the bot. Cold alerts need SMS or a line of their own. |
-| Backboard | Ask the pool, and texts that are not a fixed command. One assistant per dumpster, deleted when the dumpster burns. A loose text uses a throwaway assistant that is deleted before the reply goes out. New photos still arrive on the site's own live feed. |
+| Backboard | Ask the dump, and texts that are not a fixed command. One assistant per dumpster, deleted when the dumpster burns. A loose text uses a throwaway assistant that is deleted before the reply goes out. New photos still arrive on the site's own live feed. |
 | TigerData | Drops per minute, and a record of each cleanup. Without it, those numbers come from Mongo. |
 | Object storage | Vultr in production. A folder on disk locally. |
 

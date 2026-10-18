@@ -3,7 +3,7 @@ import { config } from "./config";
 
 /**
  * Backboard (https://app.backboard.io/api) is the language layer.
- * Ask-the-pool keeps one assistant per dumpster. A text that isn't a fixed
+ * Ask-the-dump keeps one assistant per dumpster. A text that isn't a fixed
  * command gets a throwaway assistant. Live photo updates stay on the SSE feed.
  *
  * Auth is the X-API-Key header. Threads persist until deleted, so every path

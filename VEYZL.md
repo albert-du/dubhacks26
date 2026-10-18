@@ -35,7 +35,7 @@ All of the following is deleted when the dumpster burns.
 | Face clusters (vectors) | Face gallery and filtering | People in photos, unnamed unless they enroll |
 | Guest name, phone, selfie vector | Opt-in "find me" and texts | The guest, by their own choice |
 | Reactions (per-browser random id) | Toggle a reaction instead of stacking | No one: the id is a random cookie, not linked to uploads |
-| Backboard assistant and thread | Ask the pool, and free-text Photon replies | No phone number and no face vector. Ask sees captions, tags, object labels, writing, transcript text, enrolled names, venue, and fire counts. A text turn is deleted before the reply is sent. Ask is deleted when the dumpster burns |
+| Backboard assistant and thread | Ask the dump, and free-text Photon replies | No phone number and no face vector. Ask sees captions, tags, object labels, writing, transcript text, enrolled names, venue, and fire counts. A text turn is deleted before the reply is sent. Ask is deleted when the dumpster burns |
 
 Public renders have all EXIF and location metadata stripped. GPS shown on the map is rounded to about 11 m.
 

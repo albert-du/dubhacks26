@@ -2,7 +2,7 @@
  * Global search across everything we know about a shot: objects and people in it,
  * text written in it (signs, shirts, cakes), words spoken in videos, captions, tags,
  * place, and names. Every query word must match somewhere (AND); we report where.
- * Pure and dependency-free — runs in the browser over the live pool.
+ * Pure and dependency-free — runs in the browser over the live dump.
  */
 import type { PublicMedia } from "./types";
 
