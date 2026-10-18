@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { config } from "@/lib/config";
 import { authorizeWebhook, parseInbound, photon } from "@/lib/photon";
 import { answerText, HELP } from "@/lib/texts";
+import { connectFromMessage } from "@/lib/notifications";
 
 /**
  * Inbound Photon 2.0 `message.received` events (Standard Webhooks),
@@ -19,12 +20,14 @@ export async function POST(req: Request) {
   if (inbound.kind === "invalid") return NextResponse.json({ error: inbound.error }, { status: 400 });
 
   const { from, text, spaceId, agentUserId, messageId } = inbound.message;
-  let reply: string;
-  try {
-    reply = await answerText(text);
-  } catch (e) {
-    console.warn("[backboard]", (e as Error).message);
-    reply = HELP;
+  let reply = await connectFromMessage(inbound.message);
+  if (reply === null) {
+    try {
+      reply = await answerText(text);
+    } catch (e) {
+      console.warn("[backboard]", (e as Error).message);
+      reply = HELP;
+    }
   }
   await photon.reply({
     to: from,

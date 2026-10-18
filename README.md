@@ -8,13 +8,16 @@ A dumpster has no owner. Nothing records who opened it or who uploaded a shot. A
 
 ## Start one
 
-On the home page, name the dumpster and pick how long it lasts. You can leave videos on, or make it photos only. Dump hands back a link and a QR code. Tape the code up, or send the link to the group chat.
-
-If a text number is set (`NEXT_PUBLIC_PHOTON_NUMBER`), the home page also shows that number. Text it:
+On the home page, enter your registered demo phone number. Dump looks up your
+assigned iMessage number and opens Messages with a create command. Edit the name
+and hours, then send it. The text creates the dumpster and the reply includes its
+link and QR page. The website does not allocate Photon slots automatically.
 
 ```text
 create dumpster "Mt. Si Hike" 48h
 ```
+
+Pass the link or QR code to everyone else. Joining needs no phone number.
 
 Hours are only 24, 48, or 72. Anything else becomes 24. `help` lists the commands. A dumpster opened by text accepts photos and videos.
 
@@ -34,7 +37,7 @@ A dumpster is six tabs along the bottom.
 
 **Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick an object or the whole frame. Press and hold a finished sticker to save it.
 
-**Me.** Texts are off until you turn them on. Then Dump asks for a phone number and a selfie. The selfie is used once to find your face and is not kept. Dump texts you when new photos of you land, and when a video says the name on your face. Stop texts any time; that forgets the number and the face match. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone who left a number gets one warning and a link, so they can save what they want.
+**Me.** Texts are off until you turn them on. Then Dump asks for a selfie. The selfie is used once to find your face and is not kept. Next, connect your number by iMessage: enter your registered demo number, then send the one-time connection message to your assigned number. Codes expire after ten minutes and only work from the number you entered. Once connected, Dump texts you when new photos of you land, and when a video says the name on your face. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone connected gets one warning and a link, so they can save what they want. Change your number or disconnect in Me; Forget me also drops the face match. The connection expires with the dumpster.
 
 Open a shot to see who is in it, what was recognized, any writing, and any words from a video. From there you can react, save a copy, cut a sticker, or delete it for everyone.
 
@@ -89,7 +92,7 @@ curl -X POST localhost:3000/api/photon/webhook -H "content-type: application/jso
   -H "x-photon-secret: change-me" -d "{\"from\":\"+12065550123\",\"text\":\"Create dumpster \\\"Mt. Si Hike\\\" 48h\"}"
 ```
 
-Live texts arrive as Photon `message.received` events, signed as Standard Webhooks (`webhook-id`, `webhook-timestamp`, `webhook-signature`). The reply goes back in that same conversation. The sender's number is used for that one reply and is not stored.
+Live texts arrive as Photon `message.received` events, signed as Standard Webhooks (`webhook-id`, `webhook-timestamp`, `webhook-signature`). The reply goes back in that same conversation. Ordinary commands do not store the sender's number. An explicit `connect CODE` message binds a guest's alerts to that verified conversation until the dumpster expires.
 
 ## Production deployment
 
@@ -106,9 +109,13 @@ Each of these is optional. The app runs without them. The comments in `.env.exam
 | Perceptron | Looks at each photo: objects and people, writing, a caption, tags, and a venue name. One Mk1.5 chat completion. Boxes come back as `<point_box>` markup. If it is down, the photo still publishes. |
 | Face embed | Groups faces and matches a selfie. Vectors stay on the server. |
 | Transcription | Any Whisper-compatible endpoint. This is how video search and "your name was mentioned" texts work. |
-| Photon 2.0 | Creates a dumpster by text, and sends photo alerts, mention alerts, and the burn warning. Needs the API key, the project id, and the agent user id. A shared iMessage line only delivers after that person has texted the bot. Cold alerts need SMS or a line of their own. |
+| Photon 2.0 | Creates a dumpster by text, and sends photo alerts, mention alerts, and the burn warning. Needs the API key, project id, and a manually registered demo roster. The homepage returns the submitted participant’s assigned number. Me connects each guest’s alerts to their verified conversation; different guests can use different assigned lines. |
 | Backboard | Ask the dump, and texts that are not a fixed command. One assistant per dumpster, deleted when the dumpster burns. A loose text uses a throwaway assistant that is deleted before the reply goes out. New photos still arrive on the site's own live feed. |
 | TigerData | Drops per minute, and a record of each cleanup. Without it, those numbers come from Mongo. |
 | Object storage | Cloudflare R2 or another S3-compatible bucket. A shared persistent volume is the production fallback; local development uses a folder on disk. |
 
 The privacy rules for reviewers are in `VEYZL.md`. CI runs the privacy check and the VEYZL diff review on every pull request and on pushes to main.
+
+To exercise connection lifecycle tests against a disposable MongoDB, set
+`TEST_MONGODB_URI` before `npm test`. These tests create and drop a separate
+`dump_connection_test_*` database. CI supplies its own MongoDB service.

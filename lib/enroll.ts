@@ -6,66 +6,55 @@ import { HttpError } from "./http";
 import { cols } from "./mongo";
 import { normalizeImage } from "./imaging";
 import { tiger } from "./tiger";
-import type { Dumpster, Guest } from "./types";
+import type { Dumpster } from "./types";
 
 /**
- * Text sign-up: phone + 1-second selfie. The selfie is embedded in memory and discarded —
+ * Text sign-up: a 1-second selfie. The selfie is embedded in memory and discarded —
  * only the vector is stored, and it expires with the Dumpster. It's how we know which face
  * is yours, so we can text you when you show up (or when your face's name is said in a video).
+ * The phone number is attached separately, by the verified iMessage connection.
  */
 export async function enrollGuest(
   d: Dumpster,
   viewerId: string,
-  input: { phone: string; selfie: Buffer },
+  input: { selfie: Buffer },
 ): Promise<{ guestId: string; faceMatched: boolean; clustersClaimed: number }> {
   const { guests, clusters } = await cols();
 
-  let embedding: number[] | undefined;
-  if (input.selfie) {
-    if (!faceEmbed.enabled()) throw new HttpError(503, "Selfies aren’t working right now. Try again in a bit.");
-    const { jpeg } = await normalizeImage(input.selfie);
-    const faces = await faceEmbed.detect(jpeg);
-    if (!faces.length) throw new HttpError(422, "Couldn't find a face. More light, closer to the camera.");
-    const area = (b: number[]) => (b[2] - b[0]) * (b[3] - b[1]);
-    embedding = faces.sort((a, b) => area(b.box) - area(a.box))[0].embedding;
-  }
+  if (!faceEmbed.enabled()) throw new HttpError(503, "Selfies aren’t working right now. Try again in a bit.");
+  const { jpeg } = await normalizeImage(input.selfie);
+  const faces = await faceEmbed.detect(jpeg);
+  if (!faces.length) throw new HttpError(422, "Couldn't find a face. More light, closer to the camera.");
+  const area = (b: number[]) => (b[2] - b[0]) * (b[3] - b[1]);
+  const embedding = faces.sort((a, b) => area(b.box) - area(a.box))[0].embedding;
 
   const existing = await guests.findOne({ dumpsterId: d._id, viewerId });
-  const guest: Guest = {
-    _id: existing?._id ?? nanoid(12),
-    dumpsterId: d._id,
-    viewerId,
-    phone: input.phone,
-    embedding: embedding ?? existing?.embedding,
-    pendingPhotoAlerts: existing?.pendingPhotoAlerts ?? 0,
-    pendingMentionAlerts: existing?.pendingMentionAlerts ?? 0,
-    lastAlertAt: existing?.lastAlertAt,
-    createdAt: existing?.createdAt ?? new Date(),
-    expiresAt: d.expiresAt,
-  };
-  await guests.replaceOne({ _id: guest._id }, guest, { upsert: true });
+  const guestId = existing?._id ?? nanoid(12);
+  // Updating a sign-up must not overwrite a connection verified by a concurrent webhook.
+  await guests.updateOne({ _id: guestId }, {
+    $set: { dumpsterId: d._id, viewerId, embedding },
+    $setOnInsert: { createdAt: new Date(), expiresAt: d.expiresAt, pendingPhotoAlerts: 0, pendingMentionAlerts: 0 },
+  }, { upsert: true });
   await tiger.engagement(d._id, "enroll");
-
-  if (!embedding) return { guestId: guest._id, faceMatched: false, clustersClaimed: 0 };
 
   // Claim every unclaimed cluster that looks like this guest.
   const candidates = await clusters
-    .find({ dumpsterId: d._id, $or: [{ guestId: { $exists: false } }, { guestId: guest._id }] })
+    .find({ dumpsterId: d._id, $or: [{ guestId: { $exists: false } }, { guestId }] })
     .toArray();
-  const matched = candidates.filter((c) => identityScore(c, embedding!) >= config.faceMatchThreshold).map((c) => c._id);
+  const matched = candidates.filter((c) => identityScore(c, embedding) >= config.faceMatchThreshold).map((c) => c._id);
 
   if (matched.length) {
-    await clusters.updateMany({ _id: { $in: matched } }, { $set: { guestId: guest._id, updatedAt: new Date() } });
+    await clusters.updateMany({ _id: { $in: matched } }, { $set: { guestId, updatedAt: new Date() } });
   } else {
     await clusters.insertOne({
       _id: nanoid(10),
       dumpsterId: d._id,
       centroid: embedding,
       n: 0,
-      guestId: guest._id,
+      guestId,
       expiresAt: d.expiresAt,
       updatedAt: new Date(),
     });
   }
-  return { guestId: guest._id, faceMatched: true, clustersClaimed: matched.length };
+  return { guestId, faceMatched: true, clustersClaimed: matched.length };
 }

@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DumpsterState, PublicDumpster } from "@/lib/types";
 import type { Tab } from "./DumpsterView";
+import { NotificationSettings } from "./NotificationSettings";
 
 /**
  * Me: texts are opt-in. Nothing is asked for until you turn texts on; then we need a
- * phone number to text and a selfie to know which face is yours. Naming people
- * happens on the faces in the Dump tab, not here.
+ * selfie to know which face is yours, and a number connected by iMessage to text.
+ * Naming people happens on the faces in the Dump tab, not here.
  */
 export function Me(props: {
   dumpster: PublicDumpster;
@@ -18,7 +19,6 @@ export function Me(props: {
   goTo: (t: Tab) => void;
 }) {
   const [texts, setTexts] = useState(false);
-  const [phone, setPhone] = useState("");
   const [selfie, setSelfie] = useState<Blob | null>(null);
   const [camera, setCamera] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -32,14 +32,13 @@ export function Me(props: {
     setBusy(true);
     setMsg(null);
     const form = new FormData();
-    form.append("phone", phone);
     form.append("consent", "yes");
     form.append("selfie", selfie, "selfie.jpg");
     const r = await fetch(`/api/dumpsters/${props.dumpster.id}/guests`, { method: "POST", body: form }).catch(() => null);
     const body = await r?.json().catch(() => ({}));
     setBusy(false);
     if (!r?.ok) return setMsg({ tone: "err", text: body?.error ?? "Couldn’t reach Dump. Check your signal and try again." });
-    setMsg({ tone: "ok", text: body.clustersClaimed ? "Found you. Texts are on." : "Texts are on. We’ll text you when you show up." });
+    setMsg({ tone: "ok", text: body.clustersClaimed ? "Found you. Now connect your number below." : "Got your face. Now connect your number below." });
     setSelfie(null);
     setTexts(false);
     await props.onEnrolled();
@@ -49,7 +48,7 @@ export function Me(props: {
     setBusy(true);
     await fetch(`/api/dumpsters/${props.dumpster.id}/guests`, { method: "DELETE" }).catch(() => null);
     setBusy(false);
-    setMsg({ tone: "ok", text: "Texts are off." });
+    setMsg({ tone: "ok", text: "Done. Your number and face match are gone." });
     await props.onEnrolled();
   }
 
@@ -69,7 +68,7 @@ export function Me(props: {
 
       {props.me ? (
         <div className="space-y-4 px-4 py-5">
-          <p className="label">Texts on{props.me.phoneLast4 ? ` · ••• ${props.me.phoneLast4}` : ""}</p>
+          <p className="label">{props.me.notifications?.state === "connected" ? `Texts on${props.me.phoneLast4 ? ` · ••• ${props.me.phoneLast4}` : ""}` : "Face saved"}</p>
           <p>
             <b className="display text-3xl">{props.photosOfMe}</b> photos & videos of you so far.
           </p>
@@ -78,7 +77,7 @@ export function Me(props: {
               Show mine
             </button>
             <button className="btn btn-ghost" onClick={stop} disabled={busy}>
-              Stop texts
+              Forget me
             </button>
           </div>
         </div>
@@ -118,26 +117,15 @@ export function Me(props: {
                 )}
               </div>
 
-              <label className="block">
-                <span className="label mb-1 block">Phone</span>
-                <input
-                  className="field"
-                  type="tel"
-                  inputMode="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  autoComplete="tel"
-                  required
-                />
-              </label>
-
-              <button className="btn btn-green w-full !py-5 !text-xl" disabled={busy || !selfie || !phone.trim()}>
-                {busy ? "Scanning…" : "Start texts"}
+              <button className="btn btn-green w-full !py-5 !text-xl" disabled={busy || !selfie}>
+                {busy ? "Scanning…" : "Save my face"}
               </button>
             </>
           )}
         </form>
       )}
+
+      {props.me && <NotificationSettings dumpsterId={props.dumpster.id} initial={props.me.notifications} onConnected={props.onEnrolled} />}
 
       {msg && (
         <p className={`mx-4 mb-5 border-3 p-3 text-sm ${msg.tone === "ok" ? "border-green bg-green/20" : "border-fire bg-fire/15"}`}>{msg.text}</p>
