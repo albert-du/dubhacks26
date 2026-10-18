@@ -6,7 +6,8 @@ import { Burned } from "@/components/Burned";
 import { Countdown } from "@/components/ui";
 import { useDumpster } from "@/lib/client/useDumpster";
 import { useUploader } from "@/lib/client/useUploader";
-import { warmMap, warmPreviews } from "@/lib/client/warm";
+import { setRevealEnabled } from "@/lib/client/reveal";
+import { warmMap } from "@/lib/client/warm";
 import type { PublicMedia, DumpsterState } from "@/lib/types";
 import { Drop } from "./Drop";
 import { EventMap } from "./EventMap";
@@ -80,22 +81,26 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
     return n;
   }, [state.media]);
 
-  // The map library and the small previews start loading while the guest is still on another tab.
+  // The map library starts loading while the guest is still on another tab.
+  // Previews stay on the row queue so a background pass cannot jump the first screen.
   useEffect(() => {
     if (!state.me) return;
     warmMap();
-    const urls = [
-      ...state.media.filter((m) => m.kind === "image").map((m) => m.url),
-      ...state.stickers.flatMap((s) => (s.url ? [s.url] : [])),
+  }, [state.me]);
+
+  useEffect(() => {
+    const lists: [string, Tab][] = [
+      ["dump", "dump"],
+      ["dump-faces", "dump"],
+      ["dump-hidden", "dump"],
+      ["fire-list", "fire"],
+      ["pack", "pack"],
+      ["map-pins", "map"],
+      ["map-grid", "map"],
+      ["map-moments", "map"],
     ];
-    const run = () => warmPreviews(urls);
-    const idle = window.requestIdleCallback?.(run, { timeout: 1200 });
-    const timer = idle === undefined ? window.setTimeout(run, 150) : undefined;
-    return () => {
-      if (idle !== undefined) window.cancelIdleCallback?.(idle);
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, [state.me, state.media, state.stickers]);
+    for (const [name, tabId] of lists) setRevealEnabled(name, tab === tabId);
+  }, [tab]);
 
   if (dumpster.destroyed) return <Burned />;
 
@@ -191,11 +196,15 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           </div>
         )}
         {visited.includes("map") && (
-          // Off-screen, not display:none: hiding the canvas drops the WebGL context and the map comes back blank.
+          // Stay in the viewport. Sliding the canvas off-screen made the phone drop its drawing, so the map came back blank.
           <div
             inert={tab !== "map"}
             aria-hidden={tab !== "map"}
-            className={tab === "map" ? undefined : "pointer-events-none fixed top-0 -left-[120vw] w-full max-w-[430px]"}
+            className={
+              tab === "map"
+                ? undefined
+                : "pointer-events-none fixed top-24 left-1/2 z-media w-full max-w-[430px] -translate-x-1/2 opacity-0"
+            }
           >
             <EventMap media={state.media} onOpen={open} guestId={me.guestId} active={tab === "map"} />
           </div>

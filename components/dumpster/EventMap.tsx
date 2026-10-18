@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MlMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { ShotImage } from "@/components/ui";
+import { REVEAL_TIMEOUT_MS, settleReveal, watchReveal } from "@/lib/client/reveal";
 import { dumpMapStyle } from "@/lib/mapStyle";
 import { groupMoments } from "@/lib/moments";
 import { previewUrl } from "@/lib/preview";
@@ -12,6 +13,14 @@ import type { PublicMedia } from "@/lib/types";
 /** Thumbnail size at the fitted view and zoomed in, and the smallest it gets zoomed out, in px. */
 const PIN_BASE = 56;
 const PIN_MIN = 26;
+
+function wakeMap(map: MlMap) {
+  const node = map.getContainer();
+  if (node.clientWidth === 0 || node.clientHeight === 0) return false;
+  map.resize();
+  map.triggerRepaint();
+  return true;
+}
 
 /**
  * Shots at the same rounded spot fan out in a spiral. The spiral opens up as you zoom in
@@ -93,9 +102,17 @@ export function EventMap({
   pinsRef.current = pins;
   const [engine, setEngine] = useState<"map" | "grid">("map");
   const [ready, setReady] = useState(false);
+  /** False until a frame has actually drawn, so a lost canvas shows the photo grid instead of a blank square. */
+  const [painted, setPainted] = useState(false);
   const [full, setFull] = useState(false);
+  const [mapEpoch, setMapEpoch] = useState(0);
   const fullRef = useRef(full);
   fullRef.current = full;
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const paintedRef = useRef(false);
+  const contextLostRef = useRef(false);
+  const rebuildsRef = useRef(0);
   const showMap = engine === "map" && pins.length > 0;
 
   /** Open a shot among every located shot, so swiping walks the map's pile. */
@@ -119,12 +136,42 @@ export function EventMap({
   const rescaleRef = useRef(rescale);
   rescaleRef.current = rescale;
 
-  // Build the map once. Leaving the tab hides it; tearing it down made the next visit wait on tiles again.
-  useEffect(() => {
-    if (!active || !showMap || mapRef.current) {
-      if (active && mapRef.current) requestAnimationFrame(() => mapRef.current?.resize());
+  const rebuildRef = useRef(() => {});
+  rebuildRef.current = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (rebuildsRef.current >= 1) {
+      mapRef.current = null;
+      paintedRef.current = false;
+      setPainted(false);
+      map.remove();
+      setEngine("grid");
       return;
     }
+    rebuildsRef.current += 1;
+    contextLostRef.current = false;
+    mapRef.current = null;
+    paintedRef.current = false;
+    setPainted(false);
+    setReady(false);
+    for (const { marker } of markersRef.current) marker.remove();
+    markersRef.current = [];
+    fitZoomRef.current = null;
+    map.remove();
+    setMapEpoch((n) => n + 1);
+  };
+
+  const markPainted = () => {
+    rebuildsRef.current = 0;
+    paintedRef.current = true;
+    setPainted(true);
+  };
+  const markPaintedRef = useRef(markPainted);
+  markPaintedRef.current = markPainted;
+
+  // Build the map once. Leaving the tab keeps it; tearing it down made the next visit wait on tiles again.
+  useEffect(() => {
+    if (!showMap || mapRef.current) return;
     const el = containerRef.current;
     if (!el) return;
     let cancelled = false;
@@ -144,6 +191,8 @@ export function EventMap({
           zoom: 14,
           maxZoom: 20,
           attributionControl: { compact: false },
+          // Keep the last frame so hiding the tab does not clear the canvas.
+          canvasContextAttributes: { preserveDrawingBuffer: true },
           cooperativeGestures: !fullRef.current,
           dragRotate: false,
           pitchWithRotate: false,
@@ -156,7 +205,28 @@ export function EventMap({
       }
       map.on("error", (event) => {
         const message = event.error instanceof Error ? event.error.message : "";
-        if (/webgl|worker.*(?:failed|error)/i.test(message) && !cancelled) setEngine("grid");
+        if (mapRef.current !== map || paintedRef.current || !activeRef.current) return;
+        if (!/webgl|worker.*(?:failed|error)/i.test(message)) return;
+        mapRef.current = null;
+        map.remove();
+        setEngine("grid");
+      });
+      map.on("webglcontextlost", () => {
+        if (mapRef.current !== map) return;
+        contextLostRef.current = true;
+        paintedRef.current = false;
+        setPainted(false);
+        window.setTimeout(() => {
+          if (contextLostRef.current && mapRef.current === map && activeRef.current) rebuildRef.current();
+        }, 400);
+      });
+      map.on("webglcontextrestored", () => {
+        if (mapRef.current !== map) return;
+        contextLostRef.current = false;
+        if (!activeRef.current || !wakeMap(map)) return;
+        map.once("idle", () => {
+          if (mapRef.current === map) markPaintedRef.current();
+        });
       });
       map.touchZoomRotate.disableRotation();
       map.keyboard.disableRotation();
@@ -172,9 +242,8 @@ export function EventMap({
         });
       mapRef.current = map;
       map.once("load", () => {
-        // The tab may already be hidden. Keep the result so coming back does not wait again.
         if (mapRef.current !== map) return;
-        map.resize();
+        wakeMap(map);
         setReady(true);
       });
     }).catch(() => {
@@ -184,13 +253,41 @@ export function EventMap({
     return () => {
       cancelled = true;
     };
-  }, [active, showMap, guestId]);
+  }, [showMap, guestId, mapEpoch]);
 
+  // Coming back: the container has a real size again. Redraw, and cover a lost canvas with the photo grid.
   useEffect(() => {
-    if (!ready || !active) return;
-    const id = requestAnimationFrame(() => mapRef.current?.resize());
-    return () => cancelAnimationFrame(id);
-  }, [ready, active]);
+    if (!active || !ready) return;
+    const map = mapRef.current;
+    if (!map) return;
+    let cancelled = false;
+    let frames = 0;
+    let raf = 0;
+    const arm = () => {
+      if (cancelled || mapRef.current !== map) return;
+      if (contextLostRef.current) {
+        rebuildRef.current();
+        return;
+      }
+      if (!wakeMap(map)) {
+        if (frames++ < 30) raf = requestAnimationFrame(arm);
+        return;
+      }
+      if (paintedRef.current) return;
+      map.once("idle", () => {
+        if (!cancelled && mapRef.current === map) markPaintedRef.current();
+      });
+    };
+    raf = requestAnimationFrame(arm);
+    const backup = window.setTimeout(() => {
+      if (!cancelled && mapRef.current === map && !contextLostRef.current) markPaintedRef.current();
+    }, 1500);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      window.clearTimeout(backup);
+    };
+  }, [active, ready, mapEpoch]);
 
   useEffect(
     () => () => {
@@ -209,11 +306,14 @@ export function EventMap({
     if (!ready || !map) return;
     let cancelled = false;
 
+    const stops: Array<() => void> = [];
     void import("maplibre-gl").then((ml) => {
       if (cancelled || mapRef.current !== map) return;
       for (const { marker } of markersRef.current) marker.remove();
+      const ordered = pinsRef.current;
+      const pinIndex = new Map(ordered.map((pin, index) => [pin.m.id, index]));
       // Oldest first, so the newest shot at a spot sits on top of the pile.
-      markersRef.current = [...pinsRef.current].reverse().map((pin) => {
+      markersRef.current = [...ordered].reverse().map((pin) => {
         const button = document.createElement("button");
         button.type = "button";
         button.className = `dump-pin dump-photo-pin${pin.m.reactions.fire > 0 ? " is-fire" : ""}`;
@@ -221,11 +321,38 @@ export function EventMap({
         const thumb = document.createElement(pin.m.kind === "image" ? "img" : "video");
         if (thumb instanceof HTMLImageElement) {
           const full = pin.m.url;
-          thumb.src = previewUrl(full);
+          const preview = previewUrl(full);
+          const watchId = pin.m.id;
           thumb.alt = "";
           thumb.decoding = "async";
+          thumb.draggable = false;
+          button.style.visibility = "hidden";
+          let triedFull = false;
+          let timer: number | undefined;
+          const finish = () => settleReveal("map-pins", watchId);
+          const stopWatch = watchReveal(
+            "map-pins",
+            watchId,
+            pinIndex.get(pin.m.id) ?? 0,
+            4,
+            (phase) => {
+              if (phase.load && !thumb.getAttribute("src")) thumb.src = preview;
+              if (phase.load && timer === undefined) timer = window.setTimeout(finish, REVEAL_TIMEOUT_MS);
+              if (phase.show) button.style.visibility = "visible";
+            },
+            1,
+          );
+          stops.push(() => {
+            if (timer !== undefined) window.clearTimeout(timer);
+            stopWatch();
+          });
+          thumb.onload = () => finish();
           thumb.onerror = () => {
-            thumb.onerror = null;
+            if (triedFull) {
+              finish();
+              return;
+            }
+            triedFull = true;
             thumb.src = full;
           };
         } else {
@@ -250,6 +377,7 @@ export function EventMap({
 
     return () => {
       cancelled = true;
+      for (const stop of stops) stop();
     };
   }, [ready, pinKey]);
 
@@ -259,7 +387,10 @@ export function EventMap({
     if (map) {
       if (full) map.cooperativeGestures.disable();
       else map.cooperativeGestures.enable();
-      requestAnimationFrame(() => map.resize());
+      requestAnimationFrame(() => {
+        map.resize();
+        map.triggerRepaint();
+      });
     }
     if (!full) return;
     document.body.style.overflow = "hidden";
@@ -305,7 +436,7 @@ export function EventMap({
           ) : (
             <div className="absolute inset-0">
               {showMap && <div ref={containerRef} className="dump-map absolute inset-0" />}
-              {proj && (!showMap || !ready) && <Grid pts={proj.pts} meters={proj.meters} onOpen={openShot} />}
+              {proj && (!showMap || !painted) && <Grid pts={proj.pts} meters={proj.meters} onOpen={openShot} />}
             </div>
           )}
           <span className="display pointer-events-none absolute top-2 left-3 z-labels text-xl">N↑</span>
@@ -318,7 +449,7 @@ export function EventMap({
               >
                 {full ? "✕ Exit" : "⛶ Full screen"}
               </button>
-              {showMap && ready && (
+              {showMap && painted && (
                 <div className="ml-auto flex flex-col border-2 border-ink bg-paper">
                   <button className="display size-9 text-xl" onClick={() => mapRef.current?.zoomIn()} aria-label="Zoom in">
                     +
@@ -335,12 +466,12 @@ export function EventMap({
 
       {moments.length > 0 && (
         <ol>
-          {[...moments].reverse().map((mo) => {
+          {[...moments].reverse().map((mo, i) => {
             const cover = byId.get(mo.ids[0]);
             return (
               <li key={mo.id} className="border-b border-ink">
                 <button onClick={() => openMoment(mo.ids)} className="grid w-full grid-cols-[3.5rem_1fr_auto] items-center gap-3 py-2 pr-3 pl-2 text-left">
-                  <Thumb m={cover} className={`size-14 border-2 object-cover ${mo.center ? "border-ink" : "border-smoke opacity-60"}`} />
+                  <Thumb m={cover} group="map-moments" order={i} priority={2} className={`size-14 border-2 object-cover ${mo.center ? "border-ink" : "border-smoke opacity-60"}`} />
                   <span className="min-w-0">
                     <span className="display block truncate text-lg">{mo.label ?? "Untitled moment"}</span>
                     <span className="label">
@@ -360,10 +491,22 @@ export function EventMap({
   );
 }
 
-function Thumb({ m, className }: { m?: PublicMedia; className: string }) {
+function Thumb({
+  m,
+  className,
+  group,
+  order,
+  priority,
+}: {
+  m?: PublicMedia;
+  className: string;
+  group?: string;
+  order?: number;
+  priority?: number;
+}) {
   if (!m) return <span className={`block bg-bone ${className}`} />;
   return m.kind === "image" ? (
-    <ShotImage url={m.url} eager className={className} />
+    <ShotImage url={m.url} eager={!group} group={group} order={order} row={4} priority={priority} className={className} />
   ) : (
     <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className={className} />
   );
@@ -388,7 +531,7 @@ function Grid({
           </g>
         ))}
       </svg>
-      {pts.map(({ pin, x, y }) => {
+      {pts.map(({ pin, x, y }, i) => {
         const [dx, dy] = spread(pin.k, PIN_MIN);
         return (
           <button
@@ -398,7 +541,7 @@ function Grid({
             style={{ left: `calc(${x}% + ${dx}px - 17px)`, top: `calc(${y}% + ${dy}px - 17px)` }}
             aria-label="Shot"
           >
-            <Thumb m={pin.m} className="size-full object-cover" />
+            <Thumb m={pin.m} group="map-grid" order={i} className="size-full object-cover" />
           </button>
         );
       })}

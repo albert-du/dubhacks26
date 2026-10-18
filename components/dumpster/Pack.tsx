@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useRevealedImage } from "@/components/ui";
 import { previewUrl } from "@/lib/preview";
 import { isPng, STICKER_FILE_NAME } from "@/lib/sticker";
 import type { PublicSticker, StickerTarget } from "@/lib/types";
@@ -46,8 +47,8 @@ export function Pack({
         </div>
       ) : (
         <ul className="grid grid-cols-2 gap-x-4 gap-y-8 bg-bone p-4">
-          {stickers.map((s) => (
-            <StickerCard key={s.id} sticker={s} onRetry={onRetry} onDelete={onDelete} />
+          {stickers.map((s, i) => (
+            <StickerCard key={s.id} sticker={s} order={i} onRetry={onRetry} onDelete={onDelete} />
           ))}
         </ul>
       )}
@@ -57,10 +58,12 @@ export function Pack({
 
 function StickerCard({
   sticker,
+  order,
   onRetry,
   onDelete,
 }: {
   sticker: PublicSticker;
+  order: number;
   onRetry: (mediaId: string, target: StickerTarget) => Promise<boolean>;
   onDelete: (stickerId: string) => Promise<boolean>;
 }) {
@@ -98,7 +101,7 @@ function StickerCard({
         <div className="border-3 border-ink" style={{ transform: `rotate(${tilt(sticker.id)}deg)`, backgroundImage: checker }}>
           {/* The image is not a link, so a long-press can save it to the camera roll. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <StickerImage url={sticker.url} alt={sticker.label} />
+          <StickerImage url={sticker.url} alt={sticker.label} order={order} />
         </div>
       ) : sticker.status === "failed" ? (
         <div className="grid aspect-square w-full place-items-center border-3 border-ink bg-paper px-3 text-center">
@@ -162,33 +165,30 @@ function StickerCard({
 }
 
 /**
- * Paint the small preview immediately, then swap in the full PNG once it has
- * loaded so a long-press still saves the sticker.
+ * Paint one row of previews at a time, then swap in the full PNG so a
+ * long-press still saves the sticker. The PNG waits until that row is visible.
  */
-function StickerImage({ url, alt }: { url: string; alt: string }) {
-  const preview = previewUrl(url);
-  const [src, setSrc] = useState(preview);
-  useEffect(() => {
-    let gone = false;
-    const full = new Image();
-    full.decoding = "async";
-    full.onload = () => {
-      if (!gone) setSrc(url);
-    };
-    full.src = url;
-    return () => {
-      gone = true;
-    };
-  }, [url, preview]);
+function StickerImage({ url, alt, order }: { url: string; alt: string; order: number }) {
+  const revealed = useRevealedImage({
+    preview: previewUrl(url),
+    fallback: url,
+    group: "pack",
+    order,
+    row: 2,
+    upgrade: url,
+  });
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      ref={revealed.ref}
+      src={revealed.src}
       alt={alt}
       draggable
       decoding="async"
       className="block w-full"
-      onError={() => setSrc((cur) => (cur === url ? cur : url))}
+      style={{ opacity: revealed.hidden ? 0 : 1, transition: "opacity 120ms linear" }}
+      onLoad={revealed.onLoad}
+      onError={revealed.onError}
     />
   );
 }

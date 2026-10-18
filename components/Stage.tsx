@@ -162,7 +162,7 @@ function SelectGrid({ list, selected, onToggle }: { list: PublicMedia[]; selecte
             className="relative block aspect-square w-full overflow-hidden bg-[#222] text-left"
           >
             {m.kind === "image" ? (
-              <ShotImage url={m.url} eager={i < 8} className="z-media relative size-full object-cover" />
+              <ShotImage url={m.url} group="stage-select" order={i} row={4} className="z-media relative size-full object-cover" />
             ) : (
               <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className="z-media relative size-full object-cover" />
             )}
@@ -261,7 +261,7 @@ export function Stage({ initial }: { initial: DumpsterState }) {
                   className={`relative block overflow-hidden bg-[#222] text-left ${i === 0 ? "col-span-2 row-span-2" : ""}`}
                   aria-label="Open photo"
                 >
-                  <ShotImage url={m.url} edge={i === 0 ? 960 : 320} eager={i < 5} className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`} />
+                  <ShotImage url={m.url} edge={i === 0 ? 960 : 320} group="stage" order={i} row={4} className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`} />
                   {fresh && <span className="label z-labels absolute top-2 left-2 bg-green px-1.5 py-0.5 text-ink">Just dropped</span>}
                   <ReactionMarks m={m} />
                 </button>
