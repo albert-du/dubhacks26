@@ -76,9 +76,9 @@ export const perceptron = {
             type: "object",
             properties: {
               safe: { type: "boolean" },
-              grounded: { type: "boolean" },
+              accurate: { type: "boolean" },
             },
-            required: ["safe", "grounded"],
+            required: ["safe", "accurate"],
             additionalProperties: false,
           },
         },
@@ -88,10 +88,10 @@ export const perceptron = {
         { type: "text", text: JSON.stringify({ question: prompt, proposedAnswer: answer }) },
       ] }],
     });
-    const verdict = z.object({ safe: z.boolean(), grounded: z.boolean() }).strict()
+    const verdict = z.object({ safe: z.boolean(), accurate: z.boolean() }).strict()
       .parse(JSON.parse(visionContent(review)));
     if (!verdict.safe) return VISION_REFUSAL;
-    if (!verdict.grounded) return VISION_UNCERTAINTY;
+    if (!verdict.accurate) return VISION_UNCERTAINTY;
     return clarifyVisionLimitations(answer);
   },
 
