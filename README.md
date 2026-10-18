@@ -30,7 +30,7 @@ A dumpster is six tabs along the bottom.
 
 **Fire.** The leaderboard. Open a shot and tap the flaming can. The shot with the most fires is on top. Hearts, laughs, and the other reactions only break a tie. The order comes from those taps.
 
-**Map.** Moments that have a location, drawn on a plain grid. Nothing is sent to a map company. Pins with a fire on them are marked. Under the map, the venue board lists places read off signs and landmarks. Tap a place to jump back to those shots in the dump.
+**Map.** Moments that have a location, drawn on a plain grid. Nothing is sent to a map company. Pins with a fire on them are marked. Under the map, the moments are listed in order; tap one to flip through it.
 
 **Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick an object or the whole frame. Press and hold a finished sticker to save it.
 

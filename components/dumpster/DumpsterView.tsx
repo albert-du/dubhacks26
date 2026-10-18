@@ -19,7 +19,6 @@ export type Tab = "drop" | "dump" | "fire" | "map" | "pack" | "me";
 
 export type Filter =
   | { kind: "faces"; ids: string[]; label: string; name?: string }
-  | { kind: "venue"; venue: string; label: string }
   | { kind: "shots"; ids: string[]; label: string };
 
 const TABS: { id: Tab; label: string }[] = [
@@ -37,7 +36,6 @@ export function inFilter(m: PublicMedia, filter: Filter | null) {
     const mentioned = !!filter.name && m.mentions.includes(filter.name);
     return inFrame || mentioned;
   }
-  if (filter?.kind === "venue") return m.venue === filter.venue;
   if (filter?.kind === "shots") return filter.ids.includes(m.id);
   return true;
 }
@@ -136,14 +134,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         )}
         {tab === "fire" && <Fire media={state.media} onReact={dumpster.react} onOpen={open} />}
         {tab === "map" && (
-          <EventMap
-            media={state.media}
-            onOpen={open}
-            onVenue={(venue) => {
-              setFilter({ kind: "venue", venue, label: venue });
-              setTab("dump");
-            }}
-          />
+          <EventMap media={state.media} onOpen={open} />
         )}
         {tab === "pack" && <Pack stickers={state.stickers} goTo={setTab} />}
         {tab === "me" && (
