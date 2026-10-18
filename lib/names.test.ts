@@ -73,21 +73,35 @@ test("names: one name is one person, and naming a face after someone asks to gro
     await renameGuest(d, "kai-phone", "jo", true);
     assert.equal((await clusters.findOne({ _id: "j" }))?.guestId, kaiId);
 
-    // One person split into two sign-ins: renaming a face of one to the other's name asks, then merges them.
+    // A face wrongly claimed by another sign-in: renaming it to the right person moves just that face.
     const { guestId: lenId } = await enrollGuest(d, "len-phone", { name: "Len", selfie, claim: [] });
-    await clusters.insertOne(face("l", [0, -1], { guestId: lenId, name: "Len" }));
+    await clusters.insertMany([face("l", [0, -1], { guestId: lenId, name: "Len" }), face("l2", [0.5, -1], { guestId: lenId, name: "Len" })]);
     await assert.rejects(nameFace(d, "l", "jo", false), sameName);
     await nameFace(d, "l", "jo", true);
-    assert.equal(await guests.findOne({ _id: lenId }), null, "the second sign-in folds into the first");
-    assert.equal((await dumpsterState(d, "len-phone")).me?.guestId, kaiId, "their phone is now signed in as Jo");
-    assert.equal(await clusters.countDocuments({ guestId: kaiId }), 1, "one face group for one person");
+    assert.ok(await guests.findOne({ _id: lenId }), "Len's sign-in stays");
+    assert.equal((await dumpsterState(d, "len-phone")).me?.name, "Len");
+    assert.deepEqual((await dumpsterState(d, "len-phone")).me?.clusterIds, ["l2"], "Len keeps his other face");
+    assert.equal(await clusters.countDocuments({ guestId: kaiId }), 1, "the moved face joined Jo's one face group");
+    assert.equal((await clusters.findOne({ guestId: kaiId }))?.name, "jo", "under his spelling");
+
+    // Sign-ins from before name sign-in (one viewerId, no nameKey) can be merged and found by name.
+    await guests.insertOne({ _id: "old", dumpsterId: d._id, viewerId: "old-phone", name: "Mo", pendingPhotoAlerts: 0, pendingMentionAlerts: 0, createdAt: now, expiresAt } as never);
+    await clusters.insertOne(face("o", [1, 2], { guestId: "old" }));
+    await nameFace(d, "o", "LEN", true);
+    assert.equal(await clusters.findOne({ _id: "o" }), null, "an unnamed face of an old sign-in joins Len's face group");
+    assert.equal((await clusters.findOne({ _id: "l2" }))?.n, 2);
+    await renameGuest(d, "len-phone", "Moe");
+    const { guestId: noaId } = await enrollGuest(d, "noa-phone", { name: "Noa", selfie, claim: [] });
+    await guests.updateOne({ _id: noaId }, { $unset: { viewerIds: "" }, $set: { viewerId: "noa-phone" } });
+    await renameGuest(d, "len-phone", "noa", true).catch((e) => assert.fail(`merging into an old sign-in failed: ${(e as Error).message}`));
+    assert.deepEqual((await guests.findOne({ _id: noaId }))?.viewerIds?.sort(), ["len-phone", "noa-phone"]);
 
     // Renaming yourself to someone's signed-in name asks, then merges you into them.
     await assert.rejects(renameGuest(d, "kai-phone", "RIO"), sameName);
     await renameGuest(d, "kai-phone", "RIO", true);
     assert.equal(await guests.findOne({ _id: kaiId }), null);
     assert.equal((await dumpsterState(d, "kai-phone")).me?.guestId, rioId);
-    assert.deepEqual((await guests.findOne({ _id: rioId }))?.viewerIds.sort(), ["kai-phone", "len-phone", "rio-phone"]);
+    assert.deepEqual((await guests.findOne({ _id: rioId }))?.viewerIds.sort(), ["kai-phone", "rio-phone"]);
     assert.equal(await clusters.countDocuments({ guestId: rioId }), 1);
   } finally {
     faceEmbed.enabled = enabled;

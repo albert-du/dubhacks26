@@ -1,5 +1,6 @@
 import { MongoClient, type Db } from "mongodb";
 import { config } from "./config";
+import { nameKey } from "./nameKey";
 import type { Cluster, Dumpster, Guest, Media, Reaction, Sticker } from "./types";
 
 /**
@@ -36,6 +37,21 @@ async function ensureIndexes(d: Db) {
   await d.collection("stickers").createIndex({ dumpsterId: 1, updatedAt: 1 });
   await d.collection("stickers").createIndex({ status: 1 });
   await d.collection("dumpsters").createIndex({ expiresAt: 1 });
+  await upgradeLegacyGuests(d);
+}
+
+/**
+ * Sign-ins from before name sign-in hold one `viewerId` and no `nameKey`. Give them the list
+ * and the key so they can be found by name, merged and signed in again. A name already taken
+ * by a newer sign-in is left without a key (the newer one keeps the name). They burn within
+ * 72 hours anyway.
+ */
+async function upgradeLegacyGuests(d: Db) {
+  const guests = d.collection<Guest & { viewerId?: string }>("guests");
+  for (const g of await guests.find({ viewerIds: { $exists: false } }).toArray()) {
+    await guests.updateOne({ _id: g._id }, { $set: { viewerIds: g.viewerId ? [g.viewerId] : [] } });
+    await guests.updateOne({ _id: g._id, nameKey: { $exists: false } }, { $set: { nameKey: nameKey(g.name) } }).catch(() => undefined);
+  }
 }
 
 export async function db(): Promise<Db> {
