@@ -26,7 +26,7 @@ A dumpster is six tabs along the bottom.
 
 **Drop.** Throw in photos, and videos when this dumpster allows them. If the signal dies, the phone keeps the files and sends them when it comes back. The same screen has the QR code, the copy-link button, and a link to the big-screen view.
 
-**Dump.** The pile. Faces from the photos sit across the top. Tap a person to see their shots. Tap Find me to enroll. Type to filter. A word has to show up in the picture, on a sign, in something someone said, in a name, or in a place. Every word in the box has to match. The same photo uploaded twice stays hidden until you tap to show the dupes. All shots is a grid. Moments groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
+**Dump.** The pile. Faces from the photos sit across the top. Tap a person to see their shots. Tap **+ name** under a face to name it (anyone can, and anyone can fix it). Type to filter. A word has to show up in the picture, on a sign, in something someone said, in a face's name, or in a place. Every word in the box has to match. Or tap the camera next to the search box and search with a photo: a face finds that person's shots, anything else finds shots with the same things in them. The search photo is not kept. Tap **Select** to pick shots and save them. One saves directly; several come down as a zip. The same photo uploaded twice stays hidden until you tap to show the dupes. All shots is a grid. Moments groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
 
 **Fire.** The leaderboard. Open a shot and tap the flaming can. The shot with the most fires is on top. Hearts, laughs, and the other reactions only break a tie. The order comes from those taps.
 
@@ -34,7 +34,7 @@ A dumpster is six tabs along the bottom.
 
 **Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick an object or the whole frame. Press and hold a finished sticker to save it.
 
-**Me.** Your name, an optional phone number, and an optional selfie. The selfie is used once to find your face and is not kept. Leave a number and Dump texts you when new photos of you land, and when a video says your name. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone who left a number gets one warning and a link, so they can save what they want.
+**Me.** Texts are off until you turn them on. Then Dump asks for a phone number and a selfie. The selfie is used once to find your face and is not kept. Dump texts you when new photos of you land, and when a video says the name on your face. Stop texts any time; that forgets the number and the face match. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone who left a number gets one warning and a link, so they can save what they want.
 
 Open a shot to see who is in it, what was recognized, any writing, and any words from a video. From there you can react, save a copy, cut a sticker, or delete it for everyone.
 

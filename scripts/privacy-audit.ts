@@ -72,7 +72,7 @@ if (bits < 122) fail("R6", `dumpster ids carry only ${bits.toFixed(0)} bits of e
 const dumpsters = files.find((f) => f.p === "lib/dumpsters.ts")?.src ?? "";
 if (!dumpsters.includes("if (!isDumpsterId(id)) return null")) fail("R6", "getLiveDumpster must validate the id format");
 
-// R7: selfies are never persisted.
+// R7: selfies and search-by-photo query images are never persisted.
 const enroll = files.find((f) => f.p === "lib/enroll.ts")?.src ?? "";
 if (/storage\.put/.test(enroll)) fail("R7", "enroll.ts must not write selfies to storage");
 
