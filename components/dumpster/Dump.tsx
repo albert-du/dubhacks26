@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { FireIcon } from "@/components/Brand";
 import { FaceThumb, frameNo } from "@/components/ui";
+import { prepareFile } from "@/lib/client/uploadQueue";
 import { groupMoments } from "@/lib/moments";
 import { matchSources, SOURCE_LABEL, type MatchSource } from "@/lib/search";
 import type { PublicCluster, PublicMedia, DumpsterState } from "@/lib/types";
@@ -35,6 +36,33 @@ export function Dump(props: {
   const [answer, setAnswer] = useState<string | null>(null);
   const [askError, setAskError] = useState<string | null>(null);
   const [naming, setNaming] = useState<{ ids: string[]; value: string } | null>(null);
+  const [photoSearching, setPhotoSearching] = useState(false);
+
+  /** Search with a photo: a face finds that person's shots, otherwise the things in it. */
+  const searchByPhoto = async (file: File) => {
+    setPhotoSearching(true);
+    setAskError(null);
+    try {
+      const { blob, name } = await prepareFile(file);
+      const form = new FormData();
+      form.append("image", blob, name);
+      const r = await fetch(`/api/dumpsters/${props.id}/search-photo`, { method: "POST", body: form });
+      const data = (await r.json().catch(() => null)) as { ids?: string[]; people?: string[]; things?: string[]; error?: string } | null;
+      if (!r.ok || !data) {
+        setAskError(data?.error ?? "Photo search didn’t work. Try words instead.");
+        return;
+      }
+      const ids = data.ids ?? [];
+      const what = data.people?.length ? data.people.join(", ") : (data.things ?? []).join(", ");
+      props.setQ("");
+      setAnswer(ids.length ? `Shots with ${what || "what’s in your photo"}.` : "Nothing in the dump matched that photo.");
+      setFilter({ kind: "shots", ids, label: what ? `Photo: ${what}` : "Photo" });
+    } catch {
+      setAskError("Photo search didn’t work. Try words instead.");
+    } finally {
+      setPhotoSearching(false);
+    }
+  };
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -209,10 +237,10 @@ export function Dump(props: {
           void ask();
         }}
       >
-        <span className="label grid place-items-center border-r border-ink px-3">Find</span>
         <input
           className="min-w-0 flex-1 truncate bg-transparent px-3 py-3 text-base outline-none placeholder:text-smoke"
-          placeholder={props.canAsk ? "dog, sign, or ask…" : "dog, sign, quote…"}
+          placeholder={props.canAsk ? "Search, or ask a question" : "Things, signs, or words said"}
+          aria-label="Search the dump"
           value={q}
           onChange={(e) => {
             props.setQ(e.target.value);
@@ -222,6 +250,24 @@ export function Dump(props: {
           type="search"
           enterKeyHint="search"
         />
+        <label
+          className={`grid w-12 shrink-0 cursor-pointer place-items-center border-l-3 border-ink ${photoSearching ? "bg-green" : ""}`}
+          aria-label="Search with a photo"
+          title="Search with a photo"
+        >
+          {photoSearching ? <span className="display animate-blink">…</span> : <CameraIcon />}
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            disabled={photoSearching}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void searchByPhoto(f);
+            }}
+          />
+        </label>
         {props.canAsk && (
           <button type="submit" disabled={asking || !q.trim()} className="display border-l-3 border-ink bg-green px-3 text-sm disabled:opacity-40">
             {asking ? "…" : "Ask"}
@@ -320,6 +366,15 @@ export function Dump(props: {
         />
       )}
     </section>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="miter" aria-hidden>
+      <path d="M3 7h4l2-3h6l2 3h4v13H3z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
   );
 }
 
