@@ -24,7 +24,7 @@ function photonEnvironment() {
 
 function fixtureGuest(id = "guest-a"): Guest {
   return {
-    _id: id, dumpsterId: "demo", viewerId: `viewer-${id}`, name: `Guest ${id}`,
+    _id: id, dumpsterId: "demo", viewerIds: [`viewer-${id}`], name: `Guest ${id}`, nameKey: `guest ${id}`,
     pendingPhotoAlerts: 0, pendingMentionAlerts: 0, createdAt: new Date(), expiresAt: new Date(Date.now() + 3600_000),
   };
 }
@@ -167,14 +167,14 @@ test("notifications: verify, retry, edit, isolate, and disconnect real guest rec
     await collection.dumpsters.insertOne(d);
     await collection.guests.insertMany([a, b, c]);
     await assert.rejects(requestNotificationConnection(d, "other-viewer", "+12065550101"), (e) => e instanceof HttpError && e.status === 400);
-    await assert.rejects(requestNotificationConnection(d, c.viewerId, "+12065550999"), (e) => e instanceof HttpError && e.status === 422);
-    const challenge = await requestNotificationConnection(d, a.viewerId, "+12065550101", now);
+    await assert.rejects(requestNotificationConnection(d, c.viewerIds[0], "+12065550999"), (e) => e instanceof HttpError && e.status === 422);
+    const challenge = await requestNotificationConnection(d, a.viewerIds[0], "+12065550101", now);
     assert.equal(challenge.agentNumber, "+12065550201");
     const pending = await collection.guests.findOne({ _id: a._id });
     assert.equal(pending?.phone, undefined);
     assert.equal(pending?.notification, undefined);
     assert.equal(pending?.notificationPending?.codeHash, hashConnectionCode(challenge.message.slice(8)));
-    await assert.rejects(requestNotificationConnection(d, a.viewerId, "+12065550101", now), (e) => e instanceof HttpError && e.status === 429);
+    await assert.rejects(requestNotificationConnection(d, a.viewerIds[0], "+12065550101", now), (e) => e instanceof HttpError && e.status === 429);
     const inbound: InboundText = { from: "+12065550101", text: challenge.message, platform: "imessage", spaceKind: "direct", spaceId: "space-a", agentUserId: "agent-a", senderUserId: "recipient-a", agentHandle: "+12065550201", messageId: "message-a" };
     assert.match((await connectFromMessage({ ...inbound, from: "+12065550102" }, now))!, /invalid or expired/);
     assert.match((await connectFromMessage({ ...inbound, agentHandle: "+12065550202" }, now))!, /invalid or expired/);
@@ -188,13 +188,13 @@ test("notifications: verify, retry, edit, isolate, and disconnect real guest rec
     faceEmbed.enabled = () => true;
     faceEmbed.detect = async () => [{ box: [0, 0, 1, 1], embedding: Array(512).fill(0), score: 1 }];
     const selfie = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#888" } }).jpeg().toBuffer();
-    try { await enrollGuest(d, a.viewerId, { name: "Guest guest-a", selfie }); } finally { Object.assign(faceEmbed, { enabled, detect }); }
+    try { await enrollGuest(d, a.viewerIds[0], { name: "Guest guest-a", selfie }); } finally { Object.assign(faceEmbed, { enabled, detect }); }
     assert.equal((await collection.guests.findOne({ _id: a._id }))?.notification?.spaceId, "space-a");
-    const state = await dumpsterState(d, a.viewerId);
+    const state = await dumpsterState(d, a.viewerIds[0]);
     assert.deepEqual(state.me?.notifications, { state: "connected" });
     for (const secret of ["12065550101", "space-a", "agent-a", "recipient-a", "codeHash"]) assert.ok(!JSON.stringify(state).includes(secret));
-    assert.equal((await getNotificationStatus(d, b.viewerId)).state, "disconnected");
-    const second = await requestNotificationConnection(d, b.viewerId, "+12065550102", now);
+    assert.equal((await getNotificationStatus(d, b.viewerIds[0])).state, "disconnected");
+    const second = await requestNotificationConnection(d, b.viewerIds[0], "+12065550102", now);
     assert.equal(second.agentNumber, "+12065550202");
     await connectFromMessage({ ...inbound, from: "+12065550102", text: second.message, spaceId: "space-b", agentUserId: "agent-b", senderUserId: "recipient-b", agentHandle: "+12065550202", messageId: "message-b" }, now);
     await collection.guests.updateMany({ _id: { $in: [a._id, b._id] } }, { $set: { pendingPhotoAlerts: 2 } });
@@ -223,7 +223,7 @@ test("notifications: verify, retry, edit, isolate, and disconnect real guest rec
     assert.equal(retries.length, 2);
     assert.equal(retries[0].idempotencyKey, retries[1].idempotencyKey);
     assert.equal(retries[0].text, retries[1].text);
-    await disconnectNotifications(d, b.viewerId);
+    await disconnectNotifications(d, b.viewerIds[0]);
     const disconnected = await collection.guests.findOne({ _id: b._id });
     assert.equal(disconnected?.phone, undefined);
     assert.equal(disconnected?.notification, undefined);
@@ -233,7 +233,7 @@ test("notifications: verify, retry, edit, isolate, and disconnect real guest rec
     await collection.guests.updateOne({ _id: b._id }, { $set: { pendingPhotoAlerts: 5 } });
     await flushFaceAlerts();
     assert.equal(calls.length, before);
-    await assert.rejects(requestNotificationConnection(d, b.viewerId, "+12065550102", now), (e) => e instanceof HttpError && e.status === 429);
+    await assert.rejects(requestNotificationConnection(d, b.viewerIds[0], "+12065550102", now), (e) => e instanceof HttpError && e.status === 429);
   } finally {
     await (await db()).dropDatabase();
     await closeMongo();

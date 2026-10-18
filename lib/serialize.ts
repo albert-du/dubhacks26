@@ -123,7 +123,7 @@ export async function dumpsterState(d: Dumpster, viewer: string): Promise<Dumpst
     .limit(500)
     .toArray();
   const mine = await myReactions(d._id, viewer);
-  const me: Guest | null = await guests.findOne({ dumpsterId: d._id, viewerId: viewer });
+  const me: Guest | null = await guests.findOne({ dumpsterId: d._id, viewerIds: viewer });
   const myClusters = me ? await clusters.find({ dumpsterId: d._id, guestId: me._id }, { projection: { _id: 1 } }).toArray() : [];
   return {
     dumpster: publicDumpster(d),

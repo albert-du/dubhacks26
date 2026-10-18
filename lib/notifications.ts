@@ -29,8 +29,8 @@ export function imessageAvailable() {
 
 async function ownGuest(d: Dumpster, viewer: string) {
   const { guests } = await cols();
-  const guest = await guests.findOne({ dumpsterId: d._id, viewerId: viewer, expiresAt: { $gt: new Date() } });
-  if (!guest) throw new HttpError(400, "Take your selfie in Me before connecting texts.");
+  const guest = await guests.findOne({ dumpsterId: d._id, viewerIds: viewer, expiresAt: { $gt: new Date() } });
+  if (!guest) throw new HttpError(400, "Sign in to this dumpster before connecting texts.");
   return guest;
 }
 
@@ -54,7 +54,7 @@ export async function requestNotificationConnection(d: Dumpster, viewer: string,
   const { guests } = await cols();
   const result = await guests.updateOne({
     _id: guest._id,
-    viewerId: viewer,
+    viewerIds: viewer,
     expiresAt: { $gt: now },
     $or: [{ notificationRequestedAt: { $exists: false } }, { notificationRequestedAt: { $lte: cutoff } }],
   }, {
@@ -68,7 +68,7 @@ export async function requestNotificationConnection(d: Dumpster, viewer: string,
 export async function disconnectNotifications(d: Dumpster, viewer: string) {
   const guest = await ownGuest(d, viewer);
   const { guests } = await cols();
-  await guests.updateOne({ _id: guest._id, viewerId: viewer }, {
+  await guests.updateOne({ _id: guest._id, viewerIds: viewer }, {
     $unset: { notification: "", notificationPending: "", phone: "", expiryWarningSentAt: "", expiryWarningText: "" },
   });
   return { state: "disconnected" as const };

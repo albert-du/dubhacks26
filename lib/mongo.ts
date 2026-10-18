@@ -26,7 +26,11 @@ async function ensureIndexes(d: Db) {
   await d.collection("media").createIndex({ status: 1, createdAt: 1 });
   await d.collection("media").createIndex({ dumpsterId: 1, sha256: 1 });
   await d.collection("clusters").createIndex({ dumpsterId: 1 });
-  await d.collection("guests").createIndex({ dumpsterId: 1, viewerId: 1 });
+  await d.collection("guests").createIndex({ dumpsterId: 1, viewerIds: 1 });
+  await d.collection("guests").createIndex(
+    { dumpsterId: 1, nameKey: 1 },
+    { unique: true, partialFilterExpression: { nameKey: { $exists: true } } },
+  );
   await d.collection("guests").createIndex({ "notificationPending.codeHash": 1 }, { unique: true, sparse: true });
   await d.collection("reactions").createIndex({ dumpsterId: 1, viewerId: 1 });
   await d.collection("stickers").createIndex({ dumpsterId: 1, updatedAt: 1 });
