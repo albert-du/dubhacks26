@@ -63,7 +63,7 @@ export function Fire({
           <li key={m.id} className="grid grid-cols-[3rem_80px_1fr] border-b border-ink">
             <span className="display border-r border-ink pt-2 text-center text-2xl">{String(i + 2).padStart(2, "0")}</span>
             <button onClick={() => onOpen(ranked, m.id)} className="size-20 overflow-hidden border-r border-ink">
-              <Thumb m={m} eager={i < 8} className="size-full object-cover" />
+              <Thumb m={m} group="fire-list" order={i} row={4} className="size-full object-cover" />
             </button>
             <div className="flex min-w-0 flex-col justify-center gap-1 px-3 py-2">
               <p className="flex items-center gap-1.5">
@@ -92,6 +92,9 @@ function Thumb({
   edge = 320,
   eager = false,
   fill = false,
+  group,
+  order,
+  row,
 }: {
   m: PublicMedia;
   className: string;
@@ -99,12 +102,15 @@ function Thumb({
   eager?: boolean;
   /** Cover a frame that is already sized, instead of growing the page when the file arrives. */
   fill?: boolean;
+  group?: string;
+  order?: number;
+  row?: number;
 }) {
   const fillStyle = fill
     ? { position: "absolute" as const, inset: 0, width: "100%", height: "100%", objectFit: "cover" as const }
     : undefined;
   return m.kind === "image" ? (
-    <ShotImage url={m.url} alt={m.caption ?? ""} edge={edge} eager={eager} className={className} style={fillStyle} />
+    <ShotImage url={m.url} alt={m.caption ?? ""} edge={edge} eager={eager} group={group} order={order} row={row} className={className} style={fillStyle} />
   ) : (
     <video
       src={`${m.url}#t=0.1`}

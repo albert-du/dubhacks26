@@ -229,7 +229,7 @@ export function SignIn({ dumpster, me, clusters, onSignedIn, onEnrolled, onDone 
           shots of them go to you.
         </p>
         <ul className="grid grid-cols-3 gap-2">
-          {faces.map((c) => {
+          {faces.map((c, i) => {
             const on = picked.has(c.id);
             return (
               <li key={c.id}>
@@ -246,7 +246,7 @@ export function SignIn({ dumpster, me, clusters, onSignedIn, onEnrolled, onDone 
                   }
                   className={`relative block w-full border-3 ${on ? "border-green" : "border-ink opacity-50"}`}
                 >
-                  {c.cover ? <FaceThumb cover={c.cover} size={104} /> : <span className="block aspect-square bg-bone" />}
+                  {c.cover ? <FaceThumb cover={c.cover} size={104} group="signin-faces" order={i} row={3} priority={0} /> : <span className="block aspect-square bg-bone" />}
                   <span className={`display absolute top-1 left-1 grid size-6 place-items-center border-2 border-ink text-sm ${on ? "bg-green" : "bg-paper"}`}>
                     {on ? "✓" : ""}
                   </span>
