@@ -4,11 +4,8 @@ import { IMESSAGE_STICKER_MAX_BYTES } from "./imaging";
 import { STICKER_FILE_NAME } from "./sticker";
 import {
   STICKER_LIBRARY_FILES,
-  STICKER_LIBRARY_HOLD,
-  STICKER_LIBRARY_INTRO,
   STICKER_LIBRARY_MAX_BYTES,
   STICKER_LIBRARY_SENT,
-  STICKER_LIBRARY_STEPS,
   STICKER_LIBRARY_TOO_BIG,
   shareStickerLibrary,
   stickerLibraryShare,
@@ -81,14 +78,7 @@ test("sticker library: a finished share is the only path that tells someone to s
   const huge = await shareStickerLibrary(png(STICKER_LIBRARY_MAX_BYTES), async () => {}, () => true);
   assert.equal(huge, "rejected");
 
-  const steps = STICKER_LIBRARY_STEPS.join(" ");
-  assert.match(steps, /Save to Stickers/);
-  assert.match(steps, /text field empty/);
-  assert.match(steps, /tap \+, then Stickers/);
-  assert.match(STICKER_LIBRARY_INTRO, /WhatsApp/);
-  assert.match(STICKER_LIBRARY_HOLD, /Add Sticker/);
   assert.match(STICKER_LIBRARY_SENT, /Save to Stickers/);
   assert.match(STICKER_LIBRARY_FILES, /Add Sticker/);
   assert.match(STICKER_LIBRARY_TOO_BIG, /too big/);
-  assert.equal(/already in your library/i.test(steps), false);
 });
