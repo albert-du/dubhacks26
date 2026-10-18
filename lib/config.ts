@@ -46,9 +46,12 @@ export const config = {
     };
   },
 
-  backboard: {
-    url: env("BACKBOARD_URL"),
-    apiKey: env("BACKBOARD_API_KEY"),
+  /** Read on each access so tests and the worker see env loaded after import. */
+  get backboard() {
+    return {
+      url: (env("BACKBOARD_URL") ?? "https://app.backboard.io/api").replace(/\/$/, ""),
+      apiKey: env("BACKBOARD_API_KEY"),
+    };
   },
 
   /** How long before expiry the "burning soon" SMS digest goes out. */

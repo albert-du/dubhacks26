@@ -19,8 +19,8 @@ Dumpsters are anonymous and have no hosts. Nobody owns a dumpster, nothing recor
                               │       └──▶ face-embed service (ArcFace, on Vultr)
                               │       └──▶ Whisper-compatible transcription
                               ├──▶ pixel hash + duplicate check → public WebP → storage
-                              ├──▶ Photon 2.0 (face/mention alerts, burn digests)
-                              ├──▶ Backboard (realtime fan-out)
+                              ├──▶ Photon 2.0 (face/mention alerts, burn digests, free-text replies)
+                              ├──▶ Backboard (ask the pool, free-text commands)
                               └──▶ TigerData (upload velocity, cleanup audit trail)
  Photon SMS ──"create dumpster…"──▶ /api/photon/webhook
 ```
@@ -32,7 +32,7 @@ Dumpsters are anonymous and have no hosts. Nobody owns a dumpster, nothing recor
 | **VEYZL** | `VEYZL.md` policy (anonymity, unguessable ids, retention, complete deletion), `scripts/privacy-audit.ts`, `.github/workflows/privacy-audit.yml` |
 | **MongoDB** | `lib/mongo.ts`: dumpsters, guests, media and detections, face clusters, stickers, reactions. Every collection has a TTL index |
 | **Vultr** | `worker/` and `services/face-embed/` run on Vultr instances; media lives in Vultr Object Storage |
-| **Backboard** | `lib/backboard.ts`: realtime fan-out to stage displays. The SSE route is the always-on fallback |
+| **Backboard** | `lib/backboard.ts`: Ask the pool (`lib/ask.ts`) and Photon texts that aren't a fixed command (`lib/texts.ts`). One assistant per dumpster, deleted with its thread and memories on purge. The SSE route stays the live feed |
 | **TigerData** | `sql/tigerdata.sql`: hypertables, a continuous aggregate for drops per minute, a cleanup queue, and the `overdue_cleanups` compliance view |
 
 ### How media gets organized
@@ -42,7 +42,7 @@ Dumpsters are anonymous and have no hosts. Nobody owns a dumpster, nothing recor
 | Duplicates | `lib/dedupe.ts` | Byte hash for everything, plus a 64-bit pixel hash checked against camera timestamps for images. Duplicates are flagged and hidden behind a toggle |
 | Moments | `lib/moments.ts` | Shots within 20 minutes and 250 m of each other become one moment, labeled by venue or tag |
 | Faces | `lib/pipeline.ts`, `lib/enroll.ts` | Online cosine clustering into a face gallery. A guest's selfie names their cluster and turns on texts |
-| Search | `lib/search.ts` | Every query word must match somewhere across objects, written text, speech, people, places and tags. Results show where each match came from |
+| Search | `lib/search.ts`, `lib/ask.ts` | Every query word must match somewhere across objects, written text, speech, people, places and tags. With `BACKBOARD_API_KEY`, Ask answers a sentence and filters to those shots |
 | Dumpster Fire | `lib/reactions.ts` | Ranked only by 🔥 reactions, with other emoji as a tiebreak. No automated scoring |
 
 ## Run it locally
@@ -60,7 +60,8 @@ npm run worker                         # second terminal: processing, alerts, cl
 Without API keys, everything still runs:
 
 - Photos publish without detections.
-- Photon texts print to the worker console.
+- Photon texts print to the worker console. Texts that aren't the create command get the command list.
+- Ask stays a word search.
 - Metrics fall back to Mongo.
 - Storage goes to `./.data/storage`.
 
@@ -79,7 +80,7 @@ Live deliveries are Photon `message.received` events, signed as Standard Webhook
 
 - **Perceptron** (`lib/perceptron.ts`): assumes an OpenAI-compatible `/chat/completions` endpoint and 0–1000 box coordinates.
 - **Photon 2.0** (`lib/photon.ts`, webhook route): outbound text creates or reuses a User and a Space, then `POST /v1/projects/{id}/messages` with `{ spaceId, senderId, content: { type: "text", format: "plain", text } }`. Set `PHOTON_API_KEY`, `PHOTON_PROJECT_ID`, `PHOTON_AGENT_USER_ID`, and `PHOTON_PLATFORM`. A shared iMessage line only delivers after that person has texted the agent; cold photo alerts and burn warnings need SMS or a dedicated line.
-- **Backboard** (`lib/backboard.ts`): the publish endpoint is a placeholder.
+- **Backboard** (`lib/backboard.ts`): `POST /threads/messages` and `POST /threads/tool-outputs` with `X-API-Key`. Base URL defaults to `https://app.backboard.io/api`. Ask keeps an assistant named `dumpster-{id}` until purge, which `DELETE`s its memories and the assistant. A free-text Photon turn uses a `dump-text-*` assistant that is deleted before the reply returns.
 - **VEYZL** (`.github/workflows/privacy-audit.yml`): the action reference is a TODO.
 
 ## Screens

@@ -34,10 +34,10 @@ export function tokenize(q: string) {
 }
 
 /** null = no match; otherwise the sources that matched (empty query matches everything). */
-export function matchSources(m: PublicMedia, query: string, names: Map<string, string>): MatchSource[] | null {
+export function matchFields(sourceText: Record<MatchSource, string>, query: string): MatchSource[] | null {
   const words = tokenize(query);
   if (!words.length) return [];
-  const f = Object.entries(fields(m, names)).map(([k, v]) => [k as MatchSource, v.toLowerCase()] as const);
+  const f = (Object.keys(sourceText) as MatchSource[]).map((k) => [k, sourceText[k].toLowerCase()] as const);
   const hit = new Set<MatchSource>();
   for (const w of words) {
     const where = f.filter(([, v]) => v.includes(w)).map(([k]) => k);
@@ -45,4 +45,8 @@ export function matchSources(m: PublicMedia, query: string, names: Map<string, s
     where.forEach((k) => hit.add(k));
   }
   return [...hit];
+}
+
+export function matchSources(m: PublicMedia, query: string, names: Map<string, string>): MatchSource[] | null {
+  return matchFields(fields(m, names), query);
 }

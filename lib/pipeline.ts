@@ -1,5 +1,4 @@
 import { nanoid } from "nanoid";
-import { publish } from "./backboard";
 import { config } from "./config";
 import { findDuplicate, pixelHash } from "./dedupe";
 import { cosine, nearest, updateCentroid } from "./faces";
@@ -116,9 +115,7 @@ async function processImage(m: Media, d: Dumpster) {
       .toArray();
     const guestIds = [...new Set(claimed.map((c) => c.guestId!))];
     if (guestIds.length) await guests.updateMany({ _id: { $in: guestIds } }, { $inc: { pendingPhotoAlerts: 1 } });
-    await publish(d._id, { type: "clusters" });
   }
-  await publish(d._id, { type: "media", mediaId: m._id });
 }
 
 /** Flags re-uploads: same bytes, or same pixels captured at the same moment (see lib/dedupe.ts). */
@@ -216,7 +213,6 @@ async function processVideo(m: Media, d: Dumpster) {
       $set: { status: "ready", claimedAt: null, publicKey, transcript, mentions, duplicateOf, updatedAt: new Date() },
     },
   );
-  await publish(d._id, { type: "media", mediaId: m._id });
 }
 
 /** Renders one queued sticker from the public image. */
@@ -239,6 +235,5 @@ export async function processNextSticker(): Promise<boolean> {
     console.error("[sticker]", (e as Error).message);
     await stickers.updateOne({ _id: s._id }, { $set: { status: "failed", claimedAt: null, updatedAt: new Date() } });
   }
-  await publish(s.dumpsterId, { type: "sticker", stickerId: s._id });
   return true;
 }

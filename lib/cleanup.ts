@@ -1,4 +1,4 @@
-import { publish } from "./backboard";
+import { backboard } from "./backboard";
 import { cols } from "./mongo";
 import { storage } from "./storage";
 import { tiger } from "./tiger";
@@ -9,6 +9,8 @@ import { tiger } from "./tiger";
  */
 export async function purgeDumpster(id: string, reason: "expired" | "host" | "orphan") {
   const c = await cols();
+  const existing = await c.dumpsters.findOne({ _id: id }, { projection: { backboard: 1 } });
+  await backboard.forgetDumpster(id, existing?.backboard);
   const objects = await storage.deletePrefix(id);
   const [mediaRes, clusterRes, guestRes] = await Promise.all([
     c.media.deleteMany({ dumpsterId: id }),
@@ -24,7 +26,6 @@ export async function purgeDumpster(id: string, reason: "expired" | "host" | "or
     objects,
   };
   await tiger.cleanupDone(id, counts, reason);
-  await publish(id, { type: "destroyed" });
   console.log(`[cleanup] purged ${id} (${reason})`, counts);
   return counts;
 }

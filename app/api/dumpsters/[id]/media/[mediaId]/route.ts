@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { publish } from "@/lib/backboard";
 import { getLiveDumpster } from "@/lib/dumpsters";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
@@ -27,6 +26,5 @@ export const DELETE = route<Ctx>(async (_req, { params }) => {
   );
   await reactions.deleteMany({ mediaId });
   await stickers.deleteMany({ mediaId });
-  await publish(id, { type: "media", mediaId });
   return NextResponse.json({ ok: true });
 });

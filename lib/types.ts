@@ -19,6 +19,11 @@ export interface Dumpster {
   // Deliberately no creator field: dumpsters are anonymous and nobody owns them.
   settings: DumpsterSettings;
   warningSent?: boolean;
+  /**
+   * Ask-the-pool assistant. Created on the first question and deleted, with its
+   * thread and memories, when the dumpster is purged.
+   */
+  backboard?: { assistantId: string; threadId: string };
 }
 
 export interface Guest {
@@ -183,5 +188,7 @@ export interface DumpsterState {
   clusters: PublicCluster[];
   stickers: PublicSticker[];
   me?: { guestId: string; name: string; clusterIds: string[] };
+  /** True when BACKBOARD_API_KEY is set. The browser never receives the key. */
+  canAsk: boolean;
   cursor: string;
 }

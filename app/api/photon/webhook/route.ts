@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { parseCommand } from "@/lib/commands";
 import { config } from "@/lib/config";
-import { createDumpster, dumpsterUrl } from "@/lib/dumpsters";
 import { authorizeWebhook, parseInbound, photon } from "@/lib/photon";
-
-const HELP = `DUMP 🗑️ commands:
-• create dumpster "Mt. Si Hike" 48h  (24, 48 or 72h)
-• help`;
+import { answerText, HELP } from "@/lib/texts";
 
 /**
  * Inbound Photon 2.0 `message.received` events (Standard Webhooks),
  * and the local `{from, text}` simulator.
+ * The sender's number is used for this one reply and never stored.
  */
 export async function POST(req: Request) {
   const rawBody = await req.text();
@@ -23,19 +19,11 @@ export async function POST(req: Request) {
   if (inbound.kind === "invalid") return NextResponse.json({ error: inbound.error }, { status: 400 });
 
   const { from, text, spaceId, agentUserId, messageId } = inbound.message;
-  const cmd = parseCommand(text);
   let reply: string;
-  if (cmd.type === "create") {
-    // The sender's number is used for this one reply and never stored with the dumpster.
-    const dumpster = await createDumpster({ name: cmd.name, ttlHours: cmd.ttlHours });
-    const url = dumpsterUrl(dumpster._id);
-    reply = [
-      `🗑️ Dumpster "${dumpster.name}" is open for ${cmd.ttlHours}h.`,
-      `Share: ${url}`,
-      `QR for the venue: ${url}/stage`,
-      `Everything self-destructs ${dumpster.expiresAt.toUTCString()}.`,
-    ].join("\n");
-  } else {
+  try {
+    reply = await answerText(text);
+  } catch (e) {
+    console.warn("[backboard]", (e as Error).message);
     reply = HELP;
   }
   await photon.reply({

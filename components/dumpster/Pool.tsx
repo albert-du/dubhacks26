@@ -11,6 +11,7 @@ import { inFilter, type Filter, type Tab } from "./DumpsterView";
 type View = "grid" | "moments";
 
 export function Pool(props: {
+  id: string;
   media: PublicMedia[];
   byId: Map<string, PublicMedia>;
   frames: Map<string, number>;
@@ -22,12 +23,47 @@ export function Pool(props: {
   mine: Filter | null;
   q: string;
   setQ: (q: string) => void;
+  canAsk: boolean;
   onOpen: (list: PublicMedia[], id: string) => void;
   goTo: (t: Tab) => void;
 }) {
-  const { media, clusters, filter, setFilter, q } = props;
+  const { media, clusters, filter, q } = props;
   const [view, setView] = useState<View>("grid");
   const [showDupes, setShowDupes] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [askError, setAskError] = useState<string | null>(null);
+
+  const setFilter = (f: Filter | null) => {
+    if (!f || f.kind !== "shots") setAnswer(null);
+    props.setFilter(f);
+  };
+
+  const ask = async () => {
+    const query = q.trim();
+    if (!props.canAsk || !query || asking) return;
+    setAsking(true);
+    setAskError(null);
+    try {
+      const r = await fetch(`/api/dumpsters/${props.id}/ask`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ q: query }),
+      });
+      const data = (await r.json().catch(() => null)) as { answer?: string; ids?: string[]; error?: string } | null;
+      if (!r.ok || !data) {
+        setAskError(data?.error ?? "Ask didn't work. The word search still applies.");
+        return;
+      }
+      const ids = data.ids ?? [];
+      setAnswer(data.answer || (ids.length ? "Here's what matched." : "Nothing in the pool matched."));
+      setFilter({ kind: "shots", ids, label: "Asked" });
+    } catch {
+      setAskError("Ask didn't work. The word search still applies.");
+    } finally {
+      setAsking(false);
+    }
+  };
 
   const myIds = new Set(props.me?.clusterIds ?? []);
   const others = clusters.filter((c) => !myIds.has(c.id));
@@ -41,7 +77,8 @@ export function Pool(props: {
     const matched: PublicMedia[] = [];
     for (const m of media) {
       if (!inFilter(m, filter)) continue;
-      const hit = matchSources(m, q, props.names);
+      // An Ask result is already the match. Don't also require every word of the question.
+      const hit = filter?.kind === "shots" ? [] : matchSources(m, q, props.names);
       if (!hit) continue;
       hit.forEach((s) => sources.set(s, (sources.get(s) ?? 0) + 1));
       matched.push(m);
@@ -105,18 +142,35 @@ export function Pool(props: {
         )}
       </div>
 
-      {/* Search */}
-      <div className="flex border-b-3 border-ink">
+      {/* Search. Typing filters on the words. Ask sends the sentence to Backboard. */}
+      <form
+        className="flex border-b-3 border-ink"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void ask();
+        }}
+      >
         <span className="label grid place-items-center border-r border-ink px-3">Find</span>
         <input
           className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base outline-none placeholder:text-smoke"
-          placeholder="a dog, a sign, something someone said"
+          placeholder={props.canAsk ? "a dog, or ask about the blurry toast" : "a dog, a sign, something someone said"}
           value={q}
-          onChange={(e) => props.setQ(e.target.value)}
+          onChange={(e) => {
+            props.setQ(e.target.value);
+            setAskError(null);
+            if (filter?.kind === "shots") setFilter(null);
+          }}
           type="search"
           enterKeyHint="search"
         />
-      </div>
+        {props.canAsk && (
+          <button type="submit" disabled={asking || !q.trim()} className="display border-l-3 border-ink bg-green px-3 text-sm disabled:opacity-40">
+            {asking ? "…" : "Ask"}
+          </button>
+        )}
+      </form>
+      {answer && <p className="border-b border-ink px-3 py-2 text-sm leading-snug">{answer}</p>}
+      {askError && <p className="border-b border-ink bg-fire px-3 py-2 text-sm leading-snug text-ink">{askError}</p>}
 
       {/* Status bar: active filter / search breakdown / view toggle */}
       {(filter || q) && (
