@@ -16,6 +16,12 @@ const DUMPSTER_ID_RE = new RegExp(`^[${DUMPSTER_ID_ALPHABET}]{${DUMPSTER_ID_LENG
 
 export const isDumpsterId = (id: string) => DUMPSTER_ID_RE.test(id);
 
+/** Pulls a dumpster id out of a pasted link or a longer text. */
+export function dumpsterIdFrom(input: string): string | null {
+  const found = input.toLowerCase().match(new RegExp(`[${DUMPSTER_ID_ALPHABET}]{${DUMPSTER_ID_LENGTH}}`));
+  return found && isDumpsterId(found[0]) ? found[0] : null;
+}
+
 export async function createDumpster(input: { name: string; ttlHours: TtlHours; settings?: Partial<DumpsterSettings> }) {
   const { dumpsters } = await cols();
   const now = new Date();

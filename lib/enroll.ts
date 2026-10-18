@@ -1,5 +1,4 @@
 import { nanoid } from "nanoid";
-import { publish } from "./backboard";
 import { config } from "./config";
 import { cosine } from "./faces";
 import { faceEmbed } from "./faceEmbed";
@@ -69,6 +68,5 @@ export async function enrollGuest(
       updatedAt: new Date(),
     });
   }
-  await publish(d._id, { type: "clusters" });
   return { guestId: guest._id, faceMatched: true, clustersClaimed: matched.length };
 }

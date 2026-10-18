@@ -1,3 +1,4 @@
+import { backboard } from "./backboard";
 import { cols } from "./mongo";
 import { emptyReactions, type ReactionKey } from "./reactions";
 import type {
@@ -126,6 +127,7 @@ export async function dumpsterState(d: Dumpster, viewer: string): Promise<Dumpst
     clusters: await publicClusters(d),
     stickers: (await stickers.find({ dumpsterId: d._id }).sort({ createdAt: -1 }).toArray()).map(publicSticker),
     me: me ? { guestId: me._id, name: me.name, clusterIds: myClusters.map((c) => c._id) } : undefined,
+    canAsk: backboard.enabled(),
     cursor: cursor.toISOString(),
   };
 }

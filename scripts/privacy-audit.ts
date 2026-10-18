@@ -80,6 +80,15 @@ for (const c of Object.keys(EPHEMERAL_COLLECTIONS)) {
   if (!new RegExp(`c\\.${c}\\.delete(Many|One)`).test(cleanup)) fail("R8", `purgeDumpster does not delete "${c}"`);
 }
 if (!cleanup.includes("storage.deletePrefix")) fail("R8", "purgeDumpster must delete the storage prefix");
+if (!cleanup.includes("forgetDumpster(")) fail("R8", "purgeDumpster must delete the Backboard assistant");
+const backboardSrc = files.find((f) => f.p === "lib/backboard.ts")?.src ?? "";
+if (!backboardSrc.includes("/memories") || !backboardSrc.includes("/assistants/")) {
+  fail("R8", "Backboard forget must delete memories and the assistant");
+}
+const texts = files.find((f) => f.p === "lib/texts.ts")?.src ?? "";
+if (!texts.includes("ephemeralAssistantId") || !texts.includes("forgetOne(")) {
+  fail("R8", "free-text Photon turns must delete their Backboard assistant");
+}
 
 // R9: no raw phone numbers in logs.
 for (const f of files) {
