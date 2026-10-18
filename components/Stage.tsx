@@ -222,14 +222,13 @@ export function Stage({ initial }: { initial: DumpsterState }) {
 
   if (destroyed) return <Burned />;
 
-  const latest = state.media.filter((m) => m.kind === "image").slice(0, 11);
   const all = state.media;
   const chosen = all.filter((m) => selected.has(m.id));
   const fire = fireRank(state.media.filter((m) => m.kind === "image"))[0];
 
   return (
-    <div className="stage-root grid min-h-dvh bg-ink text-paper lg:grid-cols-[1fr_400px]">
-      <main className={selecting ? "p-[3px] pb-28" : "relative grid auto-rows-[24vh] grid-cols-2 gap-[3px] p-[3px] md:grid-cols-4"}>
+    <div className="stage-root grid min-h-dvh bg-ink text-paper lg:h-dvh lg:grid-cols-[1fr_400px] lg:overflow-hidden">
+      <main className={`lg:min-h-0 lg:overflow-y-auto ${selecting ? "p-[3px] pb-28" : "relative grid auto-rows-[24vh] grid-cols-2 content-start gap-[3px] p-[3px] md:grid-cols-4"}`}>
         {selecting ? (
           <SelectGrid list={all} selected={selected} onToggle={toggle} />
         ) : (
@@ -243,7 +242,7 @@ export function Stage({ initial }: { initial: DumpsterState }) {
                 Select
               </button>
             )}
-            {latest.length === 0 && (
+            {all.length === 0 && (
               <div className="col-span-full row-span-3 grid place-items-center">
                 <p className="display text-center text-[8vw]">
                   Waiting for
@@ -252,16 +251,33 @@ export function Stage({ initial }: { initial: DumpsterState }) {
                 </p>
               </div>
             )}
-            {latest.map((m, i) => {
+            {all.map((m, i) => {
               const fresh = i === 0 && now !== null && now - Date.parse(m.createdAt) < JUST_DROPPED_MS;
+              const hero = i === 0;
               return (
                 <button
                   key={m.id}
                   onClick={() => setOpen(m.id)}
-                  className={`relative block overflow-hidden bg-[#222] text-left ${i === 0 ? "col-span-2 row-span-2" : ""}`}
-                  aria-label="Open photo"
+                  className={`relative block overflow-hidden bg-[#222] text-left ${hero ? "col-span-2 row-span-2" : ""}`}
+                  aria-label={m.kind === "video" ? "Open clip" : "Open photo"}
                 >
-                  <ShotImage url={m.url} edge={i === 0 ? 960 : 320} eager={i < 5} className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`} />
+                  {m.kind === "image" ? (
+                    <ShotImage
+                      url={m.url}
+                      edge={hero ? 960 : 320}
+                      eager={i < 5}
+                      className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`}
+                    />
+                  ) : (
+                    <video
+                      src={`${m.url}#t=0.1`}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`}
+                    />
+                  )}
+                  {m.kind === "video" && <span className="label z-labels absolute top-0 right-0 bg-paper px-1 !text-[9px] text-ink">▶ Clip</span>}
                   {fresh && <span className="label z-labels absolute top-2 left-2 bg-green px-1.5 py-0.5 text-ink">Just dropped</span>}
                   <ReactionMarks m={m} />
                 </button>
@@ -271,7 +287,7 @@ export function Stage({ initial }: { initial: DumpsterState }) {
         )}
       </main>
 
-      <aside className="flex flex-col gap-6 border-t-3 border-paper p-6 lg:border-t-0 lg:border-l-3">
+      <aside className="flex flex-col gap-6 border-t-3 border-paper p-6 lg:min-h-0 lg:overflow-y-auto lg:border-t-0 lg:border-l-3">
         <div>
           <p className="label text-green">Live Dumpster</p>
           <h1 className="display text-5xl break-words">{state.dumpster.name}</h1>
