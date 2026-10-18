@@ -2,7 +2,7 @@
 
 AI implementation: hosted Perceptron vision and Backboard language APIs, self-hosted InsightFace and Whisper, and local BiRefNet sticker inference. See [AI.md](AI.md) for model calls, entry points, and data flows; the API adapters live in `lib/ai-*.ts`.
 
-Dump is one shared photo pile for a group. A party, a hike, a wedding, a tailgate. Someone opens a dumpster, passes the link or the QR code, and everyone throws in what they shot. You get in from that link, then sign in to that one dumpster. The first time, that's your name, a quick selfie (take one or upload one), and, if you want texts, your phone number. After that your name alone gets you back in, on any phone. There are no accounts: the sign-in is for this dumpster only and burns with it.
+Dump is one shared photo pile for a group. A party, a hike, a wedding, a tailgate. Someone opens a dumpster, passes the link or the QR code, and everyone dumps in what they shot. You get in from that link, then sign in to that one dumpster. The first time, that's your name, a quick selfie (take one or upload one), and, if you want texts, your phone number. After that your name alone gets you back in, on any phone. There are no accounts: the sign-in is for this dumpster only and burns with it.
 
 The pile lasts 24, 48, or 72 hours. Then the photos, the videos, the names, and the phone numbers are deleted.
 
@@ -33,7 +33,7 @@ With Backboard configured, a looser text works too, such as "open one for the hi
 
 A dumpster is six tabs along the bottom.
 
-**Drop.** Throw in photos, and videos when this dumpster allows them. If the signal dies, the phone keeps the files and sends them when it comes back. The same screen has the QR code, the copy-link button, and a link to the big-screen view.
+**Drop.** Dump photos, and videos when this dumpster allows them. If the signal dies, the phone keeps the files and sends them when it comes back. The same screen has the QR code, the copy-link button, and a link to the big-screen view.
 
 **Dump.** The pile. Faces from the photos sit across the top. Tap a person to see their shots. Tap **+ name** under a face to name it (anyone can, and anyone can fix it). If someone here already has that name, even someone who signed in, Dump shows both faces and asks whether they're the same person: same moves the face into theirs, different asks for another name. That fixes shots of you that weren't recognized, or that were named after someone else: name the face after you and confirm. Only that face moves; anyone it was wrongly credited to keeps their sign-in. A stranger in the background? Tap **+ name** under their face and **Hide face**, or tap their tag on a shot: the face leaves the row and the shots, and new shots of it stay hidden. Only faces nobody has claimed can be hidden. Hid one by mistake? The face row ends with **N hidden**; tap it, then tap the face to unhide it. Type to filter. A word has to show up in the picture, on a sign, in something someone said, in a face's name, or in a place. Every word in the box has to match. Or tap the camera next to the search box and search with a photo: a face finds that person's shots, anything else finds shots with the same things in them. The search photo is not kept. Tap **Select** to pick shots and save them. One saves directly; several come down as a zip. The same photo uploaded twice stays hidden until you tap to show the dupes. All shots is a grid. Moments groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
 
