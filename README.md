@@ -65,7 +65,7 @@ Without API keys, everything still runs:
 - Metrics fall back to Mongo.
 - Storage goes to `./.data/storage`.
 
-Checks: `npm run typecheck && npm test && npm run audit:privacy`. Brand assets are regenerated from the root SVGs with `npm run brand`.
+Checks: `npm run typecheck && npm test && npm run audit:privacy && npm run audit:veyzl`. Brand assets are regenerated from the root SVGs with `npm run brand`.
 
 ### Simulate a Photon text
 
@@ -81,7 +81,7 @@ Live deliveries are Photon `message.received` events, signed as Standard Webhook
 - **Perceptron** (`lib/perceptron.ts`): `POST /v1/chat/completions` with model `perceptron-mk1.5`, `vision_config.annotation_format` set to `box`, and an inline JPEG data URL. Boxes are `<point_box>` markup on a 0–1000 grid inside `choices[0].message.content`, stored as 0–1. `isaac-0.1` is retired and returns 404. `/v1/detect` returns pixel coordinates and is not used.
 - **Photon 2.0** (`lib/photon.ts`, webhook route): outbound text creates or reuses a User and a Space, then `POST /v1/projects/{id}/messages` with `{ spaceId, senderId, content: { type: "text", format: "plain", text } }`. Set `PHOTON_API_KEY`, `PHOTON_PROJECT_ID`, `PHOTON_AGENT_USER_ID`, and `PHOTON_PLATFORM`. A shared iMessage line only delivers after that person has texted the agent; cold photo alerts and burn warnings need SMS or a dedicated line.
 - **Backboard** (`lib/backboard.ts`): `POST /threads/messages` and `POST /threads/tool-outputs` with `X-API-Key`. Base URL defaults to `https://app.backboard.io/api`. Ask keeps an assistant named `dumpster-{id}` until purge, which `DELETE`s its memories and the assistant. A free-text Photon turn uses a `dump-text-*` assistant that is deleted before the reply returns.
-- **VEYZL** (`.github/workflows/privacy-audit.yml`): the action reference is a TODO.
+- **VEYZL** (`.github/workflows/privacy-audit.yml`): `npm run audit:veyzl` reviews the diff and fails on high findings. `npm run audit:privacy` enforces R1–R9.
 
 ## Screens
 

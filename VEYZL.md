@@ -3,7 +3,7 @@
 This file is the rulebook for the VEYZL PR audit. Every PR runs two layers:
 
 1. **Deterministic guardrails:** `npm run audit:privacy` ([scripts/privacy-audit.ts](scripts/privacy-audit.ts)) fails CI on any rule below that can be checked mechanically.
-2. **VEYZL review:** reads the diff against this policy and flags what the script can't prove, such as new data flows, new logs, new identifiers, or new third-party calls.
+2. **VEYZL review:** `npm run audit:veyzl` ([scripts/veyzl-review.ts](scripts/veyzl-review.ts)) reads the pull request diff and fails CI on high findings: a new third-party host or action, a client-IP read, an uploader/creator/owner field, or a phone number or secret written to a log. New log lines and new store writes are reported and do not fail the check.
 
 ## Design stance
 
