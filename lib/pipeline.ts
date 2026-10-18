@@ -194,7 +194,7 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
   const hidden = new Set(
     (await clusters.find({ dumpsterId: d._id, hidden: true }, { projection: { _id: 1 } }).toArray()).map((c) => c._id),
   );
-  for (let i = faces.length - 1; i >= 0; i--) if (faces[i].clusterId && hidden.has(faces[i].clusterId!)) faces.splice(i, 1);
+  for (const f of faces) if (f.clusterId && hidden.has(f.clusterId)) f.hidden = true;
 }
 
 async function processVideo(m: Media, d: Dumpster) {

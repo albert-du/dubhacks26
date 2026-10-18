@@ -18,7 +18,7 @@ export const SOURCE_LABEL: Record<MatchSource, string> = {
 };
 
 function fields(m: PublicMedia, names: Map<string, string>): Record<MatchSource, string> {
-  const people = m.faces.map((f) => (f.clusterId ? names.get(f.clusterId) : undefined)).filter(Boolean);
+  const people = m.faces.map((f) => (f.clusterId && !f.hidden ? names.get(f.clusterId) : undefined)).filter(Boolean);
   return {
     objects: m.objects.map((o) => o.label).join(" "),
     text: m.text.map((t) => t.text).join(" "),

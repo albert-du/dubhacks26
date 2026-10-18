@@ -73,18 +73,23 @@ export function Viewer(props: {
     flash((await props.onSticker(m.id, target)) ? "Cutting them out → Pack" : "Couldn’t cut that one");
   };
 
+  // Hidden faces (strangers) keep their place in the list so sticker indexes line up, but never show.
+  const shown = m.faces.filter((f) => !f.hidden);
   const personObjects = m.objects.map((o, index) => ({ o, index })).filter((x) => x.o.label.toLowerCase() === "person");
   const cuts: { key: string; label: string; target: StickerTarget }[] = [];
   if (personObjects.length) {
     personObjects.forEach(({ o, index }, n) => {
-      const face = faceOverlapping(m.faces, o.box);
+      const face = faceOverlapping(shown, o.box);
       const name = face?.clusterId ? props.names.get(face.clusterId) : undefined;
       cuts.push({ key: `object-${index}`, label: name || (personObjects.length > 1 ? `Person ${n + 1}` : "Person"), target: { kind: "object", index } });
     });
   } else {
+    let n = 0;
     m.faces.forEach((f, index) => {
+      if (f.hidden) return;
       const name = f.clusterId ? props.names.get(f.clusterId) : undefined;
-      cuts.push({ key: `face-${index}`, label: name || (m.faces.length > 1 ? `Person ${index + 1}` : "Person"), target: { kind: "face", index } });
+      n++;
+      cuts.push({ key: `face-${index}`, label: name || (shown.length > 1 ? `Person ${n}` : "Person"), target: { kind: "face", index } });
     });
   }
   m.objects.forEach((o, index) => {
@@ -101,6 +106,7 @@ export function Viewer(props: {
   const labelOf: string[] = [];
   const tags: { face: number; clusterId?: string; name?: string; label: string }[] = [];
   m.faces.forEach((f, i) => {
+    if (f.hidden) return;
     const same = f.clusterId ? tags.find((t) => t.clusterId === f.clusterId) : undefined;
     if (same) return void (labelOf[i] = same.label);
     const name = f.clusterId ? props.names.get(f.clusterId) : undefined;
@@ -111,11 +117,15 @@ export function Viewer(props: {
   const focused = focus === null ? undefined : tags.find((t) => t.face === focus);
   const focusedCluster = focused?.clusterId;
   const canClaim = !!focusedCluster && !claimed.has(focusedCluster) && !mine.has(focusedCluster);
-  const overlay: Mark[] = m.faces.map((f, i) => ({
-    box: f.box,
-    label: labelOf[i],
-    tone: focused && (i === focused.face || (!!focusedCluster && f.clusterId === focusedCluster)) ? "focus" : "person",
-  }));
+  const overlay: Mark[] = m.faces.flatMap((f, i) =>
+    f.hidden
+      ? []
+      : [{
+          box: f.box,
+          label: labelOf[i],
+          tone: focused && (i === focused.face || (!!focusedCluster && f.clusterId === focusedCluster)) ? ("focus" as const) : ("person" as const),
+        }],
+  );
   const claim = async () => {
     if (!focusedCluster) return;
     setClaiming(true);
