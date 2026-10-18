@@ -23,10 +23,10 @@ export function Me(props: {
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const base = `/api/dumpsters/${props.dumpster.id}/guests`;
 
-  async function call(init: RequestInit, ok: string) {
+  async function call(init: RequestInit, ok: string, url = base) {
     setBusy(true);
     setMsg(null);
-    const r = await fetch(base, init).catch(() => null);
+    const r = await fetch(url, init).catch(() => null);
     const body = await r?.json().catch(() => ({}));
     setBusy(false);
     if (!r?.ok) return setMsg({ tone: "err", text: body?.error ?? "Couldn’t reach Dump. Check your signal and try again." });
@@ -46,7 +46,11 @@ export function Me(props: {
     return call({ method: "POST", body: form }, "Selfie updated.");
   };
   const signOut = () => {
-    if (confirm("Sign out of this dumpster? Your name, face match and texts are forgotten.")) void call({ method: "DELETE" }, "Signed out.");
+    if (confirm(`Sign out on this phone? Sign back in any time with just “${me.name}”.`)) void call({ method: "DELETE" }, "Signed out.");
+  };
+  const forget = () => {
+    if (confirm("Forget you in this dumpster? Your name, face match and texts are deleted on every phone."))
+      void call({ method: "DELETE" }, "Forgotten.", `${base}?forget=1`);
   };
 
   return (
@@ -89,6 +93,9 @@ export function Me(props: {
           </button>
           <button className="label ml-auto underline" onClick={signOut} disabled={busy}>
             Sign out
+          </button>
+          <button className="label underline" onClick={forget} disabled={busy}>
+            Forget me
           </button>
         </div>
       </div>

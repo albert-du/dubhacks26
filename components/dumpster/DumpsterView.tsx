@@ -59,6 +59,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
   const [q, setQ] = useState("");
   const [viewing, setViewing] = useState<{ ids: string[]; index: number } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [onboarding, setOnboarding] = useState(false);
 
   const byId = useMemo(() => new Map(state.media.map((m) => [m.id, m])), [state.media]);
   const names = useMemo(
@@ -111,12 +112,18 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         </header>
   );
 
-  // Signing in (name + selfie) is the door to the dumpster.
-  if (!state.me)
+  // Signing in is the door to the dumpster: name, then (first time only) a selfie and an optional number.
+  if (!state.me || onboarding)
     return (
       <div className="mx-auto min-h-dvh w-full max-w-[430px]">
         {header}
-        <SignIn dumpster={state.dumpster} onSignedIn={dumpster.refresh} />
+        <SignIn
+          dumpster={state.dumpster}
+          me={state.me}
+          onSignedIn={dumpster.refresh}
+          onEnrolled={() => setOnboarding(true)}
+          onDone={() => setOnboarding(false)}
+        />
       </div>
     );
   const me = state.me;
