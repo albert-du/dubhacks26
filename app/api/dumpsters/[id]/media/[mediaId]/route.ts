@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getLiveDumpster } from "@/lib/dumpsters";
+import { requireGuest } from "@/lib/guestAuth";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
 import { storage } from "@/lib/storage";
@@ -11,6 +12,7 @@ export const DELETE = route<Ctx>(async (_req, { params }) => {
   const { id, mediaId } = await params;
   const d = await getLiveDumpster(id);
   if (!d) throw notFound();
+  await requireGuest(d._id);
   const { media, reactions, stickers } = await cols();
   const m = await media.findOne({ _id: mediaId, dumpsterId: id });
   if (!m || m.status === "deleted") throw new HttpError(404, "Already gone");

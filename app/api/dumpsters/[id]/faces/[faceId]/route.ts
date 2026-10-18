@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLiveDumpster } from "@/lib/dumpsters";
+import { requireGuest } from "@/lib/guestAuth";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
 import { findMentions } from "@/lib/transcribe";
@@ -18,6 +19,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
   const { id, faceId } = await params;
   const d = await getLiveDumpster(id);
   if (!d) throw notFound();
+  await requireGuest(d._id);
   const { name } = Body.parse(await req.json());
   const { clusters, media } = await cols();
 

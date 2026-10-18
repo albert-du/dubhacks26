@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { config } from "@/lib/config";
 import { sha256 } from "@/lib/dedupe";
 import { getLiveDumpster } from "@/lib/dumpsters";
+import { requireGuest } from "@/lib/guestAuth";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
 import { emptyReactions } from "@/lib/reactions";
@@ -34,6 +35,7 @@ const num = (v: FormDataEntryValue | null) => (typeof v === "string" && v !== ""
 export const POST = route<Ctx>(async (req, { params }) => {
   const d = await getLiveDumpster((await params).id);
   if (!d) throw notFound();
+  await requireGuest(d._id);
 
   const form = await req.formData();
   const file = form.get("file");
