@@ -458,15 +458,15 @@ function Grid({
               <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className="z-media relative size-full object-cover" />
             )}
             <span className="label z-labels absolute bottom-0 left-0 bg-ink px-1 !text-[9px] text-paper">{frameNo(frames.get(m.id) ?? 0)}</span>
-            {m.kind === "video" && <span className="label z-labels absolute top-0 left-0 bg-paper px-1 !text-[9px]">▶ Clip</span>}
+            {m.kind === "video" && !selecting && <span className="label z-labels absolute top-0 left-0 bg-paper px-1 !text-[9px]">▶ Clip</span>}
             {m.duplicateOf && byId.has(m.duplicateOf) && (
               <span className="label z-labels absolute right-0 bottom-0 bg-paper px-1 !text-[9px]">Dupe</span>
             )}
             {selecting && (
-              <span
-                className={`z-labels absolute inset-0 grid place-items-center ${selected.has(m.id) ? "bg-green/40 outline-4 -outline-offset-4 outline-green" : ""}`}
-              >
-                <span className={`display grid size-8 place-items-center border-3 border-ink text-lg ${selected.has(m.id) ? "bg-green" : "bg-paper/80"}`}>
+              <span className={`z-labels absolute inset-0 ${selected.has(m.id) ? "bg-green/40 outline-4 -outline-offset-4 outline-green" : ""}`}>
+                <span
+                  className={`display absolute top-1 left-1 grid size-6 place-items-center border-2 border-ink text-sm ${selected.has(m.id) ? "bg-green" : "bg-paper/80"}`}
+                >
                   {selected.has(m.id) ? "✓" : ""}
                 </span>
               </span>
