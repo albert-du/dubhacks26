@@ -123,10 +123,15 @@ export async function publicClusters(d: Dumpster, { hidden = false } = {}): Prom
 export async function dumpsterState(d: Dumpster, viewer: string): Promise<DumpsterState> {
   const { media, stickers, guests, clusters } = await cols();
   const cursor = new Date();
+  // Newest shot first by when it was taken (drop time if the file had no capture time).
   const list = await media
-    .find({ dumpsterId: d._id, status: "ready" }, { projection: { "faces.embedding": 0 } })
-    .sort({ createdAt: -1 })
-    .limit(500)
+    .aggregate<Media>([
+      { $match: { dumpsterId: d._id, status: "ready" } },
+      { $addFields: { shotAt: { $ifNull: ["$takenAt", "$createdAt"] } } },
+      { $sort: { shotAt: -1, createdAt: -1 } },
+      { $limit: 500 },
+      { $project: { "faces.embedding": 0, shotAt: 0 } },
+    ])
     .toArray();
   const mine = await myReactions(d._id, viewer);
   const me: Guest | null = await guests.findOne({ dumpsterId: d._id, viewerIds: viewer });

@@ -11,7 +11,7 @@ export function topFireFrameStyle(width?: number, height?: number): {
   position: "relative";
   overflow: "hidden";
   aspectRatio: string;
-  maxHeight: "60dvh";
+  maxHeight: "60svh";
   height: string;
 } {
   const w = width && height && width > 0 && height > 0 ? width : 4;
@@ -22,8 +22,10 @@ export function topFireFrameStyle(width?: number, height?: number): {
     position: "relative",
     overflow: "hidden",
     aspectRatio: `${w} / ${h}`,
-    maxHeight: "60dvh",
+    // svh, not dvh: the browser chrome hiding at the end of a scroll must not
+    // grow the winner and shove the rest of the board.
+    maxHeight: "60svh",
     // cqw is the board's width (the parent is a container), so this does not wait on the image.
-    height: `min(60dvh, calc(100cqw * ${h} / ${w}))`,
+    height: `min(60svh, calc(100cqw * ${h} / ${w}))`,
   };
 }

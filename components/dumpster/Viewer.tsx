@@ -47,6 +47,15 @@ export function Viewer(props: {
   const prev = () => index > 0 && onIndex(index - 1);
   const next = () => index < list.length - 1 && onIndex(index + 1);
 
+  // Lock the page for as long as the viewer is open. Doing this in the key
+  // effect re-ran it on every render and released the page between passes.
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -54,11 +63,7 @@ export function Viewer(props: {
       if (e.key === "ArrowRight") next();
     };
     window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
+    return () => window.removeEventListener("keydown", onKey);
   });
 
   /** The face tag that was tapped: its box is outlined so two unnamed people can be told apart. */
@@ -172,7 +177,7 @@ export function Viewer(props: {
         )}
       </div>
 
-      <div className="no-scrollbar max-h-[46dvh] shrink-0 space-y-3 overflow-y-auto border-t-3 border-paper p-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
+      <div className="no-scrollbar max-h-[46svh] shrink-0 space-y-3 overflow-y-auto overscroll-y-contain border-t-3 border-paper p-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
         {original && (
           <button
             className="label block w-full bg-paper px-2 py-1 text-left text-ink"
@@ -188,7 +193,7 @@ export function Viewer(props: {
         {/* One line, on every shot. Wrapping names, or hiding this row when nobody is tagged, changes how tall the photo above it is. */}
         <dl className="text-sm">
           <Row k="Who">
-            <div className="no-scrollbar flex h-8 items-center gap-1.5 overflow-x-auto">
+            <div className="no-scrollbar scroll-x flex h-8 items-center gap-1.5">
               {people.length === 0 ? (
                 <span className="shrink-0 text-paper/60">No one in this shot</span>
               ) : (

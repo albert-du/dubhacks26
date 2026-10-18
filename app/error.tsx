@@ -2,7 +2,7 @@
 
 export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
-    <div className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center px-4">
+    <div className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-4">
       <p className="label mb-3">Something jammed</p>
       <h1 className="display text-6xl">Lid’s stuck.</h1>
       <p className="mt-4">Probably the venue Wi-Fi. Anything you were dropping is still safe on this phone.</p>
