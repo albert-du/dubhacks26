@@ -22,9 +22,23 @@ jobs:
       - name: Privacy guardrails (VEYZL.md R1–R9: anonymity, unguessable ids, retention, deletion)
         run: npm run audit:privacy
 
-  # VEYZL reviews the PR diff against VEYZL.md.
-  # TODO: replace with the official VEYZL action/app once installed on the repo:
-  #   - uses: <veyzl-org>/<veyzl-action>@<version>
-  #     with:
-  #       policy: VEYZL.md
-  #       fail-on: high
+  # Reviews the diff against VEYZL.md. There is no published VEYZL action;
+  # npm run audit:veyzl is the check, and it fails on high findings.
+  veyzl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: VEYZL review (policy VEYZL.md, fail-on high)
+        env:
+          VEYZL_FAIL_ON: high
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          VEYZL_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          VEYZL_HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: npm run audit:veyzl
