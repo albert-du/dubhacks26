@@ -14,10 +14,15 @@ test("dump map style uses the app palette on OpenFreeMap", () => {
   };
 
   assert.equal(paint("background", "background-color"), MAP_COLORS.paper);
-  assert.equal(paint("water", "fill-color"), MAP_COLORS.ink);
+  assert.equal(paint("water", "fill-color"), MAP_COLORS.water);
+  assert.equal(paint("waterway", "line-color"), MAP_COLORS.water);
+  assert.equal(paint("water_label_point", "text-halo-color"), MAP_COLORS.waterDeep);
+  assert.equal(paint("landcover_grass", "fill-color"), MAP_COLORS.green);
+  assert.equal(paint("landcover_wood", "fill-color"), MAP_COLORS.park);
   assert.equal(paint("park", "fill-color"), MAP_COLORS.park);
   assert.equal(paint("building", "fill-color"), MAP_COLORS.bone);
-  assert.equal(paint("highway_motorway_inner", "line-color"), MAP_COLORS.green);
+  assert.equal(paint("highway_motorway_low", "line-color"), MAP_COLORS.ink);
+  assert.equal(paint("highway_motorway_inner", "line-color"), MAP_COLORS.ink);
   assert.equal(paint("highway_major_casing", "line-color"), MAP_COLORS.ink);
 
   const urls = JSON.stringify(style).match(/https?:\/\/[^"\s]+/g) ?? [];
