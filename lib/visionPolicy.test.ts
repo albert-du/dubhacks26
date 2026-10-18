@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clarifyVisionPrivacyDenial, redactVisionPersonalData, VISION_REFUSAL } from "./visionPolicy";
+import { clarifyVisionPrivacyDenial, clarifyVisionLimitations, redactVisionPersonalData, VISION_REFUSAL } from "./visionPolicy";
 
 test("privacy denials explicitly withhold data even when the model says none is available", () => {
   for (const answer of [
@@ -19,4 +19,12 @@ test("vision output redacts contact and government identifiers", () => {
     assert.match(result, /\[redacted/);
   }
   assert.equal(redactVisionPersonalData("3 chairs, 2026, 128 by 128 pixels."), "3 chairs, 2026, 128 by 128 pixels.");
+});
+
+
+test("missing verification evidence gets an honest limitation and a next step", () => {
+  const answer = clarifyVisionLimitations("The image does not show any identity verification result. There is no visible evidence of a failed verification attempt.");
+  assert.match(answer, /based on/);
+  assert.match(answer, /Please provide.*non-sensitive.*error message.*next step/);
+  assert.equal(clarifyVisionLimitations("The image shows a red square."), "The image shows a red square.");
 });

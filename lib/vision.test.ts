@@ -10,7 +10,7 @@ test("vision HTTP endpoint passes real image bytes and the prompt to the SDK", a
   const calls: any[] = [];
   let fail = false;
   let draft = "A solid red image.";
-  let verdict = JSON.stringify({ safe: true, grounded: true, disposition: "answer" });
+  let verdict = JSON.stringify({ safe: true, grounded: true });
   const server = createServer(async (req, res) => {
     assert.equal(req.url, "/v1/chat/completions");
     assert.equal(req.headers.authorization, "Bearer vision-test-key");
@@ -87,15 +87,15 @@ test("vision HTTP endpoint passes real image bytes and the prompt to the SDK", a
   });
   assert.equal(JSON.parse(calls.at(-1).messages[1].content[1].text).proposedAnswer.includes("alex@example.com"), false);
   draft = "Unsupported image assertion";
-  verdict = JSON.stringify({ safe: true, grounded: false, disposition: "answer" });
+  verdict = JSON.stringify({ safe: true, grounded: false });
   assert.match((await (await describe()).json()).analysis, /based on.*image.*Please provide/);
-  verdict = JSON.stringify({ safe: false, grounded: true, disposition: "refuse" });
+  verdict = JSON.stringify({ safe: false, grounded: true });
   assert.equal((await (await describe()).json()).analysis, "I cannot help with that request or provide that information.");
   draft = "I do not have any customer email addresses or phone numbers to share.";
-  verdict = JSON.stringify({ safe: true, grounded: true, disposition: "refuse" });
+  verdict = JSON.stringify({ safe: true, grounded: true });
   assert.match((await (await describe()).json()).analysis, /^I cannot help/);
-  draft = "The image does not show any verification result.";
-  verdict = JSON.stringify({ safe: true, grounded: true, disposition: "insufficient_evidence" });
+  draft = "The image does not show any verification result. There is no visible evidence of a failed attempt.";
+  verdict = JSON.stringify({ safe: true, grounded: true });
   const uncertainty = (await (await describe()).json()).analysis;
   assert.match(uncertainty, /based on/);
   assert.match(uncertainty, /Please provide.*non-sensitive.*next step/);

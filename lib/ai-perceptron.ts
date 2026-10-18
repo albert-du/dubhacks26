@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { config } from "./config";
 import type { Box, DetectedObject } from "./types";
 import { z } from "zod";
-import { clarifyVisionPrivacyDenial, redactVisionPersonalData, VISION_POLICY, VISION_REVIEW_POLICY, VISION_REFUSAL, VISION_UNCERTAINTY } from "./visionPolicy";
+import { clarifyVisionPrivacyDenial, clarifyVisionLimitations, redactVisionPersonalData, VISION_POLICY, VISION_REVIEW_POLICY, VISION_REFUSAL, VISION_UNCERTAINTY } from "./visionPolicy";
 
 /**
  * Perceptron Mk1.5 vision adapter. One chat completion per image returns
@@ -77,9 +77,8 @@ export const perceptron = {
             properties: {
               safe: { type: "boolean" },
               grounded: { type: "boolean" },
-              disposition: { type: "string", enum: ["answer", "refuse", "insufficient_evidence"] },
             },
-            required: ["safe", "grounded", "disposition"],
+            required: ["safe", "grounded"],
             additionalProperties: false,
           },
         },
@@ -89,11 +88,11 @@ export const perceptron = {
         { type: "text", text: JSON.stringify({ question: prompt, proposedAnswer: answer }) },
       ] }],
     });
-    const verdict = z.object({ safe: z.boolean(), grounded: z.boolean(), disposition: z.enum(["answer", "refuse", "insufficient_evidence"]) }).strict()
+    const verdict = z.object({ safe: z.boolean(), grounded: z.boolean() }).strict()
       .parse(JSON.parse(visionContent(review)));
-    if (!verdict.safe || verdict.disposition === "refuse") return VISION_REFUSAL;
-    if (!verdict.grounded || verdict.disposition === "insufficient_evidence") return VISION_UNCERTAINTY;
-    return answer;
+    if (!verdict.safe) return VISION_REFUSAL;
+    if (!verdict.grounded) return VISION_UNCERTAINTY;
+    return clarifyVisionLimitations(answer);
   },
 
   async analyze(jpeg: Buffer): Promise<VisionResult> {
