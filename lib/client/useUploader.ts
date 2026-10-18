@@ -14,9 +14,14 @@ export interface UploadItem {
   state: UploadState;
   error?: string;
   preview?: string;
+  /** Server id once accepted. Kept only in this tab's memory to know when it's live. */
+  mediaId?: string;
 }
 
-function send(u: QueuedUpload, onProgress: (p: number) => void): Promise<{ ok: boolean; status: number; error?: string }> {
+function send(
+  u: QueuedUpload,
+  onProgress: (p: number) => void,
+): Promise<{ ok: boolean; status: number; error?: string; id?: string }> {
   return new Promise((resolve) => {
     const form = new FormData();
     form.append("file", u.blob, u.name);
@@ -27,11 +32,11 @@ function send(u: QueuedUpload, onProgress: (p: number) => void): Promise<{ ok: b
     xhr.open("POST", `/api/dumpsters/${u.dumpsterId}/media`);
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
     xhr.onload = () => {
-      let error: string | undefined;
+      let body: { error?: string; id?: string } = {};
       try {
-        error = JSON.parse(xhr.responseText).error;
+        body = JSON.parse(xhr.responseText);
       } catch {}
-      resolve({ ok: xhr.status < 300, status: xhr.status, error });
+      resolve({ ok: xhr.status < 300, status: xhr.status, error: body.error, id: body.id });
     };
     xhr.onerror = () => resolve({ ok: false, status: 0 });
     xhr.send(form);
@@ -59,7 +64,7 @@ export function useUploader(dumpsterId: string) {
         const r = await send(u, (progress) => patch(u.id, { progress }));
         if (r.ok) {
           await uploadQueue.remove(u.id);
-          patch(u.id, { state: "processing", progress: 1 });
+          patch(u.id, { state: "processing", progress: 1, mediaId: r.id });
         } else if (r.status === 0 || r.status >= 500 || r.status === 429) {
           patch(u.id, { state: "waiting" }); // keep it queued, retry later
         } else {
@@ -110,12 +115,11 @@ export function useUploader(dumpsterId: string) {
     [dumpsterId, pump],
   );
 
-  /** Called when a processed item shows up in the live pool. */
-  const settle = useCallback((count: number) => {
-    setItems((l) => {
-      let n = count;
-      return l.filter((i) => !(i.state === "processing" && n-- > 0));
-    });
+  /** Called with ids that just went live in the pool; clears the matching rows. */
+  const settle = useCallback((ids: string[]) => {
+    if (!ids.length) return;
+    const live = new Set(ids);
+    setItems((l) => l.filter((i) => !(i.mediaId && live.has(i.mediaId))));
   }, []);
 
   const dismiss = useCallback((id: string) => setItems((l) => l.filter((i) => i.id !== id)), []);

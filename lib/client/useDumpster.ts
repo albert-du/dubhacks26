@@ -1,53 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { PublicCluster, PublicMedia, PublicSticker, RoomState } from "@/lib/types";
-
-const hostKey = (id: string) => `dump:host:${id}`;
-
-export function getHostToken(id: string): string | null {
-  try {
-    return localStorage.getItem(hostKey(id));
-  } catch {
-    return null;
-  }
-}
-
-export function setHostToken(id: string, token: string) {
-  try {
-    localStorage.setItem(hostKey(id), token);
-  } catch {}
-}
+import type { ReactionKey } from "@/lib/reactions";
+import type { PublicCluster, PublicMedia, PublicSticker, DumpsterState } from "@/lib/types";
 
 function sortMedia(list: PublicMedia[]) {
   return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-/** Room state + live updates over SSE. `onNewMine` fires when my own uploads finish processing. */
-export function useRoom(initial: RoomState, onNewMine?: (n: number) => void) {
+/** Dumpster state + live updates over SSE. `onReady` gets the ids of media that just finished processing. */
+export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) => void) {
   const [state, setState] = useState(initial);
   const [destroyed, setDestroyed] = useState(false);
-  const [host, setHost] = useState<string | null>(null);
   const id = initial.dumpster.id;
-
-  useEffect(() => setHost(getHostToken(id)), [id]);
 
   const mergeMedia = useCallback(
     (incoming: PublicMedia[]) => {
-      let newMine = 0;
       setState((s) => {
         const byId = new Map(s.media.map((m) => [m.id, m]));
         for (const m of incoming) {
-          if (m.status === "ready" || m.status === "rerender") {
-            if (!byId.has(m.id) && m.mine) newMine++;
-            byId.set(m.id, m);
-          } else byId.delete(m.id);
+          if (m.status === "ready") byId.set(m.id, m);
+          else byId.delete(m.id);
         }
         return { ...s, media: sortMedia([...byId.values()]) };
       });
-      if (newMine) onNewMine?.(newMine);
+      onReady?.(incoming.filter((m) => m.status === "ready").map((m) => m.id));
     },
-    [onNewMine],
+    [onReady],
   );
 
   useEffect(() => {
@@ -68,7 +47,7 @@ export function useRoom(initial: RoomState, onNewMine?: (n: number) => void) {
     es.addEventListener("destroyed", () => {
       setDestroyed(true);
       es.close();
-      navigator.serviceWorker?.controller?.postMessage({ type: "forget-room", path: `/${id}` });
+      navigator.serviceWorker?.controller?.postMessage({ type: "forget-dumpster", path: `/${id}` });
     });
     return () => es.close();
   }, [id, initial.cursor, mergeMedia]);
@@ -79,17 +58,31 @@ export function useRoom(initial: RoomState, onNewMine?: (n: number) => void) {
     if (r.ok) setState(await r.json());
   }, [id]);
 
-  const vote = useCallback(
-    async (mediaId: string) => {
+  const react = useCallback(
+    async (mediaId: string, key: ReactionKey) => {
+      const patch = (fn: (m: PublicMedia) => PublicMedia) =>
+        setState((s) => ({ ...s, media: s.media.map((m) => (m.id === mediaId ? fn(m) : m)) }));
       // Optimistic toggle; the server's answer wins.
-      setState((s) => ({
-        ...s,
-        media: s.media.map((m) => (m.id === mediaId ? { ...m, voted: !m.voted, votes: m.votes + (m.voted ? -1 : 1) } : m)),
-      }));
-      const r = await fetch(`/api/dumpsters/${id}/media/${mediaId}/vote`, { method: "POST" });
+      patch((m) => {
+        const on = m.myReactions.includes(key);
+        return {
+          ...m,
+          myReactions: on ? m.myReactions.filter((k) => k !== key) : [...m.myReactions, key],
+          reactions: { ...m.reactions, [key]: Math.max(0, m.reactions[key] + (on ? -1 : 1)) },
+        };
+      });
+      const r = await fetch(`/api/dumpsters/${id}/media/${mediaId}/react`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
       if (r.ok) {
-        const { voted, votes } = await r.json();
-        setState((s) => ({ ...s, media: s.media.map((m) => (m.id === mediaId ? { ...m, voted, votes } : m)) }));
+        const { on, reactions } = await r.json();
+        patch((m) => ({
+          ...m,
+          reactions,
+          myReactions: on ? [...new Set([...m.myReactions, key])] : m.myReactions.filter((k) => k !== key),
+        }));
       }
     },
     [id],
@@ -97,22 +90,19 @@ export function useRoom(initial: RoomState, onNewMine?: (n: number) => void) {
 
   const remove = useCallback(
     async (mediaId: string) => {
-      const r = await fetch(`/api/dumpsters/${id}/media/${mediaId}`, {
-        method: "DELETE",
-        headers: host ? { "x-host-token": host } : {},
-      });
+      const r = await fetch(`/api/dumpsters/${id}/media/${mediaId}`, { method: "DELETE" });
       if (r.ok) setState((s) => ({ ...s, media: s.media.filter((m) => m.id !== mediaId) }));
       return r.ok;
     },
-    [id, host],
+    [id],
   );
 
   const makeSticker = useCallback(
-    async (mediaId: string, subject: number) => {
+    async (mediaId: string, object: number) => {
       const r = await fetch(`/api/dumpsters/${id}/media/${mediaId}/sticker`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ subject }),
+        body: JSON.stringify({ object }),
       });
       if (r.ok) {
         const st: PublicSticker = await r.json();
@@ -123,12 +113,5 @@ export function useRoom(initial: RoomState, onNewMine?: (n: number) => void) {
     [id],
   );
 
-  const burn = useCallback(async () => {
-    if (!host) return false;
-    const r = await fetch(`/api/dumpsters/${id}`, { method: "DELETE", headers: { "x-host-token": host } });
-    if (r.ok) setDestroyed(true);
-    return r.ok;
-  }, [id, host]);
-
-  return { state, destroyed, host, refresh, vote, remove, makeSticker, burn };
+  return { state, destroyed, refresh, react, remove, makeSticker };
 }

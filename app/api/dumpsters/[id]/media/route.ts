@@ -2,13 +2,14 @@ import exifr from "exifr";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { config } from "@/lib/config";
+import { sha256 } from "@/lib/dedupe";
 import { getLiveDumpster } from "@/lib/dumpsters";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
+import { emptyReactions } from "@/lib/reactions";
 import { storage } from "@/lib/storage";
 import { tiger } from "@/lib/tiger";
 import type { Media } from "@/lib/types";
-import { viewerId } from "@/lib/viewer";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -27,13 +28,12 @@ const EXT: Record<string, string> = {
 const num = (v: FormDataEntryValue | null) => (typeof v === "string" && v !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
 
 /**
- * Drop a photo/video. Stores the original privately and queues it for the
- * redaction pipeline; nothing is public until the worker has rendered it.
+ * Drop a photo/video. Anonymous: nothing about the uploader is recorded.
+ * The original is stored privately; the worker publishes a metadata-stripped render.
  */
 export const POST = route<Ctx>(async (req, { params }) => {
   const d = await getLiveDumpster((await params).id);
   if (!d) throw notFound();
-  const viewer = await viewerId();
 
   const form = await req.formData();
   const file = form.get("file");
@@ -41,7 +41,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
   const ext = EXT[file.type];
   if (!ext) throw new HttpError(415, "Photos and videos only");
   const kind = file.type.startsWith("video/") ? "video" : "image";
-  if (kind === "video" && !d.settings.allowVideo) throw new HttpError(403, "The host turned off video for this Dumpster");
+  if (kind === "video" && !d.settings.allowVideo) throw new HttpError(403, "This Dumpster is photos only");
   if (file.size > config.maxUploadBytes) throw new HttpError(413, "Too big — 150MB max");
 
   const buf = Buffer.from(await file.arrayBuffer());
@@ -71,23 +71,21 @@ export const POST = route<Ctx>(async (req, { params }) => {
   const doc: Media = {
     _id: id,
     dumpsterId: d._id,
-    uploaderId: viewer,
     kind,
     mime: file.type,
     bytes: file.size,
     originalKey,
+    sha256: sha256(buf),
     gps: lat !== undefined && lng !== undefined && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : undefined,
     takenAt: takenAt ? new Date(takenAt) : undefined,
     status: "pending",
     attempts: 0,
     claimedAt: null,
-    scanned: false,
     faces: [],
     text: [],
-    subjects: [],
+    objects: [],
     tags: [],
-    aiFire: 0,
-    votes: 0,
+    reactions: emptyReactions(),
     mentions: [],
     createdAt: now,
     updatedAt: now,

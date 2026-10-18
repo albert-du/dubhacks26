@@ -29,6 +29,25 @@
   }
 }
 
+/*
+ * Z-index scale — the only z values used in the app. Bounding-box outlines always sit
+ * under every label, badge, caption and control, so highlights never cover text.
+ *   media 0 < boxes 10 < labels 20 < header 30 < nav 40 < dialog 50 < toast 60
+ */
+@utility z-media { z-index: 0; }
+@utility z-boxes { z-index: 10; }
+@utility z-labels { z-index: 20; }
+@utility z-header { z-index: 30; }
+@utility z-nav { z-index: 40; }
+@utility z-dialog { z-index: 50; }
+@utility z-toast { z-index: 60; }
+
+html,
+body {
+  /* Portrait phones never scroll sideways; `clip` (unlike `hidden`) keeps sticky headers working. */
+  overflow-x: clip;
+}
+
 html {
   -webkit-tap-highlight-color: transparent;
   text-size-adjust: 100%;
@@ -51,6 +70,11 @@ body {
   outline: 3px solid var(--color-green);
   outline-offset: 2px;
 }
+/* Full-width inputs draw their focus ring inside so it never pokes past the screen edge. */
+input:focus-visible,
+textarea:focus-visible {
+  outline-offset: -3px;
+}
 
 @layer components {
   .display {
@@ -58,6 +82,14 @@ body {
     text-transform: uppercase;
     line-height: 0.88;
     letter-spacing: -0.02em;
+  }
+
+  /* Highlighter block inside a display headline. Inline-block with the headline's own
+     line-height so the fill never bleeds over the line above. */
+  .hl {
+    display: inline-block;
+    line-height: 0.82;
+    padding: 0.06em 0.08em 0;
   }
 
   .label {

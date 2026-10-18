@@ -7,11 +7,11 @@ const display = Archivo_Black({ weight: "400", subsets: ["latin"], variable: "--
 const mono = IBM_Plex_Mono({ weight: ["400", "500", "700"], subsets: ["latin"], variable: "--font-plex-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Dump — throw every photo in", template: "%s — Dump" },
-  description: "Zero-login, self-destructing photo & video pools for group events. Scan, drop, find yourself. Gone in 72h.",
+  title: { default: "Dump: throw every photo in", template: "%s · Dump" },
+  description: "One shared photo pile for your event that burns itself down after 24, 48 or 72 hours.",
   applicationName: "Dump",
   appleWebApp: { capable: true, title: "Dump", statusBarStyle: "default" },
-  icons: { icon: "/icon.svg", apple: "/icon-192.png" },
+  icons: { icon: "/favicon.png", apple: "/apple-touch-icon.png" },
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
 };
 

@@ -1,13 +1,10 @@
 import type { TtlHours } from "./config";
+import type { ReactionCounts, ReactionKey } from "./reactions";
 
 /** Normalized box [x1, y1, x2, y2], each 0..1, relative to the oriented image. */
 export type Box = [number, number, number, number];
 
 export interface DumpsterSettings {
-  /** Blur every face that doesn't belong to a guest who enrolled (consented) with a selfie. */
-  blurNonConsented: boolean;
-  /** Blur OCR text that looks like IDs, plates, card numbers, etc. */
-  redactSensitiveText: boolean;
   allowVideo: boolean;
 }
 
@@ -19,8 +16,7 @@ export interface Dumpster {
   expiresAt: Date;
   /** Mongo TTL backstop — the worker normally purges before this. */
   hardDeleteAt: Date;
-  hostTokenHash: string;
-  hostPhone?: string;
+  // Deliberately no creator field: dumpsters are anonymous and nobody owns them.
   settings: DumpsterSettings;
   warningSent?: boolean;
 }
@@ -44,34 +40,35 @@ export interface FaceHit {
   box: Box;
   embedding?: number[];
   clusterId?: string;
-  consented: boolean;
-  redacted: boolean;
 }
 
 export interface TextHit {
   text: string;
   box: Box;
-  sensitive: boolean;
-  reason?: string;
-  redacted: boolean;
 }
 
-export interface Subject {
+export interface DetectedObject {
   label: string;
   box: Box;
 }
 
-export type MediaStatus = "pending" | "rerender" | "ready" | "failed" | "deleted";
+export type MediaStatus = "pending" | "ready" | "failed" | "deleted";
 
 export interface Media {
   _id: string;
   dumpsterId: string;
-  uploaderId: string;
+  // Deliberately no uploader field: uploads are anonymous.
   kind: "image" | "video";
   mime: string;
   bytes: number;
   originalKey: string;
   publicKey?: string;
+  /** Exact byte hash of the upload. */
+  sha256: string;
+  /** 64-bit pixel hash (images only), for near-duplicate detection. */
+  phash?: string;
+  /** Set when this is a duplicate of an earlier upload in the same dumpster. */
+  duplicateOf?: string;
   width?: number;
   height?: number;
   gps?: { lat: number; lng: number };
@@ -79,17 +76,14 @@ export interface Media {
   status: MediaStatus;
   attempts: number;
   claimedAt?: Date | null;
-  /** False when no face/text scanner was available (dev only). */
-  scanned: boolean;
   faces: FaceHit[];
   text: TextHit[];
-  subjects: Subject[];
+  objects: DetectedObject[];
   caption?: string;
   tags: string[];
   venue?: string;
-  aiFire: number;
-  fireReason?: string;
-  votes: number;
+  /** Aggregated counts; the per-person rows live in the `reactions` collection. */
+  reactions: ReactionCounts;
   transcript?: string;
   mentions: string[];
   createdAt: Date;
@@ -122,15 +116,17 @@ export interface Sticker {
   expiresAt: Date;
 }
 
-export interface Vote {
-  _id: string; // `${mediaId}:${viewerId}`
+/** One person's reaction; exists only so a tap toggles instead of stacking. */
+export interface Reaction {
+  _id: string; // `${mediaId}:${viewerId}:${key}`
   dumpsterId: string;
   mediaId: string;
   viewerId: string;
+  key: ReactionKey;
   expiresAt: Date;
 }
 
-/* ---------- Shapes sent to browsers. Never include embeddings, phones, or unredacted sensitive text. ---------- */
+/* ---------- Shapes sent to browsers. Never include face vectors or phone numbers. ---------- */
 
 export interface PublicMedia {
   id: string;
@@ -142,18 +138,18 @@ export interface PublicMedia {
   venue?: string;
   caption?: string;
   tags: string[];
-  aiFire: number;
-  fireReason?: string;
-  votes: number;
-  voted: boolean;
-  scanned: boolean;
-  faces: { box: Box; clusterId?: string; redacted: boolean }[];
-  text: { box: Box; text?: string; redacted: boolean }[];
-  subjects: Subject[];
+  reactions: ReactionCounts;
+  /** Which reactions this browser has given. */
+  myReactions: ReactionKey[];
+  faces: { box: Box; clusterId?: string }[];
+  text: { box: Box; text: string }[];
+  objects: DetectedObject[];
   transcript?: string;
   mentions: string[];
-  mine: boolean;
+  duplicateOf?: string;
   status: MediaStatus;
+  /** Capture time from the camera, when known. */
+  takenAt?: string;
   createdAt: string;
 }
 
@@ -181,7 +177,7 @@ export interface PublicDumpster {
   settings: DumpsterSettings;
 }
 
-export interface RoomState {
+export interface DumpsterState {
   dumpster: PublicDumpster;
   media: PublicMedia[];
   clusters: PublicCluster[];

@@ -2,8 +2,8 @@
  * Uploads are queued in IndexedDB by the page itself (lib/client/uploadQueue.ts),
  * so this worker never touches /api. Media files are never cached here: when a
  * Dumpster burns, nothing should linger on guests' phones beyond the HTTP cache. */
-const CACHE = "dump-shell-v1";
-const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png"];
+const CACHE = "dump-shell-v2";
+const SHELL = ["/", "/manifest.webmanifest", "/favicon.png", "/icon-192.png", "/brand/mark-green.webp", "/brand/fire.webp"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -39,7 +39,7 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Pages: network-first so rooms are fresh; fall back to the last copy when offline.
+  // Pages: network-first so dumpsters are fresh; fall back to the last copy when offline.
   if (req.mode === "navigate") {
     e.respondWith(
       fetch(req)
@@ -53,9 +53,9 @@ self.addEventListener("fetch", (e) => {
   }
 });
 
-// The page tells us when a room burns so its cached shell goes too.
+// The page tells us when a dumpster burns so its cached shell goes too.
 self.addEventListener("message", (e) => {
-  if (e.data?.type === "forget-room" && typeof e.data.path === "string") {
+  if (e.data?.type === "forget-dumpster" && typeof e.data.path === "string") {
     caches.open(CACHE).then((c) => Promise.all([c.delete(e.data.path), c.delete(`${e.data.path}/stage`)]));
   }
 });

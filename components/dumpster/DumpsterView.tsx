@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
+import { MarkBlock } from "@/components/Brand";
 import { Burned } from "@/components/Burned";
 import { Countdown } from "@/components/ui";
-import { useRoom } from "@/lib/client/useRoom";
+import { useDumpster } from "@/lib/client/useDumpster";
 import { useUploader } from "@/lib/client/useUploader";
-import type { PublicMedia, RoomState } from "@/lib/types";
+import type { PublicMedia, DumpsterState } from "@/lib/types";
 import { Drop } from "./Drop";
 import { EventMap } from "./EventMap";
 import { Fire } from "./Fire";
@@ -30,44 +30,54 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "me", label: "Me" },
 ];
 
-function matches(m: PublicMedia, filter: Filter | null, q: string) {
+export function inFilter(m: PublicMedia, filter: Filter | null) {
   if (filter?.kind === "faces") {
     const inFrame = m.faces.some((f) => f.clusterId && filter.ids.includes(f.clusterId));
     const mentioned = !!filter.name && m.mentions.includes(filter.name);
-    if (!inFrame && !mentioned) return false;
+    return inFrame || mentioned;
   }
-  if (filter?.kind === "venue" && m.venue !== filter.venue) return false;
-  if (q) {
-    const hay = [m.caption, m.tags.join(" "), m.transcript, m.venue, m.mentions.join(" ")].join(" ").toLowerCase();
-    if (!hay.includes(q.toLowerCase())) return false;
-  }
+  if (filter?.kind === "venue") return m.venue === filter.venue;
   return true;
 }
 
-export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: boolean; showMine: boolean }) {
+export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterState; isNew: boolean; showMine: boolean }) {
   const id = initial.dumpster.id;
   const uploader = useUploader(id);
-  const room = useRoom(initial, uploader.settle);
-  const { state } = room;
+  const dumpster = useDumpster(initial, uploader.settle);
+  const { state } = dumpster;
 
-  const mineFilter = (s: RoomState): Filter | null =>
+  const mineFilter = (s: DumpsterState): Filter | null =>
     s.me && s.me.clusterIds.length ? { kind: "faces", ids: s.me.clusterIds, label: "You", name: s.me.name } : null;
 
   const [tab, setTab] = useState<Tab>(showMine ? "pool" : isNew || !initial.media.length ? "drop" : "pool");
   const [filter, setFilter] = useState<Filter | null>(() => (showMine ? mineFilter(initial) : null));
   const [q, setQ] = useState("");
   const [viewing, setViewing] = useState<{ ids: string[]; index: number } | null>(null);
-  const [hostMenu, setHostMenu] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const visible = useMemo(() => state.media.filter((m) => matches(m, filter, q)), [state.media, filter, q]);
   const byId = useMemo(() => new Map(state.media.map((m) => [m.id, m])), [state.media]);
+  const names = useMemo(
+    () => new Map(state.clusters.filter((c) => c.name).map((c) => [c.id, c.name!] as [string, string])),
+    [state.clusters],
+  );
   const frames = useMemo(() => {
     const n = new Map<string, number>();
     state.media.forEach((m, i) => n.set(m.id, state.media.length - i));
     return n;
   }, [state.media]);
 
-  if (room.destroyed) return <Burned />;
+  if (dumpster.destroyed) return <Burned />;
+
+  const copyLink = async () => {
+    const url = `${window.location.origin}/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("Copy this link", url);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const open = (list: PublicMedia[], mediaId: string) =>
     setViewing({ ids: list.map((m) => m.id), index: Math.max(0, list.findIndex((m) => m.id === mediaId)) });
@@ -75,65 +85,55 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
   const viewList = viewing ? (viewing.ids.map((i) => byId.get(i)).filter(Boolean) as PublicMedia[]) : [];
 
   return (
-    <div className="mx-auto min-h-dvh max-w-xl pb-[calc(64px+env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-30 border-b-3 border-ink bg-paper">
-        <div className="flex items-stretch">
-          <Link href="/" className="display grid place-items-center bg-ink px-3 text-xl text-paper" aria-label="Dump home">
-            DUMP
-          </Link>
-          <div className="min-w-0 flex-1 px-3 py-2">
-            <p className="label truncate text-smoke">dumpster.photo/{id}</p>
-            <h1 className="display truncate text-2xl leading-none">{state.dumpster.name}</h1>
-          </div>
-          {room.host && (
-            <button onClick={() => setHostMenu((v) => !v)} className="label border-l-3 border-ink px-3" aria-expanded={hostMenu}>
-              Host
-            </button>
-          )}
+    <div className="mx-auto min-h-dvh w-full max-w-[430px] pb-[calc(64px+env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-header border-b-3 border-ink bg-paper">
+        <div className="flex h-14 items-stretch">
+          <MarkBlock />
+          <h1 className="display min-w-0 flex-1 self-center truncate px-3 text-[22px] leading-none">{state.dumpster.name}</h1>
+          <button
+            onClick={copyLink}
+            className={`display w-[92px] shrink-0 border-l-3 border-ink text-[13px] leading-tight ${copied ? "bg-ink text-paper" : "bg-green"}`}
+            aria-live="polite"
+          >
+            {copied ? (
+              "Copied!"
+            ) : (
+              <>
+                Copy
+                <br />
+                link
+              </>
+            )}
+          </button>
         </div>
         <div className="flex items-center justify-between border-t border-ink pl-3">
-          <span className="label">Self-destructs in</span>
+          <span className="label">Burns in</span>
           <span className="hazard py-1 pl-6">
             <Countdown expiresAt={state.dumpster.expiresAt} className="display block bg-ink px-2 text-lg text-paper" />
           </span>
         </div>
-        {hostMenu && room.host && (
-          <div className="grid grid-cols-2 gap-2 border-t-3 border-ink bg-bone p-3">
-            <a className="btn btn-ghost" href={`/${id}/stage`} target="_blank" rel="noreferrer">
-              Stage view
-            </a>
-            <button
-              className="btn btn-fire"
-              onClick={() => {
-                if (confirm("Burn it now? Every photo, face and number in this Dumpster is deleted immediately.")) room.burn();
-              }}
-            >
-              Burn now
-            </button>
-          </div>
-        )}
       </header>
 
       <main>
-        {tab === "drop" && <Drop dumpster={state.dumpster} uploader={uploader} showShare={isNew || !!room.host} />}
+        {tab === "drop" && <Drop dumpster={state.dumpster} uploader={uploader} onCopyLink={copyLink} copied={copied} />}
         {tab === "pool" && (
           <Pool
-            media={visible}
-            total={state.media.length}
+            media={state.media}
+            byId={byId}
             frames={frames}
+            names={names}
             clusters={state.clusters}
             me={state.me}
-            blurOn={state.dumpster.settings.blurNonConsented}
             filter={filter}
             setFilter={setFilter}
             mine={mineFilter(state)}
             q={q}
             setQ={setQ}
-            onOpen={(mid) => open(visible, mid)}
+            onOpen={open}
             goTo={setTab}
           />
         )}
-        {tab === "fire" && <Fire media={state.media} onVote={room.vote} onOpen={open} />}
+        {tab === "fire" && <Fire media={state.media} onReact={dumpster.react} onOpen={open} />}
         {tab === "map" && (
           <EventMap
             media={state.media}
@@ -149,8 +149,8 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
           <Me
             dumpster={state.dumpster}
             me={state.me}
-            photosOfMe={state.me ? state.media.filter((m) => matches(m, mineFilter(state), "")).length : 0}
-            onEnrolled={room.refresh}
+            photosOfMe={state.me ? state.media.filter((m) => inFilter(m, mineFilter(state))).length : 0}
+            onEnrolled={dumpster.refresh}
             onShowMine={() => {
               setFilter(mineFilter(state));
               setTab("pool");
@@ -159,7 +159,7 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
         )}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-xl border-t-3 border-ink bg-paper pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed inset-x-0 bottom-0 z-nav mx-auto w-full max-w-[430px] border-t-3 border-ink bg-paper pb-[env(safe-area-inset-bottom)]">
         <ul className="grid grid-cols-6">
           {TABS.map((t, i) => {
             const active = tab === t.id;
@@ -173,10 +173,10 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
                     active ? "bg-ink text-paper" : t.id === "drop" ? "bg-green" : ""
                   }`}
                 >
-                  <span className="display text-[15px] leading-none">{t.label}</span>
+                  <span className="display text-[14px] leading-none">{t.label}</span>
                   {count > 0 && <span className="label mt-1 !text-[10px] !tracking-normal">{count}</span>}
                   {t.id === "drop" && uploader.items.some((u) => u.state === "waiting") && (
-                    <span className="absolute top-1 right-1 size-2 animate-blink bg-fire" aria-label="uploads waiting" />
+                    <span className="absolute top-1 right-1 size-2 animate-blink bg-fire" aria-label="Photos waiting to send" />
                   )}
                 </button>
               </li>
@@ -190,16 +190,13 @@ export function Room({ initial, isNew, showMine }: { initial: RoomState; isNew: 
           list={viewList}
           index={Math.min(viewing.index, viewList.length - 1)}
           frames={frames}
-          clusters={state.clusters}
-          isHost={!!room.host}
+          names={names}
+          byId={byId}
           onIndex={(index) => setViewing({ ...viewing, index })}
           onClose={() => setViewing(null)}
-          onVote={room.vote}
-          onDelete={room.remove}
-          onSticker={async (mid, subject) => {
-            const ok = await room.makeSticker(mid, subject);
-            return ok;
-          }}
+          onReact={dumpster.react}
+          onDelete={dumpster.remove}
+          onSticker={dumpster.makeSticker}
         />
       )}
     </div>

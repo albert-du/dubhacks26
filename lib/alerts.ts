@@ -1,5 +1,5 @@
 import { config } from "./config";
-import { roomUrl } from "./dumpsters";
+import { dumpsterUrl } from "./dumpsters";
 import { cols } from "./mongo";
 import { maskPhone, photon } from "./photon";
 
@@ -23,7 +23,7 @@ export async function flushFaceAlerts() {
     if (!d || d.expiresAt.getTime() <= Date.now() || !g.phone) continue;
     const p = g.pendingPhotoAlerts;
     const mm = g.pendingMentionAlerts;
-    const url = `${roomUrl(d._id)}?me=1`;
+    const url = `${dumpsterUrl(d._id)}?me=1`;
     const lines: string[] = [];
     if (p > 0) lines.push(`📸 ${p} new photo${p === 1 ? "" : "s"} of you just dropped into the Dumpster "${d.name}"!`);
     if (mm > 0) lines.push(`🎙️ Your name was mentioned in ${mm === 1 ? "a new video" : `${mm} new videos`}.`);
@@ -40,7 +40,7 @@ export async function flushFaceAlerts() {
   }
 }
 
-/** One "burning soon" digest per Dumpster, to every guest with a phone and the host. */
+/** One "burning soon" digest per Dumpster, to every guest who left a phone number. */
 export async function sendExpiryWarnings() {
   const { dumpsters, guests, media } = await cols();
   const now = Date.now();
@@ -54,17 +54,17 @@ export async function sendExpiryWarnings() {
     if (!claimed.modifiedCount) continue;
 
     const count = await media.countDocuments({ dumpsterId: d._id, status: "ready" });
-    const top = await media.find({ dumpsterId: d._id, status: "ready" }).sort({ votes: -1, aiFire: -1 }).limit(1).next();
+    const top = await media.find({ dumpsterId: d._id, status: "ready" }).sort({ "reactions.fire": -1 }).limit(1).next();
+    const fires = top?.reactions?.fire ?? 0;
     const mins = Math.max(1, Math.round((d.expiresAt.getTime() - now) / 60_000));
     const left = mins >= 90 ? `${Math.round(mins / 60)}h` : `${mins} min`;
     const text = [
-      `🔥 "${d.name}" self-destructs in ${left}.`,
-      `${count} photo${count === 1 ? "" : "s"} & videos inside${top?.votes ? ` — top Dumpster Fire has ${top.votes} 🔥` : ""}.`,
-      `Save what you want before it's gone: ${roomUrl(d._id)}`,
+      `🔥 "${d.name}" burns in ${left}.`,
+      `${count} photo${count === 1 ? "" : "s"} & videos inside${fires ? ` — the top Dumpster Fire has ${fires} 🔥` : ""}.`,
+      `Save what you want before it's gone: ${dumpsterUrl(d._id)}`,
     ].join("\n");
 
     const phones = new Set<string>();
-    if (d.hostPhone) phones.add(d.hostPhone);
     for (const g of await guests.find({ dumpsterId: d._id, phone: { $exists: true } }).toArray()) if (g.phone) phones.add(g.phone);
     await Promise.allSettled([...phones].map((p) => photon.send(p, text)));
   }

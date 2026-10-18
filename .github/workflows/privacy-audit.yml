@@ -19,7 +19,7 @@ jobs:
         run: npm run typecheck
       - name: Unit tests (redaction, parsing, clustering)
         run: npm test
-      - name: Privacy guardrails (VEYZL.md R1–R9)
+      - name: Privacy guardrails (VEYZL.md R1–R9: anonymity, unguessable ids, retention, deletion)
         run: npm run audit:privacy
 
   # VEYZL reviews the PR diff against VEYZL.md.
