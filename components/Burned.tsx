@@ -3,7 +3,7 @@ import { Logo } from "./Brand";
 
 export function Burned() {
   return (
-    <div className="mx-auto flex min-h-dvh max-w-xl flex-col">
+    <div className="mx-auto flex min-h-svh max-w-xl flex-col">
       <div className="hazard h-6" />
       <main className="flex flex-1 flex-col justify-center px-4">
         <Logo className="mb-6 h-28 opacity-30 grayscale" />

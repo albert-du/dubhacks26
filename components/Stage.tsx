@@ -184,7 +184,7 @@ function SelectGrid({ list, selected, onToggle }: { list: PublicMedia[]; selecte
   );
 }
 
-/** Projector / TV view: QR and counts on top, then every shot. The page scrolls. */
+/** Projector / TV view: back to the dumpster, then QR and counts, then every shot. The page scrolls. */
 export function Stage({ initial }: { initial: DumpsterState }) {
   const { state, destroyed, react } = useDumpster(initial);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -229,7 +229,12 @@ export function Stage({ initial }: { initial: DumpsterState }) {
   const fire = fireRank(state.media.filter((m) => m.kind === "image"))[0];
 
   return (
-    <div className="stage-root min-h-dvh bg-ink text-paper">
+    <div className="stage-root min-h-svh bg-ink text-paper">
+      <div className="border-b-3 border-paper px-6 py-3">
+        <a href={`/${id}`} className="btn btn-ghost !px-3 !py-2 !text-sm" aria-label="Back to the dumpster">
+          ← Dumpster
+        </a>
+      </div>
       <header className="flex flex-wrap items-end gap-6 border-b-3 border-paper p-6">
         <div className="min-w-[12rem] flex-1">
           <p className="label text-green">Live Dumpster</p>

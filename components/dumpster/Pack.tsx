@@ -8,10 +8,7 @@ import { isIosDevice } from "@/lib/saveToPhotos";
 import { isPng, STICKER_FILE_NAME } from "@/lib/sticker";
 import {
   STICKER_LIBRARY_FILES,
-  STICKER_LIBRARY_HOLD,
-  STICKER_LIBRARY_INTRO,
   STICKER_LIBRARY_SENT,
-  STICKER_LIBRARY_STEPS,
   STICKER_LIBRARY_TOO_BIG,
   shareStickerLibrary,
 } from "@/lib/stickerLibrary";
@@ -48,12 +45,6 @@ export function Pack({
           <br />
           pack
         </h2>
-        <p className="mt-3 text-sm leading-snug">
-          Open a photo, tap <b>Sticker</b>, and pick a person. dump cuts them out of the shot. On an iPhone,{" "}
-          <b>Add to Stickers</b> shares that cutout with Messages. Send it alone, then touch and hold it and tap{" "}
-          <b>Save to Stickers</b>. It stays in the sticker library. <b>Download</b> saves the PNG. Press and hold a sticker
-          here to save it too.
-        </p>
       </div>
 
       {stickers.length === 0 ? (
@@ -276,8 +267,7 @@ function StickerLibrarySheet({ url, label, onClose }: { url: string; label: stri
           Close
         </button>
       </div>
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
-        <p className="text-sm leading-snug">{STICKER_LIBRARY_INTRO}</p>
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto overscroll-y-contain px-4 py-4">
         <div className="mx-auto w-full max-w-[280px] border-3 border-ink bg-bone">
           {preview ? (
             // The blob is the PNG Messages receives, so a long-press is that cutout.
@@ -289,12 +279,6 @@ function StickerLibrarySheet({ url, label, onClose }: { url: string; label: stri
             </div>
           )}
         </div>
-        <ol className="list-decimal space-y-2 pl-5 text-sm leading-snug">
-          {STICKER_LIBRARY_STEPS.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-        <p className="text-sm leading-snug">{STICKER_LIBRARY_HOLD}</p>
         <button className="btn btn-green w-full" disabled={busy || !file} onClick={() => void share()}>
           {busy ? "Opening share sheet…" : "Share sticker"}
         </button>

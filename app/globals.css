@@ -42,17 +42,18 @@
 @utility z-dialog { z-index: 50; }
 @utility z-toast { z-index: 60; }
 
-html,
-body {
-  /* Portrait phones never scroll sideways; `clip` (unlike `hidden`) keeps sticky headers working. */
-  overflow-x: clip;
-}
-
 html {
   -webkit-tap-highlight-color: transparent;
   text-size-adjust: 100%;
-  /* Paint the root too: otherwise overscroll and the safe areas above/below the
-     page show the browser's default white as bars at the top and bottom. */
+  /* Portrait phones never scroll sideways. `clip` (unlike `hidden`) keeps sticky
+     headers working. Only the root is clipped: clipping `body` as well opens a
+     second scrollport, and a fling that hits the bottom stutters between them. */
+  overflow-x: clip;
+  /* Stop at the end of the page. The rubber-band slid the content under the
+     fixed tab bar and snapped it back. */
+  overscroll-behavior-y: none;
+  /* Paint the root too: otherwise the safe areas above and below the page
+     show the browser's default white as bars at the top and bottom. */
   background-color: var(--color-paper);
 }
 html:has(.stage-root) {
@@ -63,6 +64,8 @@ body {
   background-color: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-mono);
+  /* Whichever element ends up scrolling, a fling ends on the last row. */
+  overscroll-behavior-y: none;
   /* Paper grain: a static noise texture so flat fills don't feel digital. */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
@@ -151,6 +154,15 @@ textarea:focus-visible {
 
   .no-scrollbar { scrollbar-width: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* Sideways strips (faces, names, reactions). Clip the cross axis so the strip
+     is not also a vertical scroller: a downward fling otherwise dies on that
+     strip's limit for a frame before the page moves. */
+  .scroll-x {
+    overflow-x: auto;
+    overflow-y: clip;
+    overscroll-behavior-x: contain;
+  }
 }
 
 /* OpenFreeMap controls, squared off to match the paper and the thick rules. */

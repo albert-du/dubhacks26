@@ -112,3 +112,15 @@ export function mergeGroups(ids: (Identity & { guestId?: string })[], threshold:
   ids.forEach((_, i) => groups.set(find(i), [...(groups.get(find(i)) ?? []), i]));
   return [...groups.values()].filter((g) => g.length > 1);
 }
+
+/** A photo is a better gallery picture than a frame grabbed from a clip. */
+export function nextCover<T extends { mediaId: string; stillKey?: string }>(existing: T | undefined, incoming: T): T {
+  if (!existing) return incoming;
+  if (existing.stillKey && !incoming.stillKey) return incoming;
+  return existing;
+}
+
+/** When two face groups merge, prefer a photo cover over a clip still. */
+export function bestCover<T extends { mediaId: string; stillKey?: string }>(covers: (T | undefined)[]): T | undefined {
+  return covers.find((c) => c && !c.stillKey) ?? covers.find((c): c is T => !!c);
+}

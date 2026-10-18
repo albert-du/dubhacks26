@@ -161,7 +161,7 @@ export function DumpsterView({ initial, showMine, tab: startTab }: { initial: Du
   // Signing in is the door to the dumpster: name, then (first time only) a selfie and an optional number.
   if (!state.me || onboarding)
     return (
-      <div className="mx-auto min-h-dvh w-full max-w-[430px]">
+      <div className="mx-auto min-h-svh w-full max-w-[430px]">
         {header}
         <SignIn
           dumpster={state.dumpster}
@@ -176,7 +176,7 @@ export function DumpsterView({ initial, showMine, tab: startTab }: { initial: Du
   const me = state.me;
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-[430px] pb-[calc(64px+env(safe-area-inset-bottom))]">
+    <div className="mx-auto min-h-svh w-full max-w-[430px] pb-[calc(64px+env(safe-area-inset-bottom))]">
       {header}
 
       <main>
