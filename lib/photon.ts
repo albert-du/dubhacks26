@@ -24,6 +24,10 @@ export type InboundText = {
   spaceId?: string;
   agentUserId?: string;
   messageId?: string;
+  platform?: string;
+  spaceKind?: string;
+  agentHandle?: string;
+  senderUserId?: string;
 };
 
 export type InboundParse = { kind: "text"; message: InboundText } | { kind: "ignore" } | { kind: "invalid"; error: string };
@@ -32,9 +36,24 @@ type CachedSpace = { userId: string; spaceId: string };
 const spaceByHandle = new Map<string, CachedSpace>();
 
 export const photon = {
+  configured: () => !!(config.photon.apiKey && config.photon.projectId),
   enabled: () => {
     const p = config.photon;
     return !!(p.apiKey && p.projectId && p.agentUserId);
+  },
+
+  /** Read the manually provisioned roster. This never allocates a shared-line slot. */
+  async imessageAssignment(handle: string): Promise<string | null> {
+    const { apiKey, projectId, baseUrl } = config.photon;
+    if (!photon.configured()) throw new Error("Photon is not configured");
+    const res = await fetch(`${baseUrl}/projects/${projectId}/platforms/imessage/assignments`, {
+      headers: { authorization: `Bearer ${apiKey}`, accept: "application/json" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) throw new Error(`Photon assignment lookup failed (${res.status})`);
+    const body = await res.json() as { assignments?: { handle: string; assignedPhoneNumber: string }[] };
+    const assignment = body.assignments?.find((a) => normalizePhone(a.handle) === handle);
+    return assignment ? normalizePhone(assignment.assignedPhoneNumber) : null;
   },
 
   /** Open or reuse a DM, then send plain text from the configured agent. */
@@ -62,7 +81,7 @@ export const photon = {
   async reply(input: SendOptions & { text: string; to?: string; spaceId?: string; senderId?: string }): Promise<void> {
     const body = input.text.trim();
     if (!body) return;
-    if (!photon.enabled()) {
+    if (!photon.configured() || !(input.senderId || config.photon.agentUserId)) {
       console.log(`[photon:dev] -> ${maskPhone(input.to ?? input.spaceId ?? "unknown")}: ${body}`);
       return;
     }
@@ -261,6 +280,10 @@ function parseEvent(body: Record<string, unknown>): InboundParse {
       spaceId: typeof space?.id === "string" ? space.id : undefined,
       agentUserId: typeof receivedBy?.id === "string" ? receivedBy.id : undefined,
       messageId: typeof object.id === "string" ? object.id : undefined,
+      platform: typeof object.platform === "string" ? object.platform : typeof body.source === "string" ? body.source.split(".")[0] : undefined,
+      spaceKind: typeof space?.kind === "string" ? space.kind : undefined,
+      agentHandle: typeof receivedBy?.handle === "string" ? asHandle(receivedBy.handle) ?? undefined : undefined,
+      senderUserId: typeof sentBy?.id === "string" ? sentBy.id : undefined,
     },
   };
 }
