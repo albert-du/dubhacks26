@@ -182,7 +182,7 @@ function SelectGrid({ list, selected, onToggle }: { list: PublicMedia[]; selecte
   );
 }
 
-/** Projector / TV view: live mosaic, giant QR, counts, countdown. */
+/** Projector / TV view: QR and counts on top, then every shot. The page scrolls. */
 export function Stage({ initial }: { initial: DumpsterState }) {
   const { state, destroyed, react } = useDumpster(initial);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -227,21 +227,72 @@ export function Stage({ initial }: { initial: DumpsterState }) {
   const fire = fireRank(state.media.filter((m) => m.kind === "image"))[0];
 
   return (
-    <div className="stage-root grid min-h-dvh bg-ink text-paper lg:h-dvh lg:grid-cols-[1fr_400px] lg:overflow-hidden">
-      <main className={`lg:min-h-0 lg:overflow-y-auto ${selecting ? "p-[3px] pb-28" : "relative grid auto-rows-[24vh] grid-cols-2 content-start gap-[3px] p-[3px] md:grid-cols-4"}`}>
+    <div className="stage-root min-h-dvh bg-ink text-paper">
+      <header className="flex flex-wrap items-end gap-6 border-b-3 border-paper p-6">
+        <div className="min-w-[12rem] flex-1">
+          <p className="label text-green">Live Dumpster</p>
+          <h1 className="display text-5xl break-words">{state.dumpster.name}</h1>
+        </div>
+
+        <div className="flex items-end gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`/api/dumpsters/${id}/qr?theme=dark`} alt="Scan to join" className="w-36 border-3 border-paper" />
+          <p className="display text-4xl">
+            Scan
+            <br />
+            to <span className="text-green">drop</span>
+          </p>
+        </div>
+
+        <dl className="grid min-w-[18rem] flex-1 grid-cols-3 border-3 border-paper">
+          {[
+            ["Photos", stats?.photos ?? state.media.length],
+            ["People", stats?.faces ?? state.clusters.length],
+            ["Fires", state.media.reduce((s, m) => s + m.reactions.fire, 0)],
+          ].map(([k, v], i) => (
+            <div key={k} className={`p-3 ${i ? "border-l-3 border-paper" : ""}`}>
+              <dt className="label">{k}</dt>
+              <dd className="display text-4xl tabular-nums">{v}</dd>
+            </div>
+          ))}
+        </dl>
+
+        {fire && (
+          <div className="grid grid-cols-[96px_1fr] border-3 border-fire">
+            <ShotImage url={fire.url} eager className="size-24 object-cover" />
+            <div className="p-2">
+              <p className="label text-fire">Top Dumpster Fire</p>
+              <p className="flex items-center gap-2">
+                <FireIcon size={36} />
+                <span className="display text-3xl tabular-nums">{fire.reactions.fire}</span>
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <p className="label mb-1">Burns in</p>
+          <div className="hazard p-2">
+            <Countdown expiresAt={state.dumpster.expiresAt} className="display block bg-ink px-3 text-5xl" />
+          </div>
+        </div>
+
+        {all.length > 0 && (
+          <button
+            onClick={() => (selecting ? stopSelecting() : startSelecting())}
+            className={`btn !py-3 ${selecting ? "btn-green" : "btn-ghost"}`}
+            aria-pressed={selecting}
+          >
+            Select
+          </button>
+        )}
+      </header>
+
+      <main className={selecting ? "p-[3px] pb-28" : "relative grid auto-rows-[24vh] grid-cols-2 content-start gap-[3px] p-[3px] md:grid-cols-4"}>
         {selecting ? (
           <SelectGrid list={all} selected={selected} onToggle={toggle} />
         ) : (
           <>
-            {all.length > 0 && (
-              <button
-                onClick={startSelecting}
-                className="label absolute top-3 right-3 z-labels border-2 border-paper bg-ink px-3 py-2 text-paper lg:hidden"
-                aria-pressed={false}
-              >
-                Select
-              </button>
-            )}
             {all.length === 0 && (
               <div className="col-span-full row-span-3 grid place-items-center">
                 <p className="display text-center text-[8vw]">
@@ -286,66 +337,6 @@ export function Stage({ initial }: { initial: DumpsterState }) {
           </>
         )}
       </main>
-
-      <aside className="flex flex-col gap-6 border-t-3 border-paper p-6 lg:min-h-0 lg:overflow-y-auto lg:border-t-0 lg:border-l-3">
-        <div>
-          <p className="label text-green">Live Dumpster</p>
-          <h1 className="display text-5xl break-words">{state.dumpster.name}</h1>
-        </div>
-
-        {all.length > 0 && (
-          <button
-            onClick={() => (selecting ? stopSelecting() : startSelecting())}
-            className={`btn hidden w-full !py-3 lg:inline-flex ${selecting ? "btn-green" : "btn-ghost"}`}
-            aria-pressed={selecting}
-          >
-            Select
-          </button>
-        )}
-
-        <div className="flex items-end gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/api/dumpsters/${id}/qr?theme=dark`} alt="Scan to join" className="w-44 border-3 border-paper" />
-          <p className="display text-4xl">
-            Scan
-            <br />
-            to <span className="text-green">drop</span>
-          </p>
-        </div>
-
-        <dl className="grid grid-cols-3 border-3 border-paper">
-          {[
-            ["Photos", stats?.photos ?? state.media.length],
-            ["People", stats?.faces ?? state.clusters.length],
-            ["Fires", state.media.reduce((s, m) => s + m.reactions.fire, 0)],
-          ].map(([k, v], i) => (
-            <div key={k} className={`p-3 ${i ? "border-l-3 border-paper" : ""}`}>
-              <dt className="label">{k}</dt>
-              <dd className="display text-4xl tabular-nums">{v}</dd>
-            </div>
-          ))}
-        </dl>
-
-        {fire && (
-          <div className="grid grid-cols-[96px_1fr] border-3 border-fire">
-            <ShotImage url={fire.url} eager className="size-24 object-cover" />
-            <div className="p-2">
-              <p className="label text-fire">Top Dumpster Fire</p>
-              <p className="flex items-center gap-2">
-                <FireIcon size={36} />
-                <span className="display text-3xl tabular-nums">{fire.reactions.fire}</span>
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-auto">
-          <p className="label mb-1">Burns in</p>
-          <div className="hazard p-2">
-            <Countdown expiresAt={state.dumpster.expiresAt} className="display block bg-ink px-3 text-5xl" />
-          </div>
-        </div>
-      </aside>
 
       {selecting && (
         <StageSaveBar
