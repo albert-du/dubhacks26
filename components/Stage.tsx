@@ -37,14 +37,14 @@ export function Stage({ initial }: { initial: DumpsterState }) {
   const fire = fireRank(state.media.filter((m) => m.kind === "image"))[0];
 
   return (
-    <div className="grid min-h-dvh bg-ink text-paper lg:grid-cols-[1fr_400px]">
+    <div className="stage-root grid min-h-dvh bg-ink text-paper lg:grid-cols-[1fr_400px]">
       <main className="grid auto-rows-[24vh] grid-cols-2 gap-[3px] p-[3px] md:grid-cols-4">
         {latest.length === 0 && (
           <div className="col-span-full row-span-3 grid place-items-center">
             <p className="display text-center text-[8vw]">
               Waiting for
               <br />
-              the first throw.
+              the first dump.
             </p>
           </div>
         )}
