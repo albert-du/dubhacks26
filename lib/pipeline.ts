@@ -181,7 +181,7 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
 }
 
 async function processVideo(m: Media, d: Dumpster) {
-  const { media, guests } = await cols();
+  const { media, guests, clusters } = await cols();
   const buf = await storage.get(m.originalKey);
   const ext = m.originalKey.split(".").pop() ?? "mp4";
   const duplicateOf = await detectDuplicate(m);
@@ -196,12 +196,13 @@ async function processVideo(m: Media, d: Dumpster) {
     }
   }
   if (transcript) {
-    const roster = await guests.find({ dumpsterId: d._id }, { projection: { name: 1 } }).toArray();
+    // Names live on faces. A mention texts whoever signed up and owns that face.
+    const named = await clusters.find({ dumpsterId: d._id, name: { $exists: true } }, { projection: { name: 1, guestId: 1 } }).toArray();
     mentions = findMentions(
       transcript,
-      roster.map((g) => g.name),
+      [...new Set(named.map((c) => c.name!))],
     );
-    const ids = roster.filter((g) => mentions.includes(g.name)).map((g) => g._id);
+    const ids = [...new Set(named.filter((c) => c.guestId && mentions.includes(c.name!)).map((c) => c.guestId!))];
     if (ids.length) await guests.updateMany({ _id: { $in: ids } }, { $inc: { pendingMentionAlerts: 1 } });
   }
 

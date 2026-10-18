@@ -165,15 +165,13 @@ export async function askDumpster(d: Dumpster, question: string): Promise<{ answ
 }
 
 async function loadShots(dumpsterId: string): Promise<ShotCard[]> {
-  const { media, clusters, guests } = await cols();
-  const [list, clusterList, guestList] = await Promise.all([
+  const { media, clusters } = await cols();
+  const [list, clusterList] = await Promise.all([
     media.find({ dumpsterId, status: "ready" }, { projection: { "faces.embedding": 0 } }).sort({ createdAt: -1 }).limit(500).toArray(),
     clusters.find({ dumpsterId }, { projection: { centroid: 0 } }).toArray(),
-    guests.find({ dumpsterId }, { projection: { name: 1 } }).toArray(),
   ]);
-  const guestName = new Map(guestList.map((g) => [g._id, g.name]));
   const names = new Map<string, string>();
-  for (const c of clusterList) if (c.guestId && guestName.get(c.guestId)) names.set(c._id, guestName.get(c.guestId)!);
+  for (const c of clusterList) if (c.name) names.set(c._id, c.name);
   return list.map((m) => shotFromMedia(m, names));
 }
 

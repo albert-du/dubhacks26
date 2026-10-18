@@ -48,8 +48,12 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
   const dumpster = useDumpster(initial, uploader.settle);
   const { state } = dumpster;
 
-  const mineFilter = (s: DumpsterState): Filter | null =>
-    s.me && s.me.clusterIds.length ? { kind: "faces", ids: s.me.clusterIds, label: "You", name: s.me.name } : null;
+  // "You" = the faces your selfie matched; the name (if someone added one) also finds mentions in videos.
+  const mineFilter = (s: DumpsterState): Filter | null => {
+    if (!s.me?.clusterIds.length) return null;
+    const name = s.clusters.find((c) => s.me!.clusterIds.includes(c.id) && c.name)?.name;
+    return { kind: "faces", ids: s.me.clusterIds, label: "You", name };
+  };
 
   const [tab, setTab] = useState<Tab>(showMine ? "dump" : isNew || !initial.media.length ? "drop" : "dump");
   const [filter, setFilter] = useState<Filter | null>(() => (showMine ? mineFilter(initial) : null));
@@ -112,6 +116,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         {tab === "drop" && <Drop dumpster={state.dumpster} uploader={uploader} onCopyLink={copyLink} copied={copied} />}
         {tab === "dump" && (
           <Dump
+            onNameFaces={dumpster.nameFaces}
             id={id}
             media={state.media}
             byId={byId}
@@ -147,6 +152,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
             me={state.me}
             photosOfMe={state.me ? state.media.filter((m) => inFilter(m, mineFilter(state))).length : 0}
             onEnrolled={dumpster.refresh}
+            goTo={setTab}
             onShowMine={() => {
               setFilter(mineFilter(state));
               setTab("dump");

@@ -24,6 +24,7 @@ export function Dump(props: {
   q: string;
   setQ: (q: string) => void;
   canAsk: boolean;
+  onNameFaces: (faceIds: string[], name: string) => Promise<boolean>;
   onOpen: (list: PublicMedia[], id: string) => void;
   goTo: (t: Tab) => void;
 }) {
@@ -33,6 +34,18 @@ export function Dump(props: {
   const [asking, setAsking] = useState(false);
   const [answer, setAnswer] = useState<string | null>(null);
   const [askError, setAskError] = useState<string | null>(null);
+  const [naming, setNaming] = useState<{ ids: string[]; value: string } | null>(null);
+
+  const saveName = async () => {
+    if (!naming) return;
+    const { ids, value } = naming;
+    setNaming(null);
+    await props.onNameFaces(ids, value);
+    // Keep an active face filter in step with the new name (used for video mentions).
+    if (filter?.kind === "faces" && filter.ids.join() === ids.join()) {
+      props.setFilter({ ...filter, label: value.trim() || filter.label, name: value.trim() || undefined });
+    }
+  };
 
   const setFilter = (f: Filter | null) => {
     if (!f || f.kind !== "shots") setAnswer(null);
@@ -70,6 +83,7 @@ export function Dump(props: {
   const activeIds = filter?.kind === "faces" ? filter.ids.join() : "";
   const mineIds = props.mine?.kind === "faces" ? props.mine.ids.join() : "";
   const myCover = clusters.find((c) => myIds.has(c.id) && c.cover)?.cover;
+  const myName = clusters.find((c) => myIds.has(c.id) && c.name)?.name;
 
   // Filter → search → duplicates. A duplicate only counts while its original is still here.
   const { results, sources, dupes } = useMemo(() => {
@@ -114,17 +128,19 @@ export function Dump(props: {
         <FaceButton active={!filter} onClick={() => setFilter(null)} label="Everyone">
           <span className="display grid size-[64px] place-items-center bg-ink text-xl text-paper">ALL</span>
         </FaceButton>
-        {props.mine ? (
-          <FaceButton active={!!mineIds && activeIds === mineIds} onClick={() => setFilter(props.mine)} label="You">
+        {props.mine && (
+          <FaceButton
+            active={!!mineIds && activeIds === mineIds}
+            onClick={() => setFilter(props.mine)}
+            label="You"
+            name={myName}
+            onName={() => setNaming({ ids: [...myIds], value: myName ?? "" })}
+          >
             {myCover ? (
               <FaceThumb cover={myCover} size={64} />
             ) : (
               <span className="display grid size-[64px] place-items-center bg-green text-lg">YOU</span>
             )}
-          </FaceButton>
-        ) : (
-          <FaceButton active={false} onClick={() => props.goTo("me")} label="Find me">
-            <span className="display grid size-[64px] place-items-center border-2 border-dashed border-ink text-3xl">+</span>
           </FaceButton>
         )}
         {others.map((c, i) => (
@@ -132,7 +148,9 @@ export function Dump(props: {
             key={c.id}
             active={activeIds === c.id}
             onClick={() => setFilter({ kind: "faces", ids: [c.id], label: c.name ?? `Person ${i + 1}`, name: c.name })}
-            label={`${c.name ?? `#${i + 1}`} · ${c.count}`}
+            label={`${c.count} shot${c.count === 1 ? "" : "s"}`}
+            name={c.name}
+            onName={() => setNaming({ ids: [c.id], value: c.name ?? "" })}
           >
             {c.cover ? <FaceThumb cover={c.cover} size={64} /> : <span className="block size-[64px] bg-bone" />}
           </FaceButton>
@@ -141,6 +159,33 @@ export function Dump(props: {
           <p className="label flex items-center px-3 leading-relaxed text-smoke">People show up here as photos land.</p>
         )}
       </div>
+
+      {naming && (
+        <form
+          className="flex items-stretch border-b-3 border-ink bg-bone"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void saveName();
+          }}
+        >
+          <span className="label grid place-items-center border-r border-ink px-3">Name</span>
+          <input
+            autoFocus
+            className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base outline-none placeholder:text-smoke"
+            placeholder="Who is this?"
+            value={naming.value}
+            maxLength={40}
+            onChange={(e) => setNaming({ ...naming, value: e.target.value })}
+            enterKeyHint="done"
+          />
+          <button type="submit" className="display border-l-3 border-ink bg-green px-3 text-sm">
+            Save
+          </button>
+          <button type="button" onClick={() => setNaming(null)} className="display border-l border-ink px-3" aria-label="Cancel">
+            ✕
+          </button>
+        </form>
+      )}
 
       {/* Search. Typing filters on the words. Ask sends the sentence to Backboard. */}
       <form
@@ -288,15 +333,30 @@ function Grid({
   );
 }
 
-function FaceButton(props: { active: boolean; onClick: () => void; label: string; children: React.ReactNode }) {
+function FaceButton(props: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  /** Faces (not ALL) can be named: shows the name, or a small "+ name" when there isn't one. */
+  name?: string;
+  onName?: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <button
-      onClick={props.onClick}
-      className={`flex w-[80px] shrink-0 flex-col items-center gap-1 border-r border-ink p-2 ${props.active ? "bg-green" : ""}`}
-      aria-pressed={props.active}
-    >
-      <span className={`border-2 ${props.active ? "border-ink" : "border-transparent"}`}>{props.children}</span>
-      <span className="label w-full truncate text-center !text-[9px] !tracking-wide">{props.label}</span>
-    </button>
+    <div className={`flex w-[80px] shrink-0 flex-col items-center border-r border-ink p-2 ${props.active ? "bg-green" : ""}`}>
+      <button onClick={props.onClick} aria-pressed={props.active} className="flex flex-col items-center gap-1">
+        <span className={`border-2 ${props.active ? "border-ink" : "border-transparent"}`}>{props.children}</span>
+        <span className="label w-full truncate text-center !text-[9px] !tracking-wide">{props.label}</span>
+      </button>
+      {props.onName && (
+        <button
+          onClick={props.onName}
+          className={`label mt-1 w-full truncate text-center !text-[9px] !tracking-wide ${props.name ? "font-bold" : "border border-dashed border-ink py-0.5"}`}
+          aria-label={props.name ? `Rename ${props.name}` : "Add a name"}
+        >
+          {props.name ?? "+ name"}
+        </button>
+      )}
+    </div>
   );
 }

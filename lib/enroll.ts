@@ -9,20 +9,20 @@ import { tiger } from "./tiger";
 import type { Dumpster, Guest } from "./types";
 
 /**
- * Guest opt-in: name + optional phone + 1-second selfie.
- * The selfie is embedded in memory and discarded — only the vector is stored, and it
- * expires with the Dumpster. It names your face in the gallery and powers "new photos of you" texts.
+ * Text sign-up: phone + 1-second selfie. The selfie is embedded in memory and discarded —
+ * only the vector is stored, and it expires with the Dumpster. It's how we know which face
+ * is yours, so we can text you when you show up (or when your face's name is said in a video).
  */
 export async function enrollGuest(
   d: Dumpster,
   viewerId: string,
-  input: { name: string; phone?: string; selfie?: Buffer },
+  input: { phone: string; selfie: Buffer },
 ): Promise<{ guestId: string; faceMatched: boolean; clustersClaimed: number }> {
   const { guests, clusters } = await cols();
 
   let embedding: number[] | undefined;
   if (input.selfie) {
-    if (!faceEmbed.enabled()) throw new HttpError(503, "Selfies aren’t working right now. Try again without one.");
+    if (!faceEmbed.enabled()) throw new HttpError(503, "Selfies aren’t working right now. Try again in a bit.");
     const { jpeg } = await normalizeImage(input.selfie);
     const faces = await faceEmbed.detect(jpeg);
     if (!faces.length) throw new HttpError(422, "Couldn't find a face. More light, closer to the camera.");
@@ -35,7 +35,6 @@ export async function enrollGuest(
     _id: existing?._id ?? nanoid(12),
     dumpsterId: d._id,
     viewerId,
-    name: input.name,
     phone: input.phone,
     embedding: embedding ?? existing?.embedding,
     pendingPhotoAlerts: existing?.pendingPhotoAlerts ?? 0,

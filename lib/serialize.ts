@@ -74,14 +74,10 @@ export function publicSticker(s: Sticker): PublicSticker {
   return { id: s._id, mediaId: s.mediaId, label: s.label, url: s.publicKey ? fileUrl(s.publicKey) : undefined, status: s.status };
 }
 
-/** Face gallery: every person detected in the dumpster, largest groups first. Names come from guests who enrolled. */
+/** Face gallery: every person detected in the dumpster, largest groups first. Names are added on the face itself. */
 export async function publicClusters(d: Dumpster): Promise<PublicCluster[]> {
-  const { clusters, guests, media } = await cols();
+  const { clusters, media } = await cols();
   const list = await clusters.find({ dumpsterId: d._id }, { projection: { centroid: 0 } }).toArray();
-  const guestIds = [...new Set(list.map((c) => c.guestId).filter(Boolean))] as string[];
-  const names = new Map(
-    (await guests.find({ _id: { $in: guestIds } }, { projection: { name: 1 } }).toArray()).map((g) => [g._id, g.name]),
-  );
   const coverIds = list.map((c) => c.cover?.mediaId).filter(Boolean) as string[];
   const covers = new Map(
     (
@@ -98,7 +94,7 @@ export async function publicClusters(d: Dumpster): Promise<PublicCluster[]> {
       const m = c.cover ? covers.get(c.cover.mediaId) : undefined;
       return {
         id: c._id,
-        name: c.guestId ? names.get(c.guestId) : undefined,
+        name: c.name,
         count: c.n,
         cover:
           m?.publicKey && c.cover
@@ -126,7 +122,7 @@ export async function dumpsterState(d: Dumpster, viewer: string): Promise<Dumpst
     media: list.map((m) => publicMedia(m, mine.get(m._id) ?? [])),
     clusters: await publicClusters(d),
     stickers: (await stickers.find({ dumpsterId: d._id }).sort({ createdAt: -1 }).toArray()).map(publicSticker),
-    me: me ? { guestId: me._id, name: me.name, clusterIds: myClusters.map((c) => c._id) } : undefined,
+    me: me ? { guestId: me._id, phoneLast4: me.phone?.slice(-4), clusterIds: myClusters.map((c) => c._id) } : undefined,
     canAsk: backboard.enabled(),
     cursor: cursor.toISOString(),
   };

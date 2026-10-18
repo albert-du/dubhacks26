@@ -30,7 +30,7 @@ export interface Guest {
   _id: string;
   dumpsterId: string;
   viewerId: string;
-  name: string;
+  // No name: people are named on their face (Cluster.name). A guest exists only to get texts.
   phone?: string;
   /** Face vector from the enrollment selfie. The selfie image itself is never stored. */
   embedding?: number[];
@@ -102,6 +102,8 @@ export interface Cluster {
   centroid: number[];
   n: number;
   guestId?: string;
+  /** Added by anyone in the dumpster from the face gallery. */
+  name?: string;
   cover?: { mediaId: string; box: Box };
   expiresAt: Date;
   updatedAt: Date;
@@ -187,7 +189,8 @@ export interface DumpsterState {
   media: PublicMedia[];
   clusters: PublicCluster[];
   stickers: PublicSticker[];
-  me?: { guestId: string; name: string; clusterIds: string[] };
+  /** This browser's text sign-up, if any. Only the last 4 digits of the number are sent back. */
+  me?: { guestId: string; phoneLast4?: string; clusterIds: string[] };
   /** True when BACKBOARD_API_KEY is set. The browser never receives the key. */
   canAsk: boolean;
   cursor: string;
