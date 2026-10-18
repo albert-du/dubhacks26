@@ -74,7 +74,7 @@ export function Me(props: {
               <br />
               yourself.
             </h2>
-            <p className="mt-2 text-sm leading-snug">Take a quick selfie to pull up every shot you’re in. Leave a number and we’ll text you when new ones land.</p>
+            <p className="mt-2 text-sm leading-snug">Snap a selfie to find every shot you’re in.</p>
           </div>
 
           <div className="border-3 border-ink">
@@ -105,20 +105,17 @@ export function Me(props: {
           </div>
 
           <label className="block">
-            <span className="label mb-1 block">Name (how friends say it in videos)</span>
+            <span className="label mb-1 block">Name</span>
             <input className="field" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required autoComplete="given-name" />
           </label>
           <label className="block">
-            <span className="label mb-1 block">Phone (optional) — for “new photos of you” texts</span>
+            <span className="label mb-1 block">Phone (optional)</span>
             <input className="field" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
           </label>
 
           <label className="flex cursor-pointer items-start gap-3 border-3 border-ink p-3">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 size-5 accent-[#46a65a]" />
-            <span className="text-sm leading-snug">
-              Tag me in this Dumpster’s photos and text me when I show up. My selfie isn’t kept, and my name and number{" "}
-              <b>burn with this Dumpster</b>.
-            </span>
+            <span className="text-sm leading-snug">Tag me in this Dumpster’s photos and text me when I show up.</span>
           </label>
 
           {msg && <p className={`border-3 p-3 text-sm ${msg.tone === "ok" ? "border-green bg-green/20" : "border-fire bg-fire/15"}`}>{msg.text}</p>}
