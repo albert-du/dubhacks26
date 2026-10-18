@@ -218,12 +218,6 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
             setFilter({ kind: "faces", ids: [clusterId], label: name, name });
             setTab("dump");
           }}
-          onSearch={(text) => {
-            setViewing(null);
-            setFilter(null);
-            setQ(text);
-            setTab("dump");
-          }}
         />
       )}
     </div>

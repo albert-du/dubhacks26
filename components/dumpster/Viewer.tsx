@@ -23,8 +23,6 @@ export function Viewer(props: {
   onSticker: (id: string, target: StickerTarget) => Promise<boolean>;
   /** Tap a name under Who: show that person's shots. */
   onPerson: (clusterId: string, name: string) => void;
-  /** Tap writing under Says: search the dump for it. */
-  onSearch: (text: string) => void;
 }) {
   const { list, index, onIndex, onClose } = props;
   const m = list[index];
@@ -89,11 +87,8 @@ export function Viewer(props: {
       m.faces.filter((f) => f.clusterId && props.names.get(f.clusterId)).map((f) => [f.clusterId!, props.names.get(f.clusterId!)!]),
     ).entries(),
   ];
-  const writing = [...new Set(m.text.map((t) => t.text))];
-  const overlay: Mark[] = [
-    ...m.faces.map((f) => ({ box: f.box, label: (f.clusterId && props.names.get(f.clusterId)) || "person", tone: "person" as const })),
-    ...m.text.map((t) => ({ box: t.box, label: t.text, tone: "text" as const })),
-  ];
+  // Only people are tagged on the shot. Captions, writing, objects and speech stay behind the search box.
+  const overlay: Mark[] = m.faces.map((f) => ({ box: f.box, label: (f.clusterId && props.names.get(f.clusterId)) || "person", tone: "person" as const }));
 
   return (
     <div className="fixed inset-0 z-dialog flex flex-col bg-ink text-paper" role="dialog" aria-modal aria-label="Photo">
@@ -135,7 +130,6 @@ export function Viewer(props: {
             Looks like a repeat of {frameNo(props.frames.get(original.id) ?? 0)}
           </button>
         )}
-        {m.caption && <p className="display text-xl leading-tight">{m.caption}</p>}
 
         <dl className="space-y-1.5 text-sm">
           {people.length > 0 && (
@@ -147,23 +141,6 @@ export function Viewer(props: {
                   </button>
                 ))}
               </span>
-            </Row>
-          )}
-          {m.venue && <Row k="Where">{m.venue}</Row>}
-          {writing.length > 0 && (
-            <Row k="Says">
-              <span className="flex flex-wrap gap-1.5">
-                {writing.map((t) => (
-                  <button key={t} onClick={() => props.onSearch(t)} className="border border-paper/60 px-1.5 text-left">
-                    “{t}” →
-                  </button>
-                ))}
-              </span>
-            </Row>
-          )}
-          {m.transcript && (
-            <Row k="Heard">
-              “{m.transcript}”{m.mentions.length > 0 && <span className="text-green"> · names {m.mentions.join(", ")}</span>}
             </Row>
           )}
         </dl>
