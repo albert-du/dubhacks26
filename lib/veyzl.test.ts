@@ -18,9 +18,14 @@ test("veyzl: allows the hosts Dump already calls", () => {
     'const photon = "https://api.photon.codes/v1";',
     'const perceptron = "https://api.perceptron.inc/v1";',
     'const backboard = "https://app.backboard.io/api";',
+    'const tiles = "https://tiles.openfreemap.org/planet";',
     'const local = "http://localhost:3000";',
   ]);
   assert.deepEqual(reviewDiff(diff), []);
+  const lookalike = reviewDiff(added("components/dumpster/EventMap.tsx", [
+    'const tiles = "https://tiles.openfreemap.org.evil.example/planet";',
+  ]));
+  assert.equal(lookalike[0]?.rule, "third-party");
 });
 
 test("veyzl: a new third-party host is high", () => {

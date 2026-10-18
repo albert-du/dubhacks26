@@ -147,6 +147,59 @@ textarea:focus-visible {
   .no-scrollbar::-webkit-scrollbar { display: none; }
 }
 
+/* OpenFreeMap controls, squared off to match the paper and the thick rules. */
+.dump-map .maplibregl-ctrl-bottom-right {
+  left: 0;
+  right: 0;
+}
+.dump-map .maplibregl-ctrl-bottom-left .maplibregl-ctrl,
+.dump-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+  margin: 0;
+}
+.dump-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+  float: none;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border: 0;
+  border-top: 2px solid var(--color-ink);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: right;
+}
+.dump-map .maplibregl-ctrl-attrib a {
+  color: var(--color-ink);
+}
+.dump-map .maplibregl-ctrl-bottom-left {
+  bottom: 1.35rem;
+}
+.dump-map .maplibregl-ctrl-scale {
+  border: 2px solid var(--color-ink);
+  border-top: 0;
+  border-radius: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.dump-map .dump-pin {
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+}
+.dump-map .maplibregl-cooperative-gesture-screen {
+  background: rgb(18 18 18 / 0.72);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

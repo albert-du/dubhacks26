@@ -53,3 +53,4 @@ The Dumpster Fire leaderboard is computed only from people's 🔥 reactions, wit
 - Open moderation means any guest can delete any media. That's intended, but there's no undo or rate limit yet.
 - People in photos are visible unblurred to everyone with the dumpster link. The link is the only access control.
 - Browser HTTP caches may hold public renders for up to 1 hour after a burn. The service worker never caches media.
+- The map tab loads OpenFreeMap vector tiles for the area around shots. A tile request tells OpenFreeMap that area. It is the same rounded GPS already shown to anyone with the dumpster link. No dumpster id, photo, or account is sent.

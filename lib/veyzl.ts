@@ -28,6 +28,7 @@ const ALLOWED_SUFFIXES = [
   "github.com",
   "githubusercontent.com",
   "dumpster.photo",
+  "openfreemap.org",
   "example.com",
   "example.org",
   "example.net",
