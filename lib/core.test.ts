@@ -60,7 +60,11 @@ test("perceptron: parses point_box markup on a 0-1000 grid", () => {
     <point_box mention="object:bad"> (5,5) (1,1) </point_box>
     <point_box mention="object:off"> (0,0) (1001,10) </point_box>
     <point_box mention="object:other" asset_idx="1"> (10,10) (20,20) </point_box>
-    <point_box mention="text:a>b sign"> (10,10) (40,30) </point_box>`);
+    <point_box mention="text:a>b sign"> (10,10) (40,30) </point_box>
+    <point_box mention="object:<noun>"> (10,10) (40,30) </point_box>
+    <point_box mention="text:<exact text>"> (10,10) (40,30) </point_box>`);
+  assert.ok(!v.objects.some((o) => o.label.includes("<")), "template placeholder leaked into objects");
+  assert.ok(!v.text.some((t) => t.text.startsWith("<")), "template placeholder leaked into text");
   assert.equal(v.caption, "cake hits floor");
   assert.equal(v.venue, undefined);
   assert.deepEqual(v.faces[0].box, [0.1, 0.2, 0.3, 0.4]);
