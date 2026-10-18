@@ -29,7 +29,6 @@ export function Fire({
             <br />
             <span className="hl bg-fire">fire</span>
           </h2>
-          <p className="mt-3 text-sm leading-snug">Tap the burning can on any shot. Most fires wins.</p>
         </div>
         <FireIcon size={88} className="mr-1" />
       </div>
@@ -37,7 +36,6 @@ export function Fire({
       {!top && (
         <div className="px-4 py-10">
           <p className="display text-3xl">Nothing’s burning yet.</p>
-          <p className="mt-2">Open a photo and hit the flaming can to start the fire.</p>
         </div>
       )}
 

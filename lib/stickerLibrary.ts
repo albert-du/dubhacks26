@@ -12,19 +12,6 @@ import { STICKER_FILE_NAME } from "./sticker";
 /** Messages refuses a sticker at or above this size. Same cap as imaging.ts. */
 export const STICKER_LIBRARY_MAX_BYTES = 500 * 1024;
 
-export const STICKER_LIBRARY_INTRO =
-  "Share this cutout, then save it into the iPhone sticker library. The same share sheet still sends the PNG to WhatsApp.";
-
-export const STICKER_LIBRARY_STEPS = [
-  "Tap Share sticker, then tap Messages.",
-  "Send it with the text field empty so Messages keeps it a sticker.",
-  "Touch and hold the sticker in the conversation and tap Save to Stickers.",
-  "In Messages, tap +, then Stickers. The cutout is in that library.",
-] as const;
-
-export const STICKER_LIBRARY_HOLD =
-  "Touch and hold the picture above and tap Add Sticker when that choice is in the menu.";
-
 export const STICKER_LIBRARY_SENT = "In Messages, touch and hold the sticker and tap Save to Stickers.";
 
 export const STICKER_LIBRARY_FILES =
