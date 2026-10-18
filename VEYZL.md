@@ -32,7 +32,7 @@ All of the following is deleted when the dumpster burns.
 | Photos/videos (original and public render) | The product | Whoever is in them |
 | Detected objects, written text, captions, transcripts | Search and organization | — |
 | Pixel hash and byte hash | Duplicate detection | — |
-| Face clusters (vectors) and optional face names | Face gallery, filtering, mention texts | People in photos. A name appears only if someone in the dumpster adds one |
+| Face clusters (vectors) and optional face names | Face gallery, filtering, mention texts | People in photos and videos. A name appears only if someone in the dumpster adds one. A clip keeps one small public still of a frame a face was found on, so the gallery can show that face. Other sampled frames are not stored |
 | Guest name and selfie vector | Sign-in to one dumpster; names their face | The guest. Deleted on Forget me or burn. Sign out only drops this browser |
 | Guest verified phone, iMessage conversation routing, pending connection-code hash | Opt-in texts; codes expire after ten minutes | The guest, by their own choice. Routing and codes stay server-side. Deleted on disconnect, Forget me, or burn |
 | Search-by-photo query image | Photo search | Never stored. Analyzed in memory for the one request |

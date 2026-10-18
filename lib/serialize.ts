@@ -105,14 +105,29 @@ export async function publicClusters(d: Dumpster, { hidden = false } = {}): Prom
   const shown = list
     .map((c: Omit<Cluster, "centroid">) => {
       const m = c.cover ? covers.get(c.cover.mediaId) : undefined;
+      const still = c.cover?.stillKey;
+      const stillParts = still?.split("/") ?? [];
+      // A clip's cover is a frame still. Never point the gallery at another dumpster's file.
+      const useStill =
+        !!still &&
+        stillParts.length === 3 &&
+        stillParts[0] === d._id &&
+        stillParts[1] === "public" &&
+        stillParts.every((part) => part !== ".." && part !== "");
+      const key = useStill ? still : m?.publicKey;
       return {
         id: c._id,
         name: c.name,
         count: c.n,
         claimed: !!c.guestId,
         cover:
-          m?.publicKey && c.cover
-            ? { url: `${fileUrl(m.publicKey)}?v=${m.createdAt.getTime()}`, box: c.cover.box, w: m.width ?? 1, h: m.height ?? 1 }
+          m && key && c.cover
+            ? {
+                url: `${fileUrl(key)}?v=${m.createdAt.getTime()}`,
+                box: c.cover.box,
+                w: (useStill ? c.cover.width : m.width) ?? 1,
+                h: (useStill ? c.cover.height : m.height) ?? 1,
+              }
             : undefined,
       };
     })

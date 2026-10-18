@@ -136,7 +136,11 @@ export interface Cluster {
    * gallery and the shots, and new shots of it stay hidden too.
    */
   hidden?: boolean;
-  cover?: { mediaId: string; box: Box };
+  /**
+   * Picture for the face row. `stillKey` is a public frame from a video; without it the
+   * cover is the photo itself. Width and height match that still, not the clip.
+   */
+  cover?: { mediaId: string; box: Box; stillKey?: string; width?: number; height?: number };
   expiresAt: Date;
   updatedAt: Date;
 }

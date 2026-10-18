@@ -16,10 +16,42 @@ export const transcriber = {
       signal: AbortSignal.timeout(180_000),
     });
     if (!res.ok) throw new Error(`transcribe ${res.status}`);
-    const body = (await res.json()) as { text?: string };
-    return body.text?.trim() ?? "";
+    const raw = await res.text();
+    let parsed: unknown = raw;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      // response_format text is a plain body, not JSON.
+    }
+    return readTranscript(parsed, raw);
   },
 };
+
+/**
+ * Words from an OpenAI-compatible transcription. Some servers put the line in
+ * `text`, some only in `segments`, and a text response is the body itself.
+ * An empty result is "" so the caller can try another file.
+ */
+export function readTranscript(body: unknown, raw = ""): string {
+  if (typeof body === "string") {
+    const plain = body.trim();
+    if (plain && !plain.startsWith("{") && !plain.startsWith("[")) return plain;
+  }
+  if (body && typeof body === "object") {
+    const record = body as { text?: unknown; segments?: { text?: unknown }[] };
+    if (typeof record.text === "string" && record.text.trim()) return record.text.trim();
+    if (Array.isArray(record.segments)) {
+      const text = record.segments
+        .map((segment) => (typeof segment?.text === "string" ? segment.text.trim() : ""))
+        .filter(Boolean)
+        .join(" ");
+      if (text) return text;
+    }
+  }
+  const plain = raw.trim();
+  if (plain && !plain.startsWith("{") && !plain.startsWith("[")) return plain;
+  return "";
+}
 
 /**
  * Fields written when a video is ready. Omit an absent transcript or duplicate id:

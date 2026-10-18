@@ -94,7 +94,7 @@ export function NotificationSettings({ dumpsterId, initial, onConnected }: {
   return (
     <div className="space-y-4 border-b-3 border-ink p-4">
       <h3 className="display text-2xl">iMessage alerts</h3>
-      <p className="text-sm leading-snug">Optional texts when photos of you land, a video mentions you, or this Dumpster is about to burn. Available to registered demo participants.</p>
+      <p className="text-sm leading-snug">Optional texts when shots of you land, a video says your name, or this Dumpster is about to burn. Available to registered demo participants.</p>
       {status.state === "connected" && !changing ? (
         <>
           <p className="border-3 border-green bg-green/20 p-3 text-sm" role="status">Alerts connected. This connection burns with the Dumpster.</p>
