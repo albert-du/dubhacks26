@@ -18,12 +18,15 @@ export default function Home() {
       </header>
 
       <section className="grid grid-cols-[1fr_auto] items-end gap-3 px-4 pt-6 pb-8">
-        <h1 className="display min-w-0 text-[clamp(3.2rem,16vw,5rem)]">
-          dump
-          <br />
-          <span className="hl bg-green">photos</span>
-        </h1>
-        <Logo className="h-32 self-start justify-self-end" />
+        {/* The headline is sized to its own column, so it never runs under the logo. */}
+        <div className="@container min-w-0">
+          <h1 className="display text-[clamp(2.5rem,18cqw,5rem)]">
+            dump
+            <br />
+            <span className="hl bg-green">photos</span>
+          </h1>
+        </div>
+        <Logo className="h-28 self-start justify-self-end" />
       </section>
 
       <section className="border-t-3 border-ink px-4 py-6">
