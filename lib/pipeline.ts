@@ -190,6 +190,11 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
     const { remap } = await mergeDumpsterFaces(d._id);
     for (const f of faces) if (f.clusterId && remap.has(f.clusterId)) f.clusterId = remap.get(f.clusterId);
   }
+  // Faces someone hid (strangers in the background) stay off this shot too.
+  const hidden = new Set(
+    (await clusters.find({ dumpsterId: d._id, hidden: true }, { projection: { _id: 1 } }).toArray()).map((c) => c._id),
+  );
+  for (let i = faces.length - 1; i >= 0; i--) if (faces[i].clusterId && hidden.has(faces[i].clusterId!)) faces.splice(i, 1);
 }
 
 async function processVideo(m: Media, d: Dumpster) {
@@ -245,10 +250,15 @@ export async function processNextSticker(): Promise<boolean> {
     const png = await composeSticker(crop, await foregroundMask(crop));
     const publicKey = `${s.dumpsterId}/public/sticker-${s._id}.png`;
     await storage.put(publicKey, png, "image/png");
-    await stickers.updateOne({ _id: s._id }, { $set: { status: "ready", publicKey, claimedAt: null, updatedAt: new Date() } });
+    const done = await stickers.updateOne(
+      { _id: s._id, status: "pending" },
+      { $set: { status: "ready", publicKey, claimedAt: null, updatedAt: new Date() } },
+    );
+    // Deleted while it was being cut: drop the file too.
+    if (!done.modifiedCount) await storage.delete(publicKey);
   } catch (e) {
     console.error("[sticker]", (e as Error).message);
-    await stickers.updateOne({ _id: s._id }, { $set: { status: "failed", claimedAt: null, updatedAt: new Date() } });
+    await stickers.updateOne({ _id: s._id, status: "pending" }, { $set: { status: "failed", claimedAt: null, updatedAt: new Date() } });
   }
   return true;
 }

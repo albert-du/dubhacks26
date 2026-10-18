@@ -11,7 +11,6 @@ import { dumpsterState } from "./serialize";
 import type { Cluster, Dumpster, Media } from "./types";
 
 const sameName = (e: unknown) => e instanceof HttpError && e.status === 409 && !!e.extra?.sameName;
-const refused = (e: unknown) => e instanceof HttpError && e.status === 409 && !e.extra;
 
 test("names: one name is one person, and naming a face after someone asks to group", { skip: !process.env.TEST_MONGODB_URI }, async () => {
   const saved = { uri: config.mongoUri, name: config.mongoDb, tiger: config.tigerUrl };
@@ -32,7 +31,7 @@ test("names: one name is one person, and naming a face after someone asks to gro
     reactions: { fire: 0, love: 0, lol: 0, wow: 0, cry: 0, clap: 0 }, createdAt: now, updatedAt: now, expiresAt,
   });
   try {
-    const { dumpsters, clusters, media } = await cols();
+    const { dumpsters, clusters, media, guests } = await cols();
     await dumpsters.insertOne(d);
     await clusters.insertMany([face("a", [1, 0]), face("b", [0, 1]), face("c", [1, 1])]);
     await media.insertMany([shot("s1", "a"), shot("s2", "b"), shot("s3", "c")]);
@@ -67,17 +66,29 @@ test("names: one name is one person, and naming a face after someone asks to gro
     assert.equal(await clusters.countDocuments({ guestId: rioId }), 1);
     assert.equal((await media.findOne({ _id: "s3" }))?.faces[0].clusterId, rio[0]._id);
 
-    // A face that is someone else's can't take another signed-in guest's name.
-    const { guestId: kaiId } = await enrollGuest(d, "kai-phone", { name: "Kai", selfie, claim: [] });
-    await clusters.insertOne(face("k", [0, 1], { guestId: kaiId, name: "Kai" }));
-    await assert.rejects(nameFace(d, "k", "Rio", true), refused);
-
     // Renaming yourself to a name a face has asks, then claims those faces.
+    const { guestId: kaiId } = await enrollGuest(d, "kai-phone", { name: "Kai", selfie, claim: [] });
     await clusters.insertOne(face("j", [1, -1], { name: "Jo" }));
     await assert.rejects(renameGuest(d, "kai-phone", "jo"), sameName);
     await renameGuest(d, "kai-phone", "jo", true);
     assert.equal((await clusters.findOne({ _id: "j" }))?.guestId, kaiId);
-    await assert.rejects(renameGuest(d, "kai-phone", "Rio", true), (e) => e instanceof HttpError && e.status === 409);
+
+    // One person split into two sign-ins: renaming a face of one to the other's name asks, then merges them.
+    const { guestId: lenId } = await enrollGuest(d, "len-phone", { name: "Len", selfie, claim: [] });
+    await clusters.insertOne(face("l", [0, -1], { guestId: lenId, name: "Len" }));
+    await assert.rejects(nameFace(d, "l", "jo", false), sameName);
+    await nameFace(d, "l", "jo", true);
+    assert.equal(await guests.findOne({ _id: lenId }), null, "the second sign-in folds into the first");
+    assert.equal((await dumpsterState(d, "len-phone")).me?.guestId, kaiId, "their phone is now signed in as Jo");
+    assert.equal(await clusters.countDocuments({ guestId: kaiId }), 1, "one face group for one person");
+
+    // Renaming yourself to someone's signed-in name asks, then merges you into them.
+    await assert.rejects(renameGuest(d, "kai-phone", "RIO"), sameName);
+    await renameGuest(d, "kai-phone", "RIO", true);
+    assert.equal(await guests.findOne({ _id: kaiId }), null);
+    assert.equal((await dumpsterState(d, "kai-phone")).me?.guestId, rioId);
+    assert.deepEqual((await guests.findOne({ _id: rioId }))?.viewerIds.sort(), ["kai-phone", "len-phone", "rio-phone"]);
+    assert.equal(await clusters.countDocuments({ guestId: rioId }), 1);
   } finally {
     faceEmbed.enabled = enabled;
     await (await db()).dropDatabase();

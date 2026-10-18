@@ -45,9 +45,12 @@ export function Me(props: {
         .catch(() => null);
     const first = await patch(false);
     if (first && !first.ok && first.body?.sameName) {
-      const holder = first.body.sameName as { name: string; faceIds: string[] };
+      const holder = first.body.sameName as { name: string; faceIds: string[]; signedIn: boolean };
       const n = holder.faceIds.length;
-      if (!confirm(`${n === 1 ? "A face" : `${n} faces`} in the pile ${n === 1 ? "is" : "are"} already called ${holder.name}. Is that you? OK groups them with you.`)) {
+      const ask = holder.signedIn
+        ? `${holder.name} already signed in here. Are you the same person? OK merges you into one ${holder.name}.`
+        : `${n === 1 ? "A face" : `${n} faces`} in the pile ${n === 1 ? "is" : "are"} already called ${holder.name}. Is that you? OK groups them with you.`;
+      if (!confirm(ask)) {
         return setMsg({ tone: "err", text: `Two people can’t both be ${holder.name}. Try adding a last initial.` });
       }
       return call({ method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: name.trim(), group: true }) }, "Name updated.");

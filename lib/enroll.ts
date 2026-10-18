@@ -7,7 +7,7 @@ import { HttpError } from "./http";
 import { cols } from "./mongo";
 import { normalizeImage } from "./imaging";
 import { tiger } from "./tiger";
-import { nameHolders, nameKey, sameNameError } from "./names";
+import { mergeGuests, nameHolders, nameKey, sameNameError } from "./names";
 import type { Dumpster, Guest } from "./types";
 
 export { nameKey };
@@ -65,7 +65,7 @@ export async function matchSelfie(
 
   return {
     ...(guest ? { guest: { name: guest.name } } : {}),
-    faceIds: hits.filter((h) => !h.c.guestId).sort((a, b) => b.score - a.score).map((h) => h.c._id),
+    faceIds: hits.filter((h) => !h.c.guestId && !h.c.hidden).sort((a, b) => b.score - a.score).map((h) => h.c._id),
   };
 }
 
@@ -119,7 +119,7 @@ export async function enrollGuest(
 
   // Claim the unclaimed faces that look like you (the ones you picked), and name them.
   const candidates = await clusters
-    .find({ dumpsterId: d._id, $or: [{ guestId: { $exists: false } }, { guestId }] })
+    .find({ dumpsterId: d._id, hidden: { $ne: true }, $or: [{ guestId: { $exists: false } }, { guestId }] })
     .toArray();
   const picked = input.claim && new Set(input.claim);
   const matched = candidates
@@ -176,16 +176,28 @@ export async function signInByName(
 }
 
 /**
- * Rename yourself: your sign-in and every face that's yours. If faces in the pile are already
- * called the new name, `group` says they're you and claims them; without it, the browser is asked.
+ * Rename yourself: your sign-in and every face that's yours. If the new name is already someone's
+ * (a sign-in or faces in the pile), the browser is asked "same person?" first; `group` says yes,
+ * which claims those faces, or merges the two sign-ins into the existing one.
  */
 export async function renameGuest(d: Dumpster, viewerId: string, name: string, group = false) {
   const { guests, clusters } = await cols();
   const g = await guests.findOne({ dumpsterId: d._id, viewerIds: viewerId }, { projection: { _id: 1 } });
   if (!g) throw new HttpError(401, "Sign in to this dumpster first.");
   const holders = await nameHolders(d, name, { guestId: g._id });
-  if (holders.guest || holders.faces.some((c) => c.guestId)) throw taken(name);
-  if (holders.faces.length && !group) throw sameNameError(holders, `There’s already a face called ${holders.name}. Is that you?`);
+  const others = new Set([holders.guest?._id, ...holders.faces.map((c) => c.guestId)].filter(Boolean) as string[]);
+  if (others.size > 1) throw taken(name);
+  if ((others.size || holders.faces.length) && !group) {
+    throw sameNameError(holders, holders.guest ? `${holders.name} already signed in here. Is that you?` : `There’s already a face called ${holders.name}. Is that you?`);
+  }
+  // Same person who signed in twice: this sign-in folds into theirs, which keeps its name.
+  if (others.size) {
+    const [into] = others;
+    await mergeGuests(d, g._id, into);
+    const unclaimed = holders.faces.filter((c) => !c.guestId);
+    if (unclaimed.length) await claimFaces(d, { _id: into, name: holders.name }, unclaimed.map((c) => c._id));
+    return;
+  }
   if (holders.faces.length) await claimFaces(d, { _id: g._id, name }, holders.faces.map((c) => c._id));
   try {
     await guests.updateOne({ _id: g._id }, { $set: { name, nameKey: nameKey(name) } });
@@ -204,7 +216,7 @@ export async function claimFaces(d: Dumpster, guest: Pick<Guest, "_id" | "name">
   if (!faceIds.length) return 0;
   const { clusters } = await cols();
   const r = await clusters.updateMany(
-    { _id: { $in: faceIds }, dumpsterId: d._id, $or: [{ guestId: { $exists: false } }, { guestId: guest._id }] },
+    { _id: { $in: faceIds }, dumpsterId: d._id, hidden: { $ne: true }, $or: [{ guestId: { $exists: false } }, { guestId: guest._id }] },
     { $set: { guestId: guest._id, name: guest.name, updatedAt: new Date() } },
   );
   return r.matchedCount;

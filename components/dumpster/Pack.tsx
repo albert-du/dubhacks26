@@ -14,10 +14,13 @@ export function Pack({
   stickers,
   goTo,
   onRetry,
+  onDelete,
 }: {
   stickers: PublicSticker[];
   goTo: (t: Tab) => void;
   onRetry: (mediaId: string, target: StickerTarget) => Promise<boolean>;
+  /** Take a sticker out of the pack for everyone. */
+  onDelete: (stickerId: string) => Promise<boolean>;
 }) {
   return (
     <section>
@@ -43,7 +46,7 @@ export function Pack({
       ) : (
         <ul className="grid grid-cols-2 gap-x-4 gap-y-8 bg-bone p-4">
           {stickers.map((s) => (
-            <StickerCard key={s.id} sticker={s} onRetry={onRetry} />
+            <StickerCard key={s.id} sticker={s} onRetry={onRetry} onDelete={onDelete} />
           ))}
         </ul>
       )}
@@ -54,9 +57,11 @@ export function Pack({
 function StickerCard({
   sticker,
   onRetry,
+  onDelete,
 }: {
   sticker: PublicSticker;
   onRetry: (mediaId: string, target: StickerTarget) => Promise<boolean>;
+  onDelete: (stickerId: string) => Promise<boolean>;
 }) {
   const file = useStickerFile(sticker.status === "ready" ? sticker.url : undefined, sticker.label);
   const [note, setNote] = useState<string | null>(null);
@@ -122,9 +127,23 @@ function StickerCard({
           >
             Download
           </button>
-          {note && <p className="text-center text-xs">{note}</p>}
         </div>
       )}
+      <button
+        className="label mt-2 self-center underline disabled:opacity-40"
+        disabled={busy}
+        onClick={async () => {
+          if (!confirm(`Delete the ${sticker.label} sticker? It’s gone from everyone’s pack.`)) return;
+          setBusy(true);
+          if (!(await onDelete(sticker.id))) {
+            setBusy(false);
+            setNote("Couldn’t delete it. Try again.");
+          }
+        }}
+      >
+        Delete
+      </button>
+      {note && <p className="mt-1 text-center text-xs">{note}</p>}
     </li>
   );
 }

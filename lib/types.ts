@@ -127,6 +127,11 @@ export interface Cluster {
   exemplars?: number[][];
   /** Added by anyone in the dumpster from the face gallery. */
   name?: string;
+  /**
+   * Someone said this face doesn't matter (a stranger in the background). It leaves the
+   * gallery and the shots, and new shots of it stay hidden too.
+   */
+  hidden?: boolean;
   cover?: { mediaId: string; box: Box };
   expiresAt: Date;
   updatedAt: Date;
@@ -146,7 +151,8 @@ export interface Sticker {
   /** What the guest picked. Missing on stickers cut before person mattes. */
   target?: StickerTarget;
   publicKey?: string;
-  status: "pending" | "ready" | "failed";
+  /** "deleted": someone took it out of the pack; kept until burn so other phones hear about it. */
+  status: "pending" | "ready" | "failed" | "deleted";
   claimedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;

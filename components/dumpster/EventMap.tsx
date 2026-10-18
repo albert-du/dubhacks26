@@ -7,10 +7,9 @@ import { dumpMapStyle } from "@/lib/mapStyle";
 import { groupMoments } from "@/lib/moments";
 import type { PublicMedia } from "@/lib/types";
 
-/** Thumbnail size at the fitted view, and the smallest and largest it gets, in px. */
+/** Thumbnail size at the fitted view and zoomed in, and the smallest it gets zoomed out, in px. */
 const PIN_BASE = 56;
 const PIN_MIN = 26;
-const PIN_MAX = 72;
 
 /**
  * Shots at the same rounded spot fan out in a spiral. The spiral opens up as you zoom in
@@ -18,15 +17,15 @@ const PIN_MAX = 72;
  */
 function spread(k: number, px: number, zoomedIn = 0): [number, number] {
   if (k === 0) return [0, 0];
-  const r = px * 1.1 * Math.sqrt(k) * Math.pow(1.35, Math.max(0, zoomedIn));
+  const r = px * 1.1 * Math.sqrt(k) * Math.min(3, Math.pow(1.35, Math.max(0, zoomedIn)));
   const a = k * 2.39996; // golden angle
   return [Math.round(r * Math.cos(a)), Math.round(r * Math.sin(a))];
 }
 
 /**
  * The scene: every shot with a location, as a small thumbnail on an OpenFreeMap drawn in
- * Dump's paper and ink. Zoom in and the thumbnails get smaller and spread apart, so more
- * of them show and each can be tapped. The "use two fingers" hint shows once per sign-in. Full screen frees one-finger panning. Tile requests cover the area already
+ * Dump's paper and ink. Zoom in and the thumbnails keep their size while the map grows
+ * under them, so they separate and each can be tapped; zoom out and they shrink to fit. The "use two fingers" hint shows once per sign-in. Full screen frees one-finger panning. Tile requests cover the area already
  * shown on the pins. If the phone has no WebGL, the same thumbnails fall back to a grid.
  */
 export function EventMap({
@@ -101,13 +100,13 @@ export function EventMap({
   const openShotRef = useRef(openShot);
   openShotRef.current = openShot;
 
-  /** Thumbnails shrink as you zoom in past the fitted view, so more of them fit, and same-spot piles open up. */
+  /** Thumbnails keep their size as you zoom in (piles at one spot open up); zooming out shrinks them so they fit. */
   const rescale = () => {
     const map = mapRef.current;
     const el = containerRef.current;
     if (!map || !el) return;
     const zoomedIn = map.getZoom() - (fitZoomRef.current ?? map.getZoom());
-    const px = Math.round(Math.min(PIN_MAX, Math.max(PIN_MIN, PIN_BASE * Math.pow(0.8, zoomedIn))));
+    const px = Math.round(zoomedIn >= 0 ? PIN_BASE : Math.max(PIN_MIN, PIN_BASE * Math.pow(0.8, -zoomedIn)));
     el.style.setProperty("--pin", `${px}px`);
     for (const { marker, k } of markersRef.current) marker.setOffset(spread(k, px, zoomedIn));
   };

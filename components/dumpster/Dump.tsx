@@ -28,6 +28,8 @@ export function Dump(props: {
   onNameFaces: (faceIds: string[], name: string, group?: boolean) => Promise<{ error?: string; sameName?: SameName }>;
   onOpen: (list: PublicMedia[], id: string) => void;
   goTo: (t: Tab) => void;
+  /** Hide a face nobody claimed (a stranger in the background). Resolves to an error, or null. */
+  onHideFace: (faceId: string) => Promise<string | null>;
 }) {
   const { media, clusters, filter, q } = props;
   const [view, setView] = useState<View>("grid");
@@ -246,6 +248,25 @@ export function Dump(props: {
             ✕
           </button>
         </form>
+      )}
+      {naming && naming.ids.length === 1 && clusters.some((c) => c.id === naming.ids[0] && !c.claimed) && (
+        <div className="flex items-center justify-between gap-3 border-b-3 border-ink bg-bone px-3 py-2">
+          <span className="text-sm leading-snug">Nobody you know? A stranger in the background?</span>
+          <button
+            type="button"
+            className="btn btn-ghost shrink-0 !px-2 !py-1.5 !text-xs"
+            onClick={async () => {
+              if (!confirm("Hide this face for everyone? It comes off the face row and the shots, and new shots of it stay hidden.")) return;
+              const faceId = naming.ids[0];
+              setNaming(null);
+              if (filter?.kind === "faces" && filter.ids.includes(faceId)) setFilter(null);
+              const error = await props.onHideFace(faceId);
+              if (error) setAskError(error);
+            }}
+          >
+            Hide face
+          </button>
+        </div>
       )}
 
       {sameName && (

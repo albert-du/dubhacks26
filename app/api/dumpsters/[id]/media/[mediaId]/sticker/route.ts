@@ -30,7 +30,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
 
   const _id = stickerId(mediaId, target);
   const existing = await stickers.findOne({ _id });
-  if (existing && existing.status !== "failed") return NextResponse.json(publicSticker(existing));
+  if (existing && existing.status !== "failed" && existing.status !== "deleted") return NextResponse.json(publicSticker(existing));
 
   const { box, label } = await describeTarget(id, m, target);
   const now = new Date();

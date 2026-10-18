@@ -138,6 +138,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         {tab === "dump" && (
           <Dump
             onNameFaces={dumpster.nameFaces}
+            onHideFace={dumpster.hideFace}
             id={id}
             media={state.media}
             byId={byId}
@@ -159,12 +160,13 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         {tab === "map" && (
           <EventMap media={state.media} onOpen={open} guestId={me.guestId} />
         )}
-        {tab === "pack" && <Pack stickers={state.stickers} goTo={setTab} onRetry={dumpster.makeSticker} />}
+        {tab === "pack" && <Pack stickers={state.stickers} goTo={setTab} onRetry={dumpster.makeSticker} onDelete={dumpster.deleteSticker} />}
         {tab === "me" && (
           <Me
             dumpster={state.dumpster}
             me={me}
-            photosOfMe={state.media.filter((m) => inFilter(m, mineFilter(state))).length}
+            // No face matched yet means no shots of you, not every shot.
+            photosOfMe={mineFilter(state) ? state.media.filter((m) => inFilter(m, mineFilter(state))).length : 0}
             onChanged={dumpster.refresh}
             goTo={setTab}
             onShowMine={() => {
@@ -210,6 +212,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           clusters={state.clusters}
           myClusterIds={me.clusterIds}
           onClaim={dumpster.claimFace}
+          onHideFace={dumpster.hideFace}
           byId={byId}
           onIndex={(index) => setViewing({ ...viewing, index })}
           onClose={() => setViewing(null)}

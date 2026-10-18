@@ -53,16 +53,16 @@ export async function nameFace(d: Dumpster, faceId: string, input: string, group
   const holders = name ? await nameHolders(d, name, { guestId: face.guestId, faceIds: [faceId] }) : null;
   if (holders && (holders.guest || holders.faces.length)) {
     const otherGuest = holders.guest?._id ?? holders.faces.find((c) => c.guestId)?.guestId;
-    if (face.guestId && otherGuest && otherGuest !== face.guestId) {
-      throw new HttpError(409, `${holders.name} is someone else who signed in here. Pick a different name.`);
-    }
     if (!group) throw sameNameError(holders, `There’s already a ${holders.name} here. Same person?`);
-    // Same person: one face group, under their name and sign-in.
-    const theirs = holders.guest ? await clusters.find({ dumpsterId: d._id, guestId: holders.guest._id }).toArray() : [];
-    const members = [face, ...holders.faces, ...theirs.filter((c) => !holders.faces.some((f) => f._id === c._id))];
+    // Same person. Two sign-ins for one person become one (theirs keeps the name).
+    if (face.guestId && otherGuest && otherGuest !== face.guestId) await mergeGuests(d, face.guestId, otherGuest);
+    // One face group, under their name and sign-in.
+    const theirs = otherGuest ? await clusters.find({ dumpsterId: d._id, guestId: otherGuest }).toArray() : [];
+    const ids = new Set([faceId, ...holders.faces.map((c) => c._id), ...theirs.map((c) => c._id)]);
+    const members = await clusters.find({ _id: { $in: [...ids] } }).toArray();
     keep = await mergeClusters(d._id, members);
     name = holders.name;
-    await clusters.updateOne({ _id: keep }, { $set: { name, updatedAt: now, ...(holders.guest ? { guestId: holders.guest._id } : {}) } });
+    await clusters.updateOne({ _id: keep }, { $set: { name, updatedAt: now, ...(otherGuest ? { guestId: otherGuest } : {}) } });
   } else {
     await clusters.updateOne({ _id: faceId }, name ? { $set: { name, updatedAt: now } } : { $unset: { name: "" }, $set: { updatedAt: now } });
   }
@@ -78,4 +78,35 @@ export async function nameFace(d: Dumpster, faceId: string, input: string, group
     if (changed) await media.updateOne({ _id: v._id }, { $set: { mentions: [...next], updatedAt: now } });
   }
   return { id: keep, name: name || undefined };
+}
+
+/**
+ * Two sign-ins turned out to be one person: fold `fromId` into `intoId`. Every browser of
+ * either is signed in as `intoId`, their faces become one face group under its name, alert
+ * counts add up, and a verified text connection or selfie vector carries over if `intoId`
+ * has none. `fromId` is deleted.
+ */
+export async function mergeGuests(d: Dumpster, fromId: string, intoId: string) {
+  if (fromId === intoId) return;
+  const { guests, clusters } = await cols();
+  const [from, into] = await Promise.all([guests.findOne({ _id: fromId, dumpsterId: d._id }), guests.findOne({ _id: intoId, dumpsterId: d._id })]);
+  if (!from || !into) throw new HttpError(404, "That person isn’t here anymore");
+  const carry = {
+    ...(!into.notification && from.notification
+      ? { notification: from.notification, ...(from.phone ? { phone: from.phone } : {}) }
+      : {}),
+    ...(!into.embedding && from.embedding ? { embedding: from.embedding } : {}),
+  };
+  await guests.updateOne(
+    { _id: intoId },
+    {
+      $addToSet: { viewerIds: { $each: from.viewerIds } },
+      $inc: { pendingPhotoAlerts: from.pendingPhotoAlerts, pendingMentionAlerts: from.pendingMentionAlerts },
+      ...(Object.keys(carry).length ? { $set: carry } : {}),
+    },
+  );
+  await guests.deleteOne({ _id: fromId });
+  await clusters.updateMany({ dumpsterId: d._id, guestId: fromId }, { $set: { guestId: intoId, name: into.name, updatedAt: new Date() } });
+  const theirs = await clusters.find({ dumpsterId: d._id, guestId: intoId }).toArray();
+  if (theirs.length > 1) await mergeClusters(d._id, theirs);
 }

@@ -1,5 +1,6 @@
 import { config } from "./config";
 import { mergeGroups, withExemplar } from "./faces";
+import { HttpError } from "./http";
 import { cols } from "./mongo";
 import type { Cluster } from "./types";
 
@@ -45,7 +46,13 @@ export async function mergeDumpsterFaces(dumpsterId: string): Promise<{ merged: 
 export async function mergeClusters(dumpsterId: string, members: Cluster[]): Promise<string> {
   const { clusters, media } = await cols();
   // Keep the signed-in one, else the named one, else the biggest.
-  members = [...members].sort((a, b) => Number(!!b.guestId) - Number(!!a.guestId) || Number(!!b.name) - Number(!!a.name) || b.n - a.n);
+  members = [...members].sort(
+    (a, b) =>
+      Number(!!b.guestId) - Number(!!a.guestId) ||
+      Number(!!a.hidden) - Number(!!b.hidden) ||
+      Number(!!b.name) - Number(!!a.name) ||
+      b.n - a.n,
+  );
   const [keep, ...rest] = members;
   if (!rest.length) return keep._id;
   const n = members.reduce((s, c) => s + c.n, 0);
@@ -66,7 +73,9 @@ export async function mergeClusters(dumpsterId: string, members: Cluster[]): Pro
     ...(keep.guestId ? {} : rest.find((c) => c.guestId) ? { guestId: rest.find((c) => c.guestId)!.guestId } : {}),
     ...(keep.cover ? {} : rest.find((c) => c.cover) ? { cover: rest.find((c) => c.cover)!.cover } : {}),
   };
-  await clusters.updateOne({ _id: keep._id }, { $set: update });
+  // Hidden only if every part was: a real person never disappears by merging with a stranger.
+  const hidden = members.every((c) => c.hidden);
+  await clusters.updateOne({ _id: keep._id }, { $set: update, ...(keep.hidden && !hidden ? { $unset: { hidden: "" } } : {}) });
   await media.updateMany(
     { dumpsterId, "faces.clusterId": { $in: restIds } },
     { $set: { "faces.$[f].clusterId": keep._id, updatedAt: new Date() } },
@@ -74,6 +83,20 @@ export async function mergeClusters(dumpsterId: string, members: Cluster[]): Pro
   );
   await clusters.deleteMany({ _id: { $in: restIds } });
   return keep._id;
+}
+
+/**
+ * Hide a face nobody signed in has claimed: it leaves the gallery and every shot (its boxes come
+ * off), and new shots of the same face stay hidden. The group itself is kept so it keeps matching.
+ */
+export async function hideFace(dumpsterId: string, faceId: string) {
+  const { clusters, media } = await cols();
+  const c = await clusters.findOne({ _id: faceId, dumpsterId }, { projection: { guestId: 1, name: 1 } });
+  if (!c) throw new HttpError(404, "That face isn’t here anymore");
+  if (c.guestId) throw new HttpError(409, `That’s ${c.name ?? "someone"}, who signed in. Only faces nobody has claimed can be hidden.`);
+  const now = new Date();
+  await clusters.updateOne({ _id: faceId }, { $set: { hidden: true, updatedAt: now }, $unset: { name: "", cover: "" } });
+  await media.updateMany({ dumpsterId, "faces.clusterId": faceId }, { $pull: { faces: { clusterId: faceId } }, $set: { updatedAt: now } });
 }
 
 /** Worker sweep: re-merge every live dumpster's faces. */
