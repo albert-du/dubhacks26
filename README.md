@@ -32,7 +32,7 @@ A dumpster is six tabs along the bottom.
 
 **Map.** Moments that have a location, drawn on a plain grid. Nothing is sent to a map company. Pins with a fire on them are marked. Under the map, the venue board lists places read off signs and landmarks. Tap a place to jump back to those shots in the pool.
 
-**Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick an object or the whole frame. Press and hold a finished sticker to save it.
+**Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick a person, an object, or everyone in the frame. Dump removes the background and draws a white sticker edge. Add to phone opens the share sheet so you can save it or send it to Messages, WhatsApp, or Instagram. Download saves the PNG. Press and hold a sticker to save it too.
 
 **Me.** Your name, an optional phone number, and an optional selfie. The selfie is used once to find your face and is not kept. Leave a number and Dump texts you when new photos of you land, and when a video says your name. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone who left a number gets one warning and a link, so they can save what they want.
 
@@ -59,6 +59,8 @@ npm run worker
 ```
 
 The site is at http://localhost:3000. Run the worker in a second terminal. It sorts uploads, sends texts, and deletes expired dumpsters. It reads `.env.local` when that file exists. Variables already set in the environment win.
+
+The first sticker downloads a cutout model, about 214MB, into `.data/models`. After that, cutting someone out runs on this machine. The photo is not sent anywhere to make the sticker.
 
 Face matching is a separate service. The first build downloads the models, about 300MB:
 

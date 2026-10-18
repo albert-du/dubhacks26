@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { ReactionKey } from "@/lib/reactions";
-import type { PublicCluster, PublicMedia, PublicSticker, DumpsterState } from "@/lib/types";
+import type { PublicCluster, PublicMedia, PublicSticker, DumpsterState, StickerTarget } from "@/lib/types";
 
 function sortMedia(list: PublicMedia[]) {
   return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -98,15 +98,20 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
   );
 
   const makeSticker = useCallback(
-    async (mediaId: string, object: number) => {
+    async (mediaId: string, target: StickerTarget) => {
       const r = await fetch(`/api/dumpsters/${id}/media/${mediaId}/sticker`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ object }),
+        body: JSON.stringify(target),
       });
       if (r.ok) {
         const st: PublicSticker = await r.json();
-        setState((s) => ({ ...s, stickers: [st, ...s.stickers.filter((x) => x.id !== st.id)] }));
+        setState((s) => {
+          const current = s.stickers.find((x) => x.id === st.id);
+          // A fast cut can already be ready by the time this pending response lands.
+          if (current && current.status !== "pending" && st.status === "pending") return s;
+          return { ...s, stickers: [st, ...s.stickers.filter((x) => x.id !== st.id)] };
+        });
       }
       return r.ok;
     },

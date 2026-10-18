@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["sharp", "mongodb", "pg"],
+  serverExternalPackages: ["sharp", "mongodb", "pg", "onnxruntime-node"],
   async headers() {
     return [
       {

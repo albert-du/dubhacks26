@@ -148,7 +148,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
             }}
           />
         )}
-        {tab === "pack" && <Pack stickers={state.stickers} goTo={setTab} />}
+        {tab === "pack" && <Pack stickers={state.stickers} goTo={setTab} onRetry={dumpster.makeSticker} />}
         {tab === "me" && (
           <Me
             dumpster={state.dumpster}

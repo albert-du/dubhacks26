@@ -5,7 +5,7 @@ import { cosine, nearest, updateCentroid } from "./faces";
 import { faceEmbed } from "./faceEmbed";
 import { cols } from "./mongo";
 import { perceptron, type VisionResult } from "./perceptron";
-import { normalizeImage, renderPublic, renderSticker } from "./imaging";
+import { composeSticker, cropSticker, normalizeImage, renderPublic } from "./imaging";
 import { storage } from "./storage";
 import { findMentions, transcriber } from "./transcribe";
 import type { Cluster, Dumpster, FaceHit, Media, TextHit } from "./types";
@@ -18,6 +18,8 @@ import type { Cluster, Dumpster, FaceHit, Media, TextHit } from "./types";
  */
 
 const STALE_CLAIM_MS = 5 * 60_000;
+/** First cut can download the matte weights. Keep the claim until that finishes. */
+const STICKER_STALE_CLAIM_MS = 10 * 60_000;
 const MAX_ATTEMPTS = 3;
 
 async function liveDumpster(id: string) {
@@ -215,11 +217,11 @@ async function processVideo(m: Media, d: Dumpster) {
   );
 }
 
-/** Renders one queued sticker from the public image. */
+/** Cuts one queued sticker out of the public image and stores a transparent PNG. */
 export async function processNextSticker(): Promise<boolean> {
   const { stickers, media } = await cols();
   const s = await stickers.findOneAndUpdate(
-    { status: "pending", $or: [{ claimedAt: null }, { claimedAt: { $lt: new Date(Date.now() - STALE_CLAIM_MS) } }] },
+    { status: "pending", $or: [{ claimedAt: null }, { claimedAt: { $lt: new Date(Date.now() - STICKER_STALE_CLAIM_MS) } }] },
     { $set: { claimedAt: new Date() } },
     { sort: { createdAt: 1 }, returnDocument: "after" },
   );
@@ -227,9 +229,11 @@ export async function processNextSticker(): Promise<boolean> {
   try {
     const m = await media.findOne({ _id: s.mediaId, status: "ready" });
     if (!m?.publicKey || m.kind !== "image") throw new Error("source not ready");
-    const png = await renderSticker(await storage.get(m.publicKey), s.box);
-    const publicKey = `${s.dumpsterId}/public/sticker-${s._id}.webp`;
-    await storage.put(publicKey, png, "image/webp");
+    const crop = await cropSticker(await storage.get(m.publicKey), s.box);
+    const { foregroundMask } = await import("./cutout");
+    const png = await composeSticker(crop, await foregroundMask(crop));
+    const publicKey = `${s.dumpsterId}/public/sticker-${s._id}.png`;
+    await storage.put(publicKey, png, "image/png");
     await stickers.updateOne({ _id: s._id }, { $set: { status: "ready", publicKey, claimedAt: null, updatedAt: new Date() } });
   } catch (e) {
     console.error("[sticker]", (e as Error).message);

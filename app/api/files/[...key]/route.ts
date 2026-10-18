@@ -5,6 +5,7 @@ type Ctx = { params: Promise<{ key: string[] }> };
 
 const TYPES: Record<string, string> = {
   webp: "image/webp",
+  png: "image/png",
   mp4: "video/mp4",
   mov: "video/quicktime",
   webm: "video/webm",
@@ -19,6 +20,27 @@ export async function GET(req: Request, { params }: Ctx) {
   if (!isPublicKey(key)) return new Response("not found", { status: 404 });
   const d = await getLiveDumpster(key.split("/")[0]);
   if (!d) return new Response("gone", { status: 410 });
+
+  const download = new URL(req.url).searchParams.get("download") === "1" && key.includes("/public/sticker-");
+  // Stickers are proxied so the phone can read the bytes. A redirect to object storage
+  // is cross-origin, and the share sheet cannot turn that into a file.
+  if (download) {
+    try {
+      const body = await storage.get(key);
+      const filename = (key.split("/").pop() ?? "sticker.png").replace(/[^\w.-]+/g, "") || "sticker.png";
+      const ext = filename.split(".").pop() ?? "png";
+      return new Response(new Uint8Array(body), {
+        headers: {
+          "content-type": TYPES[ext] ?? "application/octet-stream",
+          "content-length": String(body.length),
+          "content-disposition": `attachment; filename="${filename}"`,
+          "cache-control": "private, no-store",
+        },
+      });
+    } catch {
+      return new Response("not found", { status: 404 });
+    }
+  }
 
   const signed = await storage.signedUrl(key);
   if (signed) return Response.redirect(signed, 302);

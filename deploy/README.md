@@ -71,6 +71,7 @@ For object storage, configure the `S3_*` variables; both services use the same
 bucket. Do not scale this deployment across hosts while using local storage.
 The worker handles processing and expiry cleanup and should remain running.
 Initial face image builds download the model and can take several minutes.
+The web and worker images also include the sticker cutout model, about 214MB, downloaded during the image build. Cuts stay on the host.
 
 Whisper downloads `Systran/faster-whisper-small` on first startup and persists it
 in the `whisper-cache` volume. The worker waits for Whisper and face embedding
