@@ -36,7 +36,7 @@ export function Pack({
       {stickers.length === 0 ? (
         <div className="px-4 py-10">
           <p className="display text-3xl">Pack’s empty.</p>
-          <button className="btn mt-4" onClick={() => goTo("pool")}>
+          <button className="btn mt-4" onClick={() => goTo("dump")}>
             Pick a photo →
           </button>
         </div>

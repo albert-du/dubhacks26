@@ -21,19 +21,21 @@ export async function GET(req: Request, { params }: Ctx) {
   const d = await getLiveDumpster(key.split("/")[0]);
   if (!d) return new Response("gone", { status: 410 });
 
-  const download = new URL(req.url).searchParams.get("download") === "1" && key.includes("/public/sticker-");
+  // ?download=1 saves the file instead of opening it (works for the S3 redirect too).
+  const download = new URL(req.url).searchParams.get("download") === "1";
+  const filename = `dump-${key.split("/").pop()}`;
   // Stickers are proxied so the phone can read the bytes. A redirect to object storage
   // is cross-origin, and the share sheet cannot turn that into a file.
-  if (download) {
+  if (download && key.includes("/public/sticker-")) {
     try {
       const body = await storage.get(key);
-      const filename = (key.split("/").pop() ?? "sticker.png").replace(/[^\w.-]+/g, "") || "sticker.png";
-      const ext = filename.split(".").pop() ?? "png";
+      const stickerName = (key.split("/").pop() ?? "sticker.png").replace(/[^\w.-]+/g, "") || "sticker.png";
+      const ext = stickerName.split(".").pop() ?? "png";
       return new Response(new Uint8Array(body), {
         headers: {
           "content-type": TYPES[ext] ?? "application/octet-stream",
           "content-length": String(body.length),
-          "content-disposition": `attachment; filename="${filename}"`,
+          "content-disposition": `attachment; filename="${stickerName}"`,
           "cache-control": "private, no-store",
         },
       });
@@ -42,7 +44,7 @@ export async function GET(req: Request, { params }: Ctx) {
     }
   }
 
-  const signed = await storage.signedUrl(key);
+  const signed = await storage.signedUrl(key, download ? filename : undefined);
   if (signed) return Response.redirect(signed, 302);
 
   try {
@@ -55,6 +57,7 @@ export async function GET(req: Request, { params }: Ctx) {
         "content-length": String(r.end - r.start + 1),
         "accept-ranges": "bytes",
         "cache-control": "private, max-age=3600",
+        ...(download ? { "content-disposition": `attachment; filename="${filename}"` } : {}),
         ...(r.partial ? { "content-range": `bytes ${r.start}-${r.end}/${r.size}` } : {}),
       },
     });

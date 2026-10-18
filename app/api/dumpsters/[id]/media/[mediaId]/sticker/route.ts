@@ -76,9 +76,8 @@ async function describeTarget(dumpsterId: string, m: Media, target: StickerTarge
 
 async function clusterName(dumpsterId: string, clusterId: string | undefined): Promise<string> {
   if (!clusterId) return "person";
-  const { clusters, guests } = await cols();
-  const cluster = await clusters.findOne({ _id: clusterId, dumpsterId }, { projection: { guestId: 1, centroid: 0 } });
-  if (!cluster?.guestId) return "person";
-  const guest = await guests.findOne({ _id: cluster.guestId, dumpsterId }, { projection: { name: 1, embedding: 0, phone: 0 } });
-  return guest?.name?.trim() || "person";
+  const { clusters } = await cols();
+  // Names live on the face. The projection leaves the centroid and exemplars out.
+  const cluster = await clusters.findOne({ _id: clusterId, dumpsterId }, { projection: { name: 1 } });
+  return cluster?.name?.trim() || "person";
 }

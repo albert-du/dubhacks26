@@ -8,13 +8,16 @@ A dumpster has no owner. Nothing records who opened it or who uploaded a shot. A
 
 ## Start one
 
-On the home page, name the dumpster and pick how long it lasts. You can leave videos on, or make it photos only. Dump hands back a link and a QR code. Tape the code up, or send the link to the group chat.
-
-If a text number is set (`NEXT_PUBLIC_PHOTON_NUMBER`), the home page also shows that number. Text it:
+On the home page, enter your phone number. Dump registers it with Photon if needed and looks up your
+assigned iMessage number and opens Messages with a create command. Edit the name
+and hours, then send it. The text creates the dumpster and the reply includes its
+link and QR page. Submitting a fresh number uses one of the demo’s 25 iMessage slots; existing numbers reuse their slot. If the demo is full, joining by link or QR still works.
 
 ```text
 create dumpster "Mt. Si Hike" 48h
 ```
+
+Pass the link or QR code to everyone else. Joining needs no phone number.
 
 Hours are only 24, 48, or 72. Anything else becomes 24. `help` lists the commands. A dumpster opened by text accepts photos and videos.
 
@@ -26,19 +29,19 @@ A dumpster is six tabs along the bottom.
 
 **Drop.** Throw in photos, and videos when this dumpster allows them. If the signal dies, the phone keeps the files and sends them when it comes back. The same screen has the QR code, the copy-link button, and a link to the big-screen view.
 
-**Pool.** The pile. Faces from the photos sit across the top. Tap a person to see their shots. Tap Find me to enroll. Type to filter. A word has to show up in the picture, on a sign, in something someone said, in a name, or in a place. Every word in the box has to match. The same photo uploaded twice stays hidden until you tap to show the dupes. All shots is a grid. Moments groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
+**Dump.** The pile. Faces from the photos sit across the top. Tap a person to see their shots. Tap **+ name** under a face to name it (anyone can, and anyone can fix it). Type to filter. A word has to show up in the picture, on a sign, in something someone said, in a face's name, or in a place. Every word in the box has to match. Or tap the camera next to the search box and search with a photo: a face finds that person's shots, anything else finds shots with the same things in them. The search photo is not kept. Tap **Select** to pick shots and save them. One saves directly; several come down as a zip. The same photo uploaded twice stays hidden until you tap to show the dupes. All shots is a grid. Moments groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
 
 **Fire.** The leaderboard. Open a shot and tap the flaming can. The shot with the most fires is on top. Hearts, laughs, and the other reactions only break a tie. The order comes from those taps.
 
-**Map.** Moments that have a location, drawn on a plain grid. Nothing is sent to a map company. Pins with a fire on them are marked. Under the map, the venue board lists places read off signs and landmarks. Tap a place to jump back to those shots in the pool.
+**Map.** Moments that have a location, on a paper-and-ink map. Pins with a fire on them are marked. Drag with two fingers so the page can still scroll. Under the map, the moments are listed in order; tap one to flip through it. The map loads tiles for that area from OpenFreeMap. Those tiles use the same rounded locations already on the pins.
 
 **Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick a person, an object, or everyone in the frame. Dump removes the background and draws a white sticker edge. Add to phone opens the share sheet so you can save it or send it to Messages, WhatsApp, or Instagram. Download saves the PNG. Press and hold a sticker to save it too.
 
-**Me.** Your name, an optional phone number, and an optional selfie. The selfie is used once to find your face and is not kept. Leave a number and Dump texts you when new photos of you land, and when a video says your name. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone who left a number gets one warning and a link, so they can save what they want.
+**Me.** Texts are off until you turn them on. Then Dump asks for a selfie. The selfie is used once to find your face and is not kept. Next, connect your number by iMessage: enter your registered demo number, then send the one-time connection message to your assigned number. Codes expire after ten minutes and only work from the number you entered. Once connected, Dump texts you when new photos of you land, and when a video says the name on your face. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone connected gets one warning and a link, so they can save what they want. Change your number or disconnect in Me; Forget me also drops the face match. The connection expires with the dumpster.
 
 Open a shot to see who is in it, what was recognized, any writing, and any words from a video. From there you can react, save a copy, cut a sticker, or delete it for everyone.
 
-If Ask is on, the Pool search box grows an Ask button. Ask answers the sentence and shows the shots it means. The word filter still works either way. Ask only appears when `BACKBOARD_API_KEY` is set. The key stays on the server.
+If Ask is on, the Dump search box grows an Ask button. Ask answers the sentence and shows the shots it means. The word filter still works either way. Ask only appears when `BACKBOARD_API_KEY` is set. The key stays on the server.
 
 ## On a screen at the venue
 
@@ -91,7 +94,7 @@ curl -X POST localhost:3000/api/photon/webhook -H "content-type: application/jso
   -H "x-photon-secret: change-me" -d "{\"from\":\"+12065550123\",\"text\":\"Create dumpster \\\"Mt. Si Hike\\\" 48h\"}"
 ```
 
-Live texts arrive as Photon `message.received` events, signed as Standard Webhooks (`webhook-id`, `webhook-timestamp`, `webhook-signature`). The reply goes back in that same conversation. The sender's number is used for that one reply and is not stored.
+Live texts arrive as Photon `message.received` events, signed as Standard Webhooks (`webhook-id`, `webhook-timestamp`, `webhook-signature`). The reply goes back in that same conversation. Ordinary commands do not store the sender's number. An explicit `connect CODE` message binds a guest's alerts to that verified conversation until the dumpster expires.
 
 ## Production deployment
 
@@ -108,9 +111,13 @@ Each of these is optional. The app runs without them. The comments in `.env.exam
 | Perceptron | Looks at each photo: objects and people, writing, a caption, tags, and a venue name. One Mk1.5 chat completion. Boxes come back as `<point_box>` markup. If it is down, the photo still publishes. |
 | Face embed | Groups faces and matches a selfie. Vectors stay on the server. |
 | Transcription | Any Whisper-compatible endpoint. This is how video search and "your name was mentioned" texts work. |
-| Photon 2.0 | Creates a dumpster by text, and sends photo alerts, mention alerts, and the burn warning. Needs the API key, the project id, and the agent user id. A shared iMessage line only delivers after that person has texted the bot. Cold alerts need SMS or a line of their own. |
-| Backboard | Ask the pool, and texts that are not a fixed command. One assistant per dumpster, deleted when the dumpster burns. A loose text uses a throwaway assistant that is deleted before the reply goes out. New photos still arrive on the site's own live feed. |
+| Photon 2.0 | Creates a dumpster by text, and sends photo alerts, mention alerts, and the burn warning. Needs the API key, project id, and platforms:read / platforms:write permissions. The homepage returns the submitted participant’s assigned number. Me connects each guest’s alerts to their verified conversation; different guests can use different assigned lines. |
+| Backboard | Ask the dump, and texts that are not a fixed command. One assistant per dumpster, deleted when the dumpster burns. A loose text uses a throwaway assistant that is deleted before the reply goes out. New photos still arrive on the site's own live feed. |
 | TigerData | Drops per minute, and a record of each cleanup. Without it, those numbers come from Mongo. |
 | Object storage | Cloudflare R2 or another S3-compatible bucket. A shared persistent volume is the production fallback; local development uses a folder on disk. |
 
 The privacy rules for reviewers are in `VEYZL.md`. CI runs the privacy check and the VEYZL diff review on every pull request and on pushes to main.
+
+To exercise connection lifecycle tests against a disposable MongoDB, set
+`TEST_MONGODB_URI` before `npm test`. These tests create and drop a separate
+`dump_connection_test_*` database. CI supplies its own MongoDB service.

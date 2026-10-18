@@ -31,7 +31,6 @@ services:
       target: web
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?Set NEXT_PUBLIC_APP_URL in deploy/.env}
-        NEXT_PUBLIC_PHOTON_NUMBER: ${NEXT_PUBLIC_PHOTON_NUMBER:-}
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
     healthcheck:

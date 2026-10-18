@@ -27,6 +27,8 @@ export const config = {
   },
   faceEmbedUrl: env("FACE_EMBED_URL"),
   faceMatchThreshold: Number(env("FACE_MATCH_THRESHOLD") ?? 0.42),
+  /** Two face groups whose closest vectors are at least this similar are the same person. */
+  faceMergeThreshold: Number(env("FACE_MERGE_THRESHOLD") ?? 0.42),
 
   transcribe: {
     url: env("TRANSCRIBE_URL"),

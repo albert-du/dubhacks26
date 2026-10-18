@@ -12,19 +12,18 @@ import { EventMap } from "./EventMap";
 import { Fire } from "./Fire";
 import { Me } from "./Me";
 import { Pack } from "./Pack";
-import { Pool } from "./Pool";
+import { Dump } from "./Dump";
 import { Viewer } from "./Viewer";
 
-export type Tab = "drop" | "pool" | "fire" | "map" | "pack" | "me";
+export type Tab = "drop" | "dump" | "fire" | "map" | "pack" | "me";
 
 export type Filter =
   | { kind: "faces"; ids: string[]; label: string; name?: string }
-  | { kind: "venue"; venue: string; label: string }
   | { kind: "shots"; ids: string[]; label: string };
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "drop", label: "Drop" },
-  { id: "pool", label: "Pool" },
+  { id: "dump", label: "Dump" },
   { id: "fire", label: "Fire" },
   { id: "map", label: "Map" },
   { id: "pack", label: "Pack" },
@@ -37,7 +36,6 @@ export function inFilter(m: PublicMedia, filter: Filter | null) {
     const mentioned = !!filter.name && m.mentions.includes(filter.name);
     return inFrame || mentioned;
   }
-  if (filter?.kind === "venue") return m.venue === filter.venue;
   if (filter?.kind === "shots") return filter.ids.includes(m.id);
   return true;
 }
@@ -48,10 +46,14 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
   const dumpster = useDumpster(initial, uploader.settle);
   const { state } = dumpster;
 
-  const mineFilter = (s: DumpsterState): Filter | null =>
-    s.me && s.me.clusterIds.length ? { kind: "faces", ids: s.me.clusterIds, label: "You", name: s.me.name } : null;
+  // "You" = the faces your selfie matched; the name (if someone added one) also finds mentions in videos.
+  const mineFilter = (s: DumpsterState): Filter | null => {
+    if (!s.me?.clusterIds.length) return null;
+    const name = s.clusters.find((c) => s.me!.clusterIds.includes(c.id) && c.name)?.name;
+    return { kind: "faces", ids: s.me.clusterIds, label: "You", name };
+  };
 
-  const [tab, setTab] = useState<Tab>(showMine ? "pool" : isNew || !initial.media.length ? "drop" : "pool");
+  const [tab, setTab] = useState<Tab>(showMine ? "dump" : isNew || !initial.media.length ? "drop" : "dump");
   const [filter, setFilter] = useState<Filter | null>(() => (showMine ? mineFilter(initial) : null));
   const [q, setQ] = useState("");
   const [viewing, setViewing] = useState<{ ids: string[]; index: number } | null>(null);
@@ -94,18 +96,10 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           <h1 className="display min-w-0 flex-1 self-center truncate px-3 text-[22px] leading-none">{state.dumpster.name}</h1>
           <button
             onClick={copyLink}
-            className={`display w-[92px] shrink-0 border-l-3 border-ink text-[13px] leading-tight ${copied ? "bg-ink text-paper" : "bg-green"}`}
+            className={`label mr-2 shrink-0 self-center border-2 border-ink px-2 py-1.5 !text-[10px] ${copied ? "bg-ink text-paper" : "bg-green"}`}
             aria-live="polite"
           >
-            {copied ? (
-              "Copied!"
-            ) : (
-              <>
-                Copy
-                <br />
-                link
-              </>
-            )}
+            {copied ? "Copied" : "Copy link"}
           </button>
         </div>
         <div className="flex items-center justify-between border-t border-ink pl-3">
@@ -118,8 +112,9 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
 
       <main>
         {tab === "drop" && <Drop dumpster={state.dumpster} uploader={uploader} onCopyLink={copyLink} copied={copied} />}
-        {tab === "pool" && (
-          <Pool
+        {tab === "dump" && (
+          <Dump
+            onNameFaces={dumpster.nameFaces}
             id={id}
             media={state.media}
             byId={byId}
@@ -139,14 +134,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         )}
         {tab === "fire" && <Fire media={state.media} onReact={dumpster.react} onOpen={open} />}
         {tab === "map" && (
-          <EventMap
-            media={state.media}
-            onOpen={open}
-            onVenue={(venue) => {
-              setFilter({ kind: "venue", venue, label: venue });
-              setTab("pool");
-            }}
-          />
+          <EventMap media={state.media} onOpen={open} />
         )}
         {tab === "pack" && <Pack stickers={state.stickers} goTo={setTab} onRetry={dumpster.makeSticker} />}
         {tab === "me" && (
@@ -155,9 +143,10 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
             me={state.me}
             photosOfMe={state.me ? state.media.filter((m) => inFilter(m, mineFilter(state))).length : 0}
             onEnrolled={dumpster.refresh}
+            goTo={setTab}
             onShowMine={() => {
               setFilter(mineFilter(state));
-              setTab("pool");
+              setTab("dump");
             }}
           />
         )}
@@ -167,7 +156,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         <ul className="grid grid-cols-6">
           {TABS.map((t, i) => {
             const active = tab === t.id;
-            const count = t.id === "pool" ? state.media.length : t.id === "pack" ? state.stickers.length : 0;
+            const count = t.id === "dump" ? state.media.length : t.id === "pack" ? state.stickers.length : 0;
             return (
               <li key={t.id} className={i ? "border-l border-ink" : ""}>
                 <button
@@ -201,6 +190,18 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           onReact={dumpster.react}
           onDelete={dumpster.remove}
           onSticker={dumpster.makeSticker}
+          onPerson={(clusterId, name) => {
+            setViewing(null);
+            setQ("");
+            setFilter({ kind: "faces", ids: [clusterId], label: name, name });
+            setTab("dump");
+          }}
+          onSearch={(text) => {
+            setViewing(null);
+            setFilter(null);
+            setQ(text);
+            setTab("dump");
+          }}
         />
       )}
     </div>
