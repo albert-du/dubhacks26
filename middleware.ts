@@ -18,5 +18,12 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|sw.js|brand/|favicon.png|icon-|apple-touch-icon.png|manifest.webmanifest|api/photon|api/cron).*)"],
+  // Keep /api/dumpsters/:id/media out of this matcher. Next clones every request body
+  // that middleware runs on, and a video is still copying (or cut off at 10MB) when the
+  // upload route reads it. The parse fails, the route returns 500, and the phone shows
+  // "No signal — waiting on your phone" and retries even though the connection is fine.
+  // The dumpster page already set dump_vid before a file can be dropped.
+  matcher: [
+    "/((?!_next/static|_next/image|sw.js|brand/|favicon.png|icon-|apple-touch-icon.png|manifest.webmanifest|api/photon|api/cron|api/dumpsters/[^/]+/media$).*)",
+  ],
 };

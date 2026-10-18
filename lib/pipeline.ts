@@ -9,14 +9,15 @@ import { perceptron, type VisionResult } from "./ai-perceptron";
 import { composeSticker, cropSticker, normalizeImage, renderPublic, renderThumb } from "./imaging";
 import { PREVIEW_EDGES, previewKey } from "./preview";
 import { storage } from "./storage";
-import { findMentions, transcriber } from "./ai-transcribe";
+import { findMentions, readyVideoFields, transcriber } from "./ai-transcribe";
+import { extractSpeechWav } from "./audio";
 import type { Cluster, Dumpster, FaceHit, Media, TextHit } from "./types";
 
 /*
  * Media pipeline, run by the Vultr worker (worker/index.ts):
  *   original → normalize (orient, resize, strip EXIF) → pixel hash + duplicate check
  *   → Perceptron (objects, people, text) + face-embed in parallel → cluster faces → public WebP → notify.
- * Analysis is enrichment only: if a vision service is down the photo still publishes.
+ * Analysis is enrichment only: if vision or transcription is down, the shot still publishes.
  */
 
 const STALE_CLAIM_MS = 5 * 60_000;
@@ -222,8 +223,20 @@ async function processVideo(m: Media, d: Dumpster) {
   let transcript: string | undefined;
   let mentions: string[] = [];
   if (transcriber.enabled()) {
+    // Prefer a wav of the speech track. Phone movies often fail Speaches' decoder,
+    // and then search has no words to find. The original file is the fallback.
+    let audio = buf;
+    let name = `${m._id}.${ext}`;
+    let mime = m.mime;
     try {
-      transcript = await transcriber.transcribe(buf, `${m._id}.${ext}`, m.mime);
+      audio = await extractSpeechWav(buf);
+      name = `${m._id}.wav`;
+      mime = "audio/wav";
+    } catch (e) {
+      console.warn("[transcribe] extract", (e as Error).message);
+    }
+    try {
+      transcript = await transcriber.transcribe(audio, name, mime);
     } catch (e) {
       console.warn("[transcribe]", (e as Error).message);
     }
@@ -243,9 +256,7 @@ async function processVideo(m: Media, d: Dumpster) {
   await storage.put(publicKey, buf, m.mime);
   await media.updateOne(
     { _id: m._id },
-    {
-      $set: { status: "ready", claimedAt: null, publicKey, transcript, mentions, duplicateOf, updatedAt: new Date() },
-    },
+    { $set: readyVideoFields({ publicKey, mentions, updatedAt: new Date() }, transcript, duplicateOf) },
   );
 }
 

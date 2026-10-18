@@ -11,20 +11,9 @@ import { emptyReactions } from "@/lib/reactions";
 import { storage } from "@/lib/storage";
 import { tiger } from "@/lib/tiger";
 import type { Media } from "@/lib/types";
+import { classifyUpload } from "@/lib/uploadKind";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-const EXT: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/heic": "heic",
-  "image/heif": "heif",
-  "image/gif": "gif",
-  "video/mp4": "mp4",
-  "video/quicktime": "mov",
-  "video/webm": "webm",
-};
 
 const num = (v: FormDataEntryValue | null) => (typeof v === "string" && v !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
 
@@ -40,9 +29,9 @@ export const POST = route<Ctx>(async (req, { params }) => {
   const form = await req.formData();
   const file = form.get("file");
   if (!(file instanceof File)) throw new HttpError(400, "No file");
-  const ext = EXT[file.type];
-  if (!ext) throw new HttpError(415, "Photos and videos only");
-  const kind = file.type.startsWith("video/") ? "video" : "image";
+  const classified = classifyUpload(file.type, file.name);
+  if (!classified) throw new HttpError(415, "Photos and videos only");
+  const { ext, mime, kind } = classified;
   if (kind === "video" && !d.settings.allowVideo) throw new HttpError(403, "This Dumpster is photos only");
   if (file.size > config.maxUploadBytes) throw new HttpError(413, "Too big — 150MB max");
 
@@ -67,14 +56,14 @@ export const POST = route<Ctx>(async (req, { params }) => {
 
   const id = nanoid(14);
   const originalKey = `${d._id}/original/${id}.${ext}`;
-  await storage.put(originalKey, buf, file.type);
+  await storage.put(originalKey, buf, mime);
 
   const now = new Date();
   const doc: Media = {
     _id: id,
     dumpsterId: d._id,
     kind,
-    mime: file.type,
+    mime,
     bytes: file.size,
     originalKey,
     sha256: sha256(buf),

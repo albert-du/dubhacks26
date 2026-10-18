@@ -7,7 +7,7 @@ const display = Archivo_Black({ weight: "400", subsets: ["latin"], variable: "--
 const mono = IBM_Plex_Mono({ weight: ["400", "500", "700"], subsets: ["latin"], variable: "--font-plex-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Dump: throw every photo in", template: "%s · Dump" },
+  title: { default: "Dump photos", template: "%s · Dump" },
   description: "One shared photo pile for your event that burns itself down after 24, 48 or 72 hours.",
   applicationName: "Dump",
   appleWebApp: { capable: true, title: "Dump", statusBarStyle: "default" },

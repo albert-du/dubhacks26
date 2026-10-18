@@ -4,7 +4,7 @@ import { StartByMessage } from "@/components/StartByMessage";
 
 const STEPS = [
   ["Pass it around", "Tape the code to the cooler or text the link to the group chat. Anyone who has it can get in."],
-  ["Throw it all in", "Everybody drops what they shot, blurry ones included. On bad signal, photos wait on the phone and go once it’s back."],
+  ["Dump it all in", "Everybody drops what they shot, blurry ones included. On bad signal, photos wait on the phone and go once it’s back."],
   ["Find yourself", "Sign in with your name and a quick selfie, and every shot you’re in pulls up. Add a number to get a text when you land in new ones. Next time, your name is enough."],
   ["Start fires", "Hit the burning can on the best disasters. Most fires tops the board. Cut stickers out of the winners."],
   ["Watch it burn", "When the timer hits zero, every photo, video and name goes with it."],
@@ -19,19 +19,11 @@ export default function Home() {
 
       <section className="grid grid-cols-[1fr_auto] items-end gap-3 px-4 pt-6 pb-8">
         <h1 className="display min-w-0 text-[clamp(3.2rem,16vw,5rem)]">
-          Throw
+          Dump
           <br />
-          every
-          <br />
-          <span className="hl bg-green">photo</span>
-          <br />
-          in.
+          <span className="hl bg-green">photos</span>
         </h1>
         <Logo className="h-32 self-start justify-self-end" />
-        <p className="col-span-2 mt-4 text-[15px] leading-snug">
-          One shared pile for the party, the hike, the wedding, the tailgate. Everyone adds what they shot, everyone finds
-          themselves in it, and a day or three later it burns.
-        </p>
       </section>
 
       <section className="border-t-3 border-ink px-4 py-6">

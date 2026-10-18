@@ -5,7 +5,7 @@ import type { PublicDumpster } from "@/lib/types";
 
 const STATUS: Record<UploadItem["state"], string> = {
   queued: "Queued",
-  uploading: "Throwing",
+  uploading: "Dumping",
   waiting: "No signal — waiting on your phone",
   processing: "Landed · sorting",
   failed: "Didn’t go in",
@@ -33,9 +33,9 @@ export function Drop({
       <label className="flex min-h-[42dvh] cursor-pointer flex-col justify-between border-3 border-ink bg-green p-5 active:translate-x-[2px] active:translate-y-[2px]">
         <span className="label">Tap to drop · photos{dumpster.settings.allowVideo ? " + videos" : ""}</span>
         <span className="display text-[clamp(2.75rem,14vw,5rem)]">
-          Throw
+          Dump
           <br />
-          it in.
+          photos.
         </span>
         <span className="label">Everything here burns {dumpster.ttlHours}h after it opened</span>
         <input type="file" multiple accept={accept} onChange={pick} className="sr-only" />
