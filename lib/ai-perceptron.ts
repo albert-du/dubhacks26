@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { config } from "./config";
 import type { Box, DetectedObject } from "./types";
+import { z } from "zod";
+import { clarifyVisionPrivacyDenial, clarifyVisionLimitations, redactVisionPersonalData, VISION_POLICY, VISION_REVIEW_POLICY, VISION_REFUSAL, VISION_UNCERTAINTY } from "./visionPolicy";
 
 /**
  * Perceptron Mk1.5 vision adapter. One chat completion per image returns
@@ -46,15 +48,55 @@ Format only (the words in angle brackets are placeholders, not content):
 export const perceptron = {
   enabled: () => !!config.perceptron.apiKey,
 
-  async analyze(jpeg: Buffer): Promise<VisionResult> {
-    if (!config.perceptron.apiKey) throw new Error("perceptron is not configured");
-    // The OpenAI SDK is a client for Perceptron's compatible API, not OpenAI hosting.
-    const client = new OpenAI({
-      apiKey: config.perceptron.apiKey,
-      baseURL: config.perceptron.baseUrl,
-      timeout: 60_000,
-      maxRetries: 0,
+  /** Stateless image questions, using the same provider as gallery enrichment. */
+  async describe(jpeg: Buffer, prompt: string): Promise<string> {
+    const completion = await visionClient().chat.completions.create({
+      model: config.perceptron.model,
+      temperature: 0,
+      max_completion_tokens: 2048,
+      messages: [{ role: "system", content: VISION_POLICY }, { role: "user", content: [
+        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpeg.toString("base64")}` } },
+        { type: "text", text: prompt },
+      ] }],
     });
+    const content = visionContent(completion).trim();
+    if (!content) throw new Error("perceptron: empty response");
+    const answer = clarifyVisionPrivacyDenial(redactVisionPersonalData(content));
+    // A separate review sees the actual image and can reject unsupported or unsafe claims.
+    const review = await visionClient().chat.completions.create({
+      model: config.perceptron.model,
+      temperature: 0,
+      max_completion_tokens: 512,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "vision_review",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              safe: { type: "boolean" },
+              accurate: { type: "boolean" },
+            },
+            required: ["safe", "accurate"],
+            additionalProperties: false,
+          },
+        },
+      },
+      messages: [{ role: "system", content: VISION_REVIEW_POLICY }, { role: "user", content: [
+        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpeg.toString("base64")}` } },
+        { type: "text", text: JSON.stringify({ question: prompt, proposedAnswer: answer }) },
+      ] }],
+    });
+    const verdict = z.object({ safe: z.boolean(), accurate: z.boolean() }).strict()
+      .parse(JSON.parse(visionContent(review)));
+    if (!verdict.safe) return VISION_REFUSAL;
+    if (!verdict.accurate) return VISION_UNCERTAINTY;
+    return clarifyVisionLimitations(answer);
+  },
+
+  async analyze(jpeg: Buffer): Promise<VisionResult> {
+    const client = visionClient();
     const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & {
       vision_config: { annotation_format: "box" };
     } = {
@@ -80,6 +122,16 @@ export const perceptron = {
     return parseVision(visionContent(completion));
   },
 };
+
+function visionClient() {
+  if (!config.perceptron.apiKey) throw new Error("perceptron is not configured");
+  return new OpenAI({
+    apiKey: config.perceptron.apiKey,
+    baseURL: config.perceptron.baseUrl,
+    timeout: 60_000,
+    maxRetries: 0,
+  });
+}
 
 /** Final answer only. Reasoning stays in message.reasoning_content and is ignored. */
 export function visionContent(body: unknown): string {
