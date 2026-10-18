@@ -1,10 +1,11 @@
 import { Logo, MarkBlock } from "@/components/Brand";
+import { CreateForm } from "@/components/CreateForm";
 import { StartByMessage } from "@/components/StartByMessage";
 
 const STEPS = [
   ["Pass it around", "Tape the code to the cooler or text the link to the group chat. Anyone who has it can get in."],
   ["Throw it all in", "Everybody drops what they shot, blurry ones included. On bad signal, photos wait on the phone and go once it’s back."],
-  ["Find yourself", "Take a quick selfie and every shot you’re in pulls up. Registered demo guests can connect iMessage alerts in Me."],
+  ["Find yourself", "Sign in with your name and a quick selfie, and every shot you’re in pulls up. Add a number to get a text when you land in new ones. Next time, your name is enough."],
   ["Start fires", "Hit the burning can on the best disasters. Most fires tops the board. Cut stickers out of the winners."],
   ["Watch it burn", "When the timer hits zero, every photo, video and name goes with it."],
 ];
@@ -35,6 +36,12 @@ export default function Home() {
 
       <section className="border-t-3 border-ink px-4 py-6">
         <h2 className="display mb-4 text-3xl">Start a Dumpster</h2>
+        <CreateForm />
+        <p className="mt-3 text-xs leading-snug">You’ll sign in to it next, like everyone you invite: your name, a quick selfie, and a number if you want texts.</p>
+      </section>
+
+      <section className="border-t-3 border-ink px-4 py-6">
+        <h2 className="display mb-4 text-2xl">Or start by iMessage</h2>
         <StartByMessage />
       </section>
 
