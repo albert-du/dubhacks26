@@ -24,7 +24,6 @@ export function Drop({
 }) {
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) uploader.add(e.target.files);
-    e.target.value = "";
   };
   const accept = dumpster.settings.allowVideo ? "image/*,video/*" : "image/*";
 
