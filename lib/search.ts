@@ -29,15 +29,20 @@ function fields(m: PublicMedia, names: Map<string, string>): Record<MatchSource,
   };
 }
 
+/** Straighten curly quotes so a spoken "don't" matches either apostrophe. */
+function fold(value: string) {
+  return value.toLowerCase().replace(/[’‘]/g, "'");
+}
+
 export function tokenize(q: string) {
-  return q.toLowerCase().split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}'-]/gu, "")).filter(Boolean);
+  return fold(q).split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}'-]/gu, "")).filter(Boolean);
 }
 
 /** null = no match; otherwise the sources that matched (empty query matches everything). */
 export function matchFields(sourceText: Record<MatchSource, string>, query: string): MatchSource[] | null {
   const words = tokenize(query);
   if (!words.length) return [];
-  const f = (Object.keys(sourceText) as MatchSource[]).map((k) => [k, sourceText[k].toLowerCase()] as const);
+  const f = (Object.keys(sourceText) as MatchSource[]).map((k) => [k, fold(sourceText[k])] as const);
   const hit = new Set<MatchSource>();
   for (const w of words) {
     const where = f.filter(([, v]) => v.includes(w)).map(([k]) => k);

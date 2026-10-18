@@ -16,7 +16,7 @@ dump uses hosted AI inference APIs and self-hosted pretrained models. It does no
 | --- | --- | --- |
 | [lib/ai-perceptron.ts](lib/ai-perceptron.ts) | Perceptron Mk1.5, `POST /v1/chat/completions` with image and text messages | Captions, tags, objects, face boxes, and OCR; called by `lib/pipeline.ts` and `lib/photoSearch.ts` |
 | [lib/ai-backboard.ts](lib/ai-backboard.ts) | Backboard language model API, `POST /threads/messages` and tool outputs | Natural-language gallery questions and iMessage replies, with bounded tool calling; called by `lib/ask.ts` and `lib/texts.ts` |
-| [lib/ai-face-embed.ts](lib/ai-face-embed.ts) | Self-hosted InsightFace `buffalo_l` detection and ArcFace embeddings, `POST /embed` | Selfie enrollment, people grouping, and photo search; inference implementation in `services/face-embed/app.py` |
+| [lib/ai-face-embed.ts](lib/ai-face-embed.ts) | Self-hosted InsightFace `buffalo_l` detection and ArcFace embeddings, `POST /embed` | Selfie enrollment, people grouping, photo search, and faces found in video frames; inference implementation in `services/face-embed/app.py` |
 | [lib/ai-transcribe.ts](lib/ai-transcribe.ts) | Self-hosted faster-whisper via Speaches, `POST /audio/transcriptions` | Video speech transcription and guest-name mentions; called by `lib/pipeline.ts` |
 | [lib/cutout.ts](lib/cutout.ts) | Local BiRefNet ONNX inference using `onnxruntime-node` | Background removal for stickers; called by `lib/pipeline.ts` |
 

@@ -74,7 +74,7 @@ export async function matchSelfie(
  * sign-in lives on this dumpster only and burns with it. After this, the name alone gets
  * you back in from any browser (see signInByName).
  * The selfie is embedded in memory and discarded — only the vector is kept. It finds your
- * face in the gallery and names it, and powers "new photos of you" texts. If face matching
+ * face in the gallery and names it, and powers "new shots of you" texts. If face matching
  * is down, you still get in; your face gets matched next time you update your selfie.
  * The phone number is optional and connects separately, verified by iMessage.
  */

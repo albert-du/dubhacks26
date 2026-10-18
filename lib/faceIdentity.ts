@@ -1,5 +1,5 @@
 import { config } from "./config";
-import { mergeGroups, withExemplar } from "./faces";
+import { bestCover, mergeGroups, withExemplar } from "./faces";
 import { HttpError } from "./http";
 import { cols } from "./mongo";
 import type { Cluster } from "./types";
@@ -63,6 +63,7 @@ export async function mergeClusters(dumpsterId: string, members: Cluster[]): Pro
   let exemplars = keep.exemplars ?? [];
   for (const c of rest) for (const e of [c.centroid, ...(c.exemplars ?? [])]) exemplars = withExemplar(exemplars, e);
   const restIds = rest.map((c) => c._id);
+  const cover = bestCover([keep.cover, ...rest.map((c) => c.cover)]);
 
   const update: Partial<Cluster> = {
     centroid: sum.map((x) => x / norm),
@@ -71,7 +72,7 @@ export async function mergeClusters(dumpsterId: string, members: Cluster[]): Pro
     updatedAt: new Date(),
     ...(keep.name ? {} : rest.find((c) => c.name) ? { name: rest.find((c) => c.name)!.name } : {}),
     ...(keep.guestId ? {} : rest.find((c) => c.guestId) ? { guestId: rest.find((c) => c.guestId)!.guestId } : {}),
-    ...(keep.cover ? {} : rest.find((c) => c.cover) ? { cover: rest.find((c) => c.cover)!.cover } : {}),
+    ...(cover ? { cover } : {}),
   };
   // Hidden only if every part was: a real person never disappears by merging with a stranger.
   const hidden = members.every((c) => c.hidden);

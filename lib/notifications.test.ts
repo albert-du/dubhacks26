@@ -221,7 +221,7 @@ test("notifications: verify, retry, edit, isolate, and disconnect real guest rec
       ["space-b", "agent-b", "message-b"],
     ]);
     for (const alert of photoAlerts) {
-      assert.match(alert.text, /2 new photos of you/);
+      assert.match(alert.text, /2 new shots of you/);
       assert.match(alert.text, /\/demo\?me=1/);
     }
     assert.equal((await collection.guests.findOne({ _id: a._id }))?.pendingPhotoAlerts, 0);

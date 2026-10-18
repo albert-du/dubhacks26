@@ -42,7 +42,7 @@ EXPOSE 3000
 CMD ["node", "node_modules/next/dist/bin/next", "start", "--hostname", "0.0.0.0"]
 
 FROM runtime AS worker
-# Speech search needs a wav of the clip. Speaches rejects a lot of phone video containers.
+# Speech search and face frames need ffmpeg. Speaches rejects a lot of phone video containers.
 USER root
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ffmpeg \

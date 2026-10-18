@@ -96,7 +96,8 @@ docker compose --env-file deploy/.env -f deploy/compose.yml logs -f whisper
 ```
 
 To verify transcription, upload a short video with speech to a room that allows
-video, then check the worker logs and the resulting transcript. The Whisper image
+video, then check the worker logs and the resulting transcript. The worker also
+samples frames from the clip and groups any faces it finds. The Whisper image
 currently tracks `latest-cpu`; pin a tested image digest before repeatable releases.
 
 To deploy updates, pull your code and run the same `up -d --build` command.

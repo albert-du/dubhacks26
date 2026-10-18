@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { config } from "./config";
 import { findDuplicate, pixelHash } from "./dedupe";
-import { bestIdentity, cosine, updateCentroid, withExemplar } from "./faces";
+import { bestIdentity, cosine, nextCover, updateCentroid, withExemplar } from "./faces";
 import { mergeDumpsterFaces } from "./faceIdentity";
 import { faceEmbed } from "./ai-face-embed";
 import { cols } from "./mongo";
@@ -11,6 +11,7 @@ import { PREVIEW_EDGES, previewKey } from "./preview";
 import { storage } from "./storage";
 import { findMentions, readyVideoFields, transcriber } from "./ai-transcribe";
 import { extractSpeechWav } from "./audio";
+import { extractVideoFrames, uniqueVideoFaces } from "./videoFrames";
 import { queueGuestAlert } from "./alerts";
 import type { Cluster, Dumpster, FaceHit, Media, TextHit } from "./types";
 
@@ -18,7 +19,8 @@ import type { Cluster, Dumpster, FaceHit, Media, TextHit } from "./types";
  * Media pipeline, run by the Vultr worker (worker/index.ts):
  *   original → normalize (orient, resize, strip EXIF) → pixel hash + duplicate check
  *   → Perceptron (objects, people, text) + face-embed in parallel → cluster faces → public WebP → notify.
- * Analysis is enrichment only: if vision or transcription is down, the shot still publishes.
+ * Videos sample frames for the same face grouping, and transcribe speech so search can find it.
+ * Analysis is enrichment only: if vision, face matching, or transcription is down, the shot still publishes.
  */
 
 const STALE_CLAIM_MS = 5 * 60_000;
@@ -159,7 +161,12 @@ async function detectDuplicate(m: Media, phash?: string) {
 }
 
 /** Online clustering: each face joins the nearest cluster above threshold, or starts a new one. */
-async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
+async function assignClusters(
+  d: Dumpster,
+  mediaId: string,
+  faces: FaceHit[],
+  stills?: Map<FaceHit, { key: string; width: number; height: number }>,
+) {
   const pending = faces.filter((f) => f.embedding && !f.clusterId);
   if (!pending.length) return;
   const { clusters, guests } = await cols();
@@ -170,11 +177,17 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
   for (const f of pending) {
     const emb = f.embedding!;
     const i = bestIdentity(list, emb, config.faceMatchThreshold);
+    const still = stills?.get(f);
+    const incoming = {
+      mediaId,
+      box: f.box,
+      ...(still ? { stillKey: still.key, width: still.width, height: still.height } : {}),
+    };
     if (i >= 0) {
       const c = list[i];
       c.centroid = updateCentroid(c.centroid, c.n, emb);
       c.exemplars = withExemplar(c.exemplars, emb);
-      const cover = c.cover ?? { mediaId, box: f.box };
+      const cover = nextCover(c.cover, incoming);
       await clusters.updateOne(
         { _id: c._id },
         { $set: { centroid: c.centroid, exemplars: c.exemplars, cover, updatedAt: new Date() }, $inc: { n: 1 } },
@@ -192,7 +205,7 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
       centroid: emb,
       exemplars: [emb],
       n: 1,
-      cover: { mediaId, box: f.box },
+      cover: nextCover(undefined, incoming),
       expiresAt: d.expiresAt,
       updatedAt: new Date(),
       ...(guest ? { guestId: guest._id, ...(guest.name ? { name: guest.name } : {}) } : {}),
@@ -215,33 +228,109 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
   for (const f of faces) if (f.clusterId && hidden.has(f.clusterId)) f.hidden = true;
 }
 
+/** Speech as a wav first. If that comes back empty, try the original container. */
+async function transcribeClip(buf: Buffer, m: Media): Promise<string | undefined> {
+  if (!transcriber.enabled()) return undefined;
+  const ext = m.originalKey.split(".").pop() ?? "mp4";
+  let audio = buf;
+  let name = `${m._id}.${ext}`;
+  let mime = m.mime;
+  let extracted = false;
+  try {
+    audio = await extractSpeechWav(buf);
+    name = `${m._id}.wav`;
+    mime = "audio/wav";
+    extracted = true;
+  } catch (e) {
+    console.warn("[transcribe] extract", (e as Error).message);
+  }
+  try {
+    const text = await transcriber.transcribe(audio, name, mime);
+    if (text) return text;
+  } catch (e) {
+    console.warn("[transcribe]", (e as Error).message);
+  }
+  if (!extracted) return undefined;
+  try {
+    const text = await transcriber.transcribe(buf, `${m._id}.${ext}`, m.mime);
+    return text || undefined;
+  } catch (e) {
+    console.warn("[transcribe] original", (e as Error).message);
+    return undefined;
+  }
+}
+
+/**
+ * Faces in a clip, one per person. Each kept face remembers the frame it was
+ * measured on so the gallery can crop a still instead of the video file.
+ * Frames that are not used as a still are discarded.
+ */
+async function facesInVideo(buf: Buffer, d: Dumpster, mediaId: string) {
+  if (!faceEmbed.enabled()) return null;
+  const frames = await extractVideoFrames(buf);
+  if (!frames.length) return null;
+  const detected: { faces: { box: FaceHit["box"]; embedding: number[]; score: number }[] }[] = [];
+  for (const frame of frames) {
+    try {
+      detected.push({ faces: await faceEmbed.detect(frame.jpeg) });
+    } catch (e) {
+      console.warn("[face-embed]", (e as Error).message);
+      detected.push({ faces: [] });
+    }
+  }
+  const unique = uniqueVideoFaces(detected, config.faceMatchThreshold);
+  const stills = new Map<FaceHit, { key: string; width: number; height: number }>();
+  const saved = new Map<number, { key: string; width: number; height: number }>();
+  const faces: FaceHit[] = [];
+  for (const face of unique) {
+    const frame = frames[face.frame];
+    let still = saved.get(face.frame);
+    if (!still) {
+      try {
+        const key = `${d._id}/public/${mediaId}.f${face.frame}.webp`;
+        await storage.put(key, await renderPublic(frame.jpeg), "image/webp");
+        still = { key, width: frame.width, height: frame.height };
+        saved.set(face.frame, still);
+      } catch (e) {
+        console.warn("[video faces] still", (e as Error).message);
+      }
+    }
+    const hit: FaceHit = { box: face.box, embedding: face.embedding };
+    if (still) stills.set(hit, still);
+    faces.push(hit);
+  }
+  return { faces, stills, width: frames[0].width, height: frames[0].height };
+}
+
 async function processVideo(m: Media, d: Dumpster) {
   const { media, clusters } = await cols();
   const buf = await storage.get(m.originalKey);
   const ext = m.originalKey.split(".").pop() ?? "mp4";
   const duplicateOf = await detectDuplicate(m);
 
-  let transcript: string | undefined;
-  let mentions: string[] = [];
-  if (transcriber.enabled()) {
-    // Prefer a wav of the speech track. Phone movies often fail Speaches' decoder,
-    // and then search has no words to find. The original file is the fallback.
-    let audio = buf;
-    let name = `${m._id}.${ext}`;
-    let mime = m.mime;
-    try {
-      audio = await extractSpeechWav(buf);
-      name = `${m._id}.wav`;
-      mime = "audio/wav";
-    } catch (e) {
-      console.warn("[transcribe] extract", (e as Error).message);
-    }
-    try {
-      transcript = await transcriber.transcribe(audio, name, mime);
-    } catch (e) {
-      console.warn("[transcribe]", (e as Error).message);
-    }
+  // Faces and speech are independent. Either one failing still publishes the clip.
+  const [transcript, seen] = await Promise.all([
+    transcribeClip(buf, m),
+    facesInVideo(buf, d, m._id).catch((e) => {
+      console.warn("[video faces]", (e as Error).message);
+      return null;
+    }),
+  ]);
+
+  const faces: FaceHit[] = seen?.faces ?? [];
+  if (faces.length) await assignClusters(d, m._id, faces, seen?.stills);
+
+  // Someone who shows up in the clip gets the same "shots of you" text as a photo.
+  const clusterIds = [...new Set(faces.map((f) => f.clusterId).filter(Boolean))] as string[];
+  if (clusterIds.length) {
+    const claimed = await clusters
+      .find({ _id: { $in: clusterIds }, guestId: { $exists: true } }, { projection: { guestId: 1 } })
+      .toArray();
+    const guestIds = [...new Set(claimed.map((c) => c.guestId!))];
+    await queueGuestAlert(guestIds, "photo");
   }
+
+  let mentions: string[] = [];
   if (transcript) {
     // Names live on faces. A mention texts whoever signed up and owns that face.
     const named = await clusters.find({ dumpsterId: d._id, name: { $exists: true } }, { projection: { name: 1, guestId: 1 } }).toArray();
@@ -257,8 +346,18 @@ async function processVideo(m: Media, d: Dumpster) {
   await storage.put(publicKey, buf, m.mime);
   await media.updateOne(
     { _id: m._id },
-    { $set: readyVideoFields({ publicKey, mentions, updatedAt: new Date() }, transcript, duplicateOf) },
+    {
+      $set: {
+        ...readyVideoFields({ publicKey, mentions, updatedAt: new Date() }, transcript, duplicateOf),
+        faces,
+        ...(seen ? { width: seen.width, height: seen.height } : {}),
+      },
+    },
   );
+  // The gallery cover is this clip's still. Resend clusters once the shot is ready,
+  // or the face row can stick on the update from before the file existed.
+  const touched = [...new Set(faces.map((f) => f.clusterId).filter((id): id is string => !!id))];
+  if (touched.length) await clusters.updateMany({ _id: { $in: touched } }, { $set: { updatedAt: new Date() } });
 }
 
 /** Cuts one queued sticker out of the public image and stores a transparent PNG. */

@@ -70,7 +70,7 @@ Dump photos, and videos when this dumpster allows them. If the signal dies, the 
 
 ### dump
 
-The pile. Faces sit across the top, named people first.
+The pile. Faces from the photos and videos sit across the top, named people first.
 
 - Tap a person to see their shots.
 - Tap **+ name** under a face to name it. Anyone can, and anyone can fix it. If someone here already has that name, dump shows both faces and asks whether they are the same person. Same moves that face into theirs. Different asks for another name. Only that face moves. A wrong credit does not take away the other person’s sign-in.
@@ -108,7 +108,7 @@ Who you signed in as, and how many shots you are in.
 
 - Change your name or take a new selfie here. Your name goes on your face in the dump. If the new name is already someone’s, dump asks whether you are the same person and merges you if so. The new selfie is not kept.
 - Texts are optional. Add your number on the last step of the first sign-in, or later here. Enter your registered demo number, then send the connection message to your assigned number. That message stays the same every time you reconnect. It expires after ten minutes and only works from the number you entered.
-- Once you are connected, dump waits two minutes, then texts you once. That text counts the new photos of you, and it includes a video that says the name on your face.
+- Once you are connected, dump waits two minutes, then texts you once. That text counts the new shots of you. It includes a video you appear in, or one that says the name on your face.
 - About two hours before the dumpster burns, everyone connected gets one warning, with the link, so they can save what they want.
 - Change your number or disconnect in Me.
 - **Sign out** forgets you on this phone only. Type your name to get back in.
@@ -166,7 +166,7 @@ flowchart TB
 | Website | Next.js 15, React 19, Tailwind CSS 4, installable as a PWA | The phone app, the stage, and the iMessage webhook |
 | Worker | Same server | Sorts uploads, sends texts, and burns expired dumpsters |
 | Perceptron Mk1.5 | Hosted | Objects, people, writing, a caption, tags, a venue name, and boxes on each photo |
-| Face matching | Private, on the server | Groups faces and matches a selfie. The vectors stay on the server. |
+| Face matching | Private, on the server | Groups faces in photos and videos, and matches a selfie. The vectors stay on the server. |
 | Speech | Private faster-whisper, on the server | Makes words in a video searchable, and notices when a video says your name |
 | Stickers | On the server, BiRefNet | Cuts a person or object out of a shot |
 | Backboard | Hosted | Ask, and texts that are not a fixed command. One assistant per dumpster, deleted when it burns. A loose text uses a throwaway assistant that is deleted before the reply goes out. |
@@ -199,7 +199,7 @@ docker compose up -d face-embed
 
 You can click through the app with no API keys.
 
-- Photos still publish. Captions, writing, and object tags show up once Perceptron is set. Faces group once face-embed is running.
+- Photos still publish. Captions, writing, and object tags show up once Perceptron is set. Faces in photos and videos group once face-embed is running.
 - Texts print in the worker console. A text that is not the create command gets the command list.
 - Search stays a word filter. The Ask button stays hidden.
 - Drops per minute come from MongoDB.

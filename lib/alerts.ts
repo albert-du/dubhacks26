@@ -30,7 +30,7 @@ export async function queueGuestAlert(guestIds: string[], kind: "photo" | "menti
   ]);
 }
 
-/** Sends one "N new photos of you" / "you were mentioned" text after the batch window. */
+/** Sends one "N new shots of you" / "you were mentioned" text after the batch window. */
 export async function flushFaceAlerts() {
   const { guests, dumpsters } = await cols();
   const now = Date.now();
@@ -54,7 +54,7 @@ export async function flushFaceAlerts() {
     const mm = g.pendingMentionAlerts;
     const url = `${dumpsterUrl(d._id)}?me=1`;
     const lines: string[] = [];
-    if (p > 0) lines.push(`📸 ${p} new photo${p === 1 ? "" : "s"} of you just dropped into the Dumpster "${d.name}"!`);
+    if (p > 0) lines.push(`📸 ${p} new shot${p === 1 ? "" : "s"} of you just dropped into the Dumpster "${d.name}"!`);
     if (mm > 0) lines.push(`🎙️ Your name was mentioned in ${mm === 1 ? "a new video" : `${mm} new videos`}.`);
     lines.push(url);
     try {
