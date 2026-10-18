@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { classifyUpload } from "../uploadKind";
-import { prepareFile, uploadQueue, type QueuedUpload } from "./uploadQueue";
+import { blobToSend, prepareFile, uploadQueue, type QueuedUpload } from "./uploadQueue";
 
 export type UploadState = "queued" | "uploading" | "waiting" | "processing" | "failed";
 
@@ -24,26 +24,53 @@ function send(
   onProgress: (p: number) => void,
 ): Promise<{ ok: boolean; status: number; error?: string; id?: string }> {
   return new Promise((resolve) => {
-    const form = new FormData();
-    // IndexedDB can hand the blob back with an empty type. Keep the type we stored with it.
-    const blob = u.blob.type || !u.type ? u.blob : new Blob([u.blob], { type: u.type });
-    form.append("file", blob, u.name);
-    if (u.lat !== undefined) form.append("lat", String(u.lat));
-    if (u.lng !== undefined) form.append("lng", String(u.lng));
-    if (u.takenAt !== undefined) form.append("takenAt", String(u.takenAt));
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `/api/dumpsters/${u.dumpsterId}/media`);
-    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
-    xhr.onload = () => {
-      let body: { error?: string; id?: string } = {};
+    void (async () => {
+      const form = new FormData();
+      let blob: Blob;
       try {
-        body = JSON.parse(xhr.responseText);
-      } catch {}
-      resolve({ ok: xhr.status < 300, status: xhr.status, error: body.error, id: body.id });
-    };
-    xhr.onerror = () => resolve({ ok: false, status: 0 });
-    xhr.send(form);
+        blob = await blobToSend(u.blob, u.type);
+      } catch (err) {
+        resolve({ ok: false, status: 400, error: err instanceof Error ? err.message : "Couldn't read that clip on this phone. Drop it again." });
+        return;
+      }
+      form.append("file", blob, u.name);
+      if (u.lat !== undefined) form.append("lat", String(u.lat));
+      if (u.lng !== undefined) form.append("lng", String(u.lng));
+      if (u.takenAt !== undefined) form.append("takenAt", String(u.takenAt));
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `/api/dumpsters/${u.dumpsterId}/media`);
+      xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+      xhr.onload = () => {
+        let body: { error?: string; id?: string } = {};
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {}
+        resolve({ ok: xhr.status < 300, status: xhr.status, error: body.error, id: body.id });
+      };
+      xhr.onerror = () => resolve({ ok: false, status: 0 });
+      try {
+        xhr.send(form);
+      } catch (err) {
+        resolve({ ok: false, status: 400, error: err instanceof Error ? err.message : "Couldn't read that clip on this phone. Drop it again." });
+      }
+    })();
   });
+}
+
+/** Clear the picker after its bytes are copied, so the same clip can be chosen again.
+ * Doing it sooner lets iOS revoke the disk file mid-read. */
+function releasePicker(files: readonly File[]) {
+  if (typeof document === "undefined") return;
+  const wanted = new Set<File>(files);
+  for (const input of document.querySelectorAll("input[type=file]")) {
+    const list = (input as HTMLInputElement).files;
+    if (!list) continue;
+    for (const picked of list) {
+      if (!wanted.has(picked)) continue;
+      (input as HTMLInputElement).value = "";
+      break;
+    }
+  }
 }
 
 export function useUploader(dumpsterId: string) {
@@ -105,17 +132,23 @@ export function useUploader(dumpsterId: string) {
 
   const add = useCallback(
     async (files: FileList | File[]) => {
-      for (const file of Array.from(files)) {
+      const list = Array.from(files);
+      for (const file of list) {
         const id = crypto.randomUUID();
         const kind = classifyUpload(file.type, file.name)?.kind ?? "image";
         const preview = kind === "image" ? URL.createObjectURL(file) : undefined;
         setItems((l) => [...l, { id, name: file.name, size: file.size, kind, progress: 0, state: "queued", preview }]);
-        const prepared = await prepareFile(file);
-        await uploadQueue.add({ ...prepared, id, dumpsterId, addedAt: Date.now() });
+        try {
+          const prepared = await prepareFile(file);
+          await uploadQueue.add({ ...prepared, id, dumpsterId, addedAt: Date.now() });
+        } catch (err) {
+          patch(id, { state: "failed", error: err instanceof Error ? err.message : "Couldn't read that clip on this phone. Drop it again." });
+        }
       }
+      releasePicker(list);
       pump();
     },
-    [dumpsterId, pump],
+    [dumpsterId, patch, pump],
   );
 
   /** Called with ids that just went live in the dump; clears the matching rows. */
