@@ -1,5 +1,6 @@
 import { backboard } from "./ai-backboard";
 import { cols } from "./mongo";
+import { namedFirst } from "./peopleOrder";
 import { emptyReactions, type ReactionKey } from "./reactions";
 import { notificationStatus } from "./notifications";
 import type {
@@ -84,7 +85,7 @@ export function publicSticker(s: Sticker): PublicSticker {
   };
 }
 
-/** Face gallery: every person detected in the dumpster, largest groups first. Names are added on the face itself. */
+/** Face gallery: every person detected in the dumpster. Named people come first, then the largest groups. Names are added on the face itself. */
 export async function publicClusters(d: Dumpster, { hidden = false } = {}): Promise<PublicCluster[]> {
   const { clusters, media } = await cols();
   const list = await clusters
@@ -101,7 +102,7 @@ export async function publicClusters(d: Dumpster, { hidden = false } = {}): Prom
         .toArray()
     ).map((m) => [m._id, m]),
   );
-  return list
+  const shown = list
     .map((c: Omit<Cluster, "centroid">) => {
       const m = c.cover ? covers.get(c.cover.mediaId) : undefined;
       return {
@@ -115,8 +116,8 @@ export async function publicClusters(d: Dumpster, { hidden = false } = {}): Prom
             : undefined,
       };
     })
-    .filter((c) => c.count > 0 || c.name)
-    .sort((a, b) => b.count - a.count);
+    .filter((c) => c.count > 0 || c.name);
+  return namedFirst(shown);
 }
 
 export async function dumpsterState(d: Dumpster, viewer: string): Promise<DumpsterState> {
