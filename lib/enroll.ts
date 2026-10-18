@@ -2,7 +2,7 @@ import { MongoServerError } from "mongodb";
 import { nanoid } from "nanoid";
 import { config } from "./config";
 import { cosine, identityScore } from "./faces";
-import { faceEmbed } from "./faceEmbed";
+import { faceEmbed } from "./ai-face-embed";
 import { HttpError } from "./http";
 import { cols } from "./mongo";
 import { normalizeImage } from "./imaging";

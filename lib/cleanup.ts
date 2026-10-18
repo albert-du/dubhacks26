@@ -1,4 +1,4 @@
-import { backboard } from "./backboard";
+import { backboard } from "./ai-backboard";
 import { cols } from "./mongo";
 import { storage } from "./storage";
 import { tiger } from "./tiger";

@@ -3,11 +3,11 @@ import { test } from "node:test";
 import sharp from "sharp";
 import { parseCommand } from "./commands";
 import { bestIdentity, cosine, identityScore, mergeGroups, nearest, updateCentroid, withExemplar } from "./faces";
-import { parseVision, visionContent } from "./perceptron";
+import { parseVision, visionContent } from "./ai-perceptron";
 import { emptyReactions, fireRank } from "./reactions";
 import { isDumpsterId, DUMPSTER_ID_ALPHABET, DUMPSTER_ID_LENGTH } from "./dumpsters";
 import { normalizeImage } from "./imaging";
-import { findMentions } from "./transcribe";
+import { findMentions } from "./ai-transcribe";
 import { crc32, zipStream } from "./zip";
 
 test("photon: parses create commands with smart quotes and TTL", () => {

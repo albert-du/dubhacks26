@@ -3,12 +3,12 @@ import { config } from "./config";
 import { findDuplicate, pixelHash } from "./dedupe";
 import { bestIdentity, cosine, updateCentroid, withExemplar } from "./faces";
 import { mergeDumpsterFaces } from "./faceIdentity";
-import { faceEmbed } from "./faceEmbed";
+import { faceEmbed } from "./ai-face-embed";
 import { cols } from "./mongo";
-import { perceptron, type VisionResult } from "./perceptron";
+import { perceptron, type VisionResult } from "./ai-perceptron";
 import { composeSticker, cropSticker, normalizeImage, renderPublic } from "./imaging";
 import { storage } from "./storage";
-import { findMentions, transcriber } from "./transcribe";
+import { findMentions, transcriber } from "./ai-transcribe";
 import type { Cluster, Dumpster, FaceHit, Media, TextHit } from "./types";
 
 /*

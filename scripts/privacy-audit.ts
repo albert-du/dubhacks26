@@ -85,7 +85,7 @@ for (const c of Object.keys(EPHEMERAL_COLLECTIONS)) {
 }
 if (!cleanup.includes("storage.deletePrefix")) fail("R8", "purgeDumpster must delete the storage prefix");
 if (!cleanup.includes("forgetDumpster(")) fail("R8", "purgeDumpster must delete the Backboard assistant");
-const backboardSrc = files.find((f) => f.p === "lib/backboard.ts")?.src ?? "";
+const backboardSrc = files.find((f) => f.p === "lib/ai-backboard.ts")?.src ?? "";
 if (!backboardSrc.includes("/memories") || !backboardSrc.includes("/assistants/")) {
   fail("R8", "Backboard forget must delete memories and the assistant");
 }

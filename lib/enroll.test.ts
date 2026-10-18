@@ -3,7 +3,7 @@ import { test } from "node:test";
 import sharp from "sharp";
 import { config } from "./config";
 import { claimFaces, enrollGuest, forgetGuest, matchSelfie, nameKey, renameGuest, signInByName, signOutGuest } from "./enroll";
-import { faceEmbed } from "./faceEmbed";
+import { faceEmbed } from "./ai-face-embed";
 import { HttpError } from "./http";
 import { closeMongo, cols, db } from "./mongo";
 import { dumpsterState } from "./serialize";
