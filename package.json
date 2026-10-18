@@ -2,7 +2,7 @@
   "name": "dump",
   "version": "0.1.0",
   "private": true,
-  "description": "Dump (dumpster.photo) — ephemeral, zero-login photo & video sharing for group events.",
+  "description": "dump (dumpster.photo) — ephemeral, zero-login photo & video sharing for group events.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

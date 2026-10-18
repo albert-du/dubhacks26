@@ -30,7 +30,7 @@ export function Me(props: {
     const r = await fetch(url, init).catch(() => null);
     const body = await r?.json().catch(() => ({}));
     setBusy(false);
-    if (!r?.ok) return setMsg({ tone: "err", text: body?.error ?? "Couldn’t reach Dump. Check your signal and try again." });
+    if (!r?.ok) return setMsg({ tone: "err", text: body?.error ?? "Couldn’t reach dump. Check your signal and try again." });
     setEditing(null);
     setSelfie(null);
     setMsg({ tone: "ok", text: ok });
@@ -55,7 +55,7 @@ export function Me(props: {
       }
       return call({ method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: name.trim(), group: true }) }, "Name updated.");
     }
-    if (!first?.ok) return setMsg({ tone: "err", text: first?.body?.error ?? "Couldn’t reach Dump. Check your signal and try again." });
+    if (!first?.ok) return setMsg({ tone: "err", text: first?.body?.error ?? "Couldn’t reach dump. Check your signal and try again." });
     setEditing(null);
     setMsg({ tone: "ok", text: "Name updated." });
     await props.onChanged();

@@ -78,17 +78,19 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ key }),
-      });
-      if (r.ok) {
+      }).catch(() => null);
+      if (r?.ok) {
         const { on, reactions } = await r.json();
         patch((m) => ({
           ...m,
           reactions,
           myReactions: on ? [...new Set([...m.myReactions, key])] : m.myReactions.filter((k) => k !== key),
         }));
+      } else {
+        await refresh();
       }
     },
-    [id],
+    [id, refresh],
   );
 
   const remove = useCallback(
@@ -123,7 +125,7 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
         if (r?.ok) continue;
         const body = await r?.json().catch(() => null);
         await refresh();
-        if (!r) return { error: "Couldn’t reach Dump. Check your signal and try again." };
+        if (!r) return { error: "Couldn’t reach dump. Check your signal and try again." };
         return { error: body?.error ?? "Couldn’t save that name.", sameName: body?.sameName };
       }
       if (group) await refresh();
@@ -136,7 +138,7 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
   const hideFace = useCallback(
     async (faceId: string): Promise<string | null> => {
       const r = await fetch(`/api/dumpsters/${id}/faces/${faceId}`, { method: "DELETE" }).catch(() => null);
-      const error = r?.ok ? null : ((await r?.json().catch(() => null))?.error ?? "Couldn’t reach Dump. Check your signal and try again.");
+      const error = r?.ok ? null : ((await r?.json().catch(() => null))?.error ?? "Couldn’t reach dump. Check your signal and try again.");
       await refresh();
       return error;
     },
@@ -151,7 +153,7 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ hidden: false }),
       }).catch(() => null);
-      const error = r?.ok ? null : ((await r?.json().catch(() => null))?.error ?? "Couldn’t reach Dump. Check your signal and try again.");
+      const error = r?.ok ? null : ((await r?.json().catch(() => null))?.error ?? "Couldn’t reach dump. Check your signal and try again.");
       await refresh();
       return error;
     },
@@ -172,7 +174,7 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
   const claimFace = useCallback(
     async (faceId: string): Promise<string | null> => {
       const r = await fetch(`/api/dumpsters/${id}/faces/${faceId}/claim`, { method: "POST" }).catch(() => null);
-      const error = r?.ok ? null : ((await r?.json().catch(() => null))?.error ?? "Couldn’t reach Dump. Check your signal and try again.");
+      const error = r?.ok ? null : ((await r?.json().catch(() => null))?.error ?? "Couldn’t reach dump. Check your signal and try again.");
       await refresh();
       return error;
     },

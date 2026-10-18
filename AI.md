@@ -10,7 +10,7 @@ Direct self-harm requests and requests to extract hidden instructions or credent
 
 ## Providers
 
-Dump uses hosted AI inference APIs and self-hosted pretrained models. It does not train a model or ship a training dataset. The Perceptron vision adapter uses the official `openai` JavaScript SDK with `baseURL` set to the Perceptron API. It calls `client.chat.completions.create()` with the configured Perceptron model, image input, and vision prompt. Other provider adapters use native `fetch`. The SDK does not change the inference provider or require an OpenAI API key.
+dump uses hosted AI inference APIs and self-hosted pretrained models. It does not train a model or ship a training dataset. The Perceptron vision adapter uses the official `openai` JavaScript SDK with `baseURL` set to the Perceptron API. It calls `client.chat.completions.create()` with the configured Perceptron model, image input, and vision prompt. Other provider adapters use native `fetch`. The SDK does not change the inference provider or require an OpenAI API key.
 
 | Implementation (actual inference calls) | Model/service | Product use and entry points |
 | --- | --- | --- |

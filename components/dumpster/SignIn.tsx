@@ -45,7 +45,7 @@ export function SignIn({ dumpster, me, clusters, onSignedIn, onEnrolled, onDone 
     const body = await r?.json().catch(() => ({}));
     setBusy(false);
     if (!r?.ok) {
-      setError(body?.error ?? "Couldn’t reach Dump. Check your signal and try again.");
+      setError(body?.error ?? "Couldn’t reach dump. Check your signal and try again.");
       return null;
     }
     return body;

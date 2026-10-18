@@ -12,7 +12,7 @@ export function MarkBlock({ className = "", divider = true }: { className?: stri
   return (
     <Link
       href="/"
-      aria-label="Dump home"
+      aria-label="dump home"
       className={`grid shrink-0 place-items-center bg-transparent px-3 ${divider ? "border-r-3 border-ink" : ""} ${className}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -25,7 +25,7 @@ export function MarkBlock({ className = "", divider = true }: { className?: stri
 export function Logo({ tone = "ink", className = "" }: { tone?: "ink" | "green"; className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={`/brand/logo-${tone}.webp`} alt="Dump" width={293} height={600} className={`${LOCK} ${className}`} />
+    <img src={`/brand/logo-${tone}.webp`} alt="dump" width={293} height={600} className={`${LOCK} ${className}`} />
   );
 }
 

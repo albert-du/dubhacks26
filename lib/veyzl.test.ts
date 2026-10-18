@@ -13,7 +13,7 @@ test("veyzl: an empty diff passes", () => {
   assert.equal(reviewFailed(findings), false);
 });
 
-test("veyzl: allows the hosts Dump already calls", () => {
+test("veyzl: allows the hosts dump already calls", () => {
   const diff = added("lib/config.ts", [
     'const photon = "https://api.photon.codes/v1";',
     'const perceptron = "https://api.perceptron.inc/v1";',
