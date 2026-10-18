@@ -9,13 +9,12 @@ import { fireRank } from "@/lib/reactions";
 import type { DumpsterState } from "@/lib/types";
 
 interface Stats {
-  velocity: { t: string; n: number }[];
   photos: number;
   people: number;
   faces: number;
 }
 
-/** Projector / TV view: live mosaic, giant QR, upload velocity, countdown. */
+/** Projector / TV view: live mosaic, giant QR, counts, countdown. */
 export function Stage({ initial }: { initial: DumpsterState }) {
   const { state, destroyed } = useDumpster(initial);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -36,9 +35,6 @@ export function Stage({ initial }: { initial: DumpsterState }) {
 
   const latest = state.media.filter((m) => m.kind === "image").slice(0, 11);
   const fire = fireRank(state.media.filter((m) => m.kind === "image"))[0];
-  const bars = buildBars(stats?.velocity ?? []);
-  const peak = Math.max(1, ...bars);
-  const perMin = bars.slice(-5).reduce((s, n) => s + n, 0) / 5;
 
   return (
     <div className="grid min-h-dvh bg-ink text-paper lg:grid-cols-[1fr_400px]">
@@ -93,18 +89,6 @@ export function Stage({ initial }: { initial: DumpsterState }) {
           ))}
         </dl>
 
-        <div>
-          <div className="mb-2 flex items-baseline justify-between">
-            <span className="label">Drops per minute</span>
-            <span className="display text-2xl tabular-nums">{perMin.toFixed(1)}</span>
-          </div>
-          <div className="flex h-20 items-end gap-[3px] border-b-3 border-paper" role="img" aria-label="Upload velocity">
-            {bars.map((n, i) => (
-              <div key={i} className={`flex-1 ${i === bars.length - 1 ? "bg-green" : "bg-paper"}`} style={{ height: `${(n / peak) * 100}%` }} />
-            ))}
-          </div>
-        </div>
-
         {fire && (
           <div className="grid grid-cols-[96px_1fr] border-3 border-fire">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -128,11 +112,4 @@ export function Stage({ initial }: { initial: DumpsterState }) {
       </aside>
     </div>
   );
-}
-
-/** 15 one-minute buckets ending now, zero-filled. */
-function buildBars(velocity: { t: string; n: number }[]) {
-  const now = Math.floor(Date.now() / 60_000);
-  const byMin = new Map(velocity.map((v) => [Math.floor(Date.parse(v.t) / 60_000), v.n]));
-  return Array.from({ length: 15 }, (_, i) => byMin.get(now - 14 + i) ?? 0);
 }

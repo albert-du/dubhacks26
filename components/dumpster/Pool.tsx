@@ -152,8 +152,8 @@ export function Pool(props: {
       >
         <span className="label grid place-items-center border-r border-ink px-3">Find</span>
         <input
-          className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base outline-none placeholder:text-smoke"
-          placeholder={props.canAsk ? "a dog, or ask about the blurry toast" : "a dog, a sign, something someone said"}
+          className="min-w-0 flex-1 truncate bg-transparent px-3 py-3 text-base outline-none placeholder:text-smoke"
+          placeholder={props.canAsk ? "dog, sign, or ask…" : "dog, sign, quote…"}
           value={q}
           onChange={(e) => {
             props.setQ(e.target.value);

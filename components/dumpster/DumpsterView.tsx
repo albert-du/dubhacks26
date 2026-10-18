@@ -94,18 +94,10 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           <h1 className="display min-w-0 flex-1 self-center truncate px-3 text-[22px] leading-none">{state.dumpster.name}</h1>
           <button
             onClick={copyLink}
-            className={`display w-[92px] shrink-0 border-l-3 border-ink text-[13px] leading-tight ${copied ? "bg-ink text-paper" : "bg-green"}`}
+            className={`label mr-2 shrink-0 self-center border-2 border-ink px-2 py-1.5 !text-[10px] ${copied ? "bg-ink text-paper" : "bg-green"}`}
             aria-live="polite"
           >
-            {copied ? (
-              "Copied!"
-            ) : (
-              <>
-                Copy
-                <br />
-                link
-              </>
-            )}
+            {copied ? "Copied" : "Copy link"}
           </button>
         </div>
         <div className="flex items-center justify-between border-t border-ink pl-3">
