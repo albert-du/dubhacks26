@@ -7,6 +7,8 @@ export const config = {
   appUrl: env("NEXT_PUBLIC_APP_URL") ?? "http://localhost:3000",
   cronSecret: env("CRON_SECRET"),
   maxUploadBytes: 150 * 1024 * 1024,
+  /** Local UI testing: skip the sign-in gate. Hard-off in production builds. */
+  devBypass: env("DEV_BYPASS") === "true" && process.env.NODE_ENV !== "production",
 
   mongoUri: env("MONGODB_URI") ?? "mongodb://localhost:27017",
   mongoDb: env("MONGODB_DB") ?? "dump",
