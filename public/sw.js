@@ -1,4 +1,4 @@
-/* Dump service worker — app shell + static assets for flaky venue Wi-Fi.
+/* dump service worker — app shell + static assets for flaky venue Wi-Fi.
  * Uploads are queued in IndexedDB by the page itself (lib/client/uploadQueue.ts),
  * so this worker never touches /api. Media files are never cached here: when a
  * Dumpster burns, nothing should linger on guests' phones beyond the HTTP cache. */

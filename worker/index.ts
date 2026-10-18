@@ -1,5 +1,5 @@
 /**
- * Dump background worker — runs on a Vultr instance next to the AI services.
+ * dump background worker — runs on a Vultr instance next to the AI services.
  *   - media pipeline (Perceptron + face-embed + redaction), N concurrent lanes
  *   - sticker rendering
  *   - Photon face/mention alerts (batched) and expiry digests

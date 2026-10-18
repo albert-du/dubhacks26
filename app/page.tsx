@@ -4,7 +4,7 @@ import { StartByMessage } from "@/components/StartByMessage";
 
 const STEPS = [
   ["Pass it around", "Tape the code to the cooler or text the link to the group chat. Anyone who has it can get in."],
-  ["Dump it all in", "Everybody drops what they shot, blurry ones included. On bad signal, photos wait on the phone and go once it’s back."],
+  ["dump it all in", "Everybody drops what they shot, blurry ones included. On bad signal, photos wait on the phone and go once it’s back."],
   ["Find yourself", "Sign in with your name and a quick selfie, and every shot you’re in pulls up. Add a number to get a text when you land in new ones. Next time, your name is enough."],
   ["Start fires", "Hit the burning can on the best disasters. Most fires tops the board. Cut stickers out of the winners."],
   ["Watch it burn", "When the timer hits zero, every photo, video and name goes with it."],
@@ -19,7 +19,7 @@ export default function Home() {
 
       <section className="grid grid-cols-[1fr_auto] items-end gap-3 px-4 pt-6 pb-8">
         <h1 className="display min-w-0 text-[clamp(3.2rem,16vw,5rem)]">
-          Dump
+          dump
           <br />
           <span className="hl bg-green">photos</span>
         </h1>

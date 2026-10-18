@@ -25,7 +25,7 @@ export type Filter =
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "drop", label: "Drop" },
-  { id: "dump", label: "Dump" },
+  { id: "dump", label: "dump" },
   { id: "fire", label: "Fire" },
   { id: "map", label: "Map" },
   { id: "pack", label: "Pack" },

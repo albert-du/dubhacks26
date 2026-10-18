@@ -33,7 +33,7 @@ export function Drop({
       <label className="flex min-h-[42dvh] cursor-pointer flex-col justify-between border-3 border-ink bg-green p-5 active:translate-x-[2px] active:translate-y-[2px]">
         <span className="label">Tap to drop · photos{dumpster.settings.allowVideo ? " + videos" : ""}</span>
         <span className="display text-[clamp(2.75rem,14vw,5rem)]">
-          Dump
+          dump
           <br />
           photos.
         </span>
