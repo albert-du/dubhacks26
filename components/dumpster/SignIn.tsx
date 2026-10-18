@@ -32,9 +32,8 @@ export function SignIn({ dumpster, onSignedIn }: { dumpster: PublicDumpster; onS
   return (
     <form onSubmit={submit} className="space-y-5 px-4 pt-6 pb-10">
       <h2 className="display text-[clamp(2.5rem,12vw,4rem)]">
-        You’re
+        Sign in to
         <br />
-        in{" "}
         <span className="hl max-w-full bg-green break-words">{dumpster.name}</span>
       </h2>
 
