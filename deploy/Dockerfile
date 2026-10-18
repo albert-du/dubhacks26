@@ -42,6 +42,12 @@ EXPOSE 3000
 CMD ["node", "node_modules/next/dist/bin/next", "start", "--hostname", "0.0.0.0"]
 
 FROM runtime AS worker
+# Speech search needs a wav of the clip. Speaches rejects a lot of phone video containers.
+USER root
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
+USER node
 # The worker executes TypeScript directly, so it also needs tsx from devDependencies.
 COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json tsconfig.json ./

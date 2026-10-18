@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { classifyUpload } from "../uploadKind";
 import { prepareFile, uploadQueue, type QueuedUpload } from "./uploadQueue";
 
 export type UploadState = "queued" | "uploading" | "waiting" | "processing" | "failed";
@@ -24,7 +25,9 @@ function send(
 ): Promise<{ ok: boolean; status: number; error?: string; id?: string }> {
   return new Promise((resolve) => {
     const form = new FormData();
-    form.append("file", u.blob, u.name);
+    // IndexedDB can hand the blob back with an empty type. Keep the type we stored with it.
+    const blob = u.blob.type || !u.type ? u.blob : new Blob([u.blob], { type: u.type });
+    form.append("file", blob, u.name);
     if (u.lat !== undefined) form.append("lat", String(u.lat));
     if (u.lng !== undefined) form.append("lng", String(u.lng));
     if (u.takenAt !== undefined) form.append("takenAt", String(u.takenAt));
@@ -85,7 +88,7 @@ export function useUploader(dumpsterId: string) {
           id: u.id,
           name: u.name,
           size: u.blob.size,
-          kind: u.type.startsWith("video/") ? "video" : "image",
+          kind: classifyUpload(u.type, u.name)?.kind ?? "image",
           progress: 0,
           state: "queued",
         })),
@@ -104,7 +107,7 @@ export function useUploader(dumpsterId: string) {
     async (files: FileList | File[]) => {
       for (const file of Array.from(files)) {
         const id = crypto.randomUUID();
-        const kind = file.type.startsWith("video/") ? "video" : "image";
+        const kind = classifyUpload(file.type, file.name)?.kind ?? "image";
         const preview = kind === "image" ? URL.createObjectURL(file) : undefined;
         setItems((l) => [...l, { id, name: file.name, size: file.size, kind, progress: 0, state: "queued", preview }]);
         const prepared = await prepareFile(file);
