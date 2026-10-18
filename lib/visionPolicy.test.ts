@@ -26,5 +26,6 @@ test("missing verification evidence gets an honest limitation and a next step", 
   const answer = clarifyVisionLimitations("The image does not show any identity verification result. There is no visible evidence of a failed verification attempt.");
   assert.match(answer, /based on/);
   assert.match(answer, /Please provide.*non-sensitive.*error message.*next step/);
+  assert.match(clarifyVisionLimitations("I can’t determine why identity verification failed."), /based on.*Please provide/);
   assert.equal(clarifyVisionLimitations("The image shows a red square."), "The image shows a red square.");
 });

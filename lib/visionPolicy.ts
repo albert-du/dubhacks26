@@ -28,7 +28,7 @@ export function clarifyVisionPrivacyDenial(answer: string) {
 
 /** An evidence limitation should tell the caller what context would help next. */
 export function clarifyVisionLimitations(answer: string) {
-  const missingEvidence = /\bno (?:visible )?(?:evidence|information)\b|\bdoes not show any (?:identity )?verification result\b/i;
+  const missingEvidence = /\bno (?:visible )?(?:evidence|information)\b|\bdoes not show any (?:identity )?verification result\b|\b(?:cannot|can['’]t|unable to) (?:determine|explain|establish|tell) (?:why|the (?:reason|cause))\b/i;
   return missingEvidence.test(answer) ? VISION_UNCERTAINTY : answer;
 }
 
