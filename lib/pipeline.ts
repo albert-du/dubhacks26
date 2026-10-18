@@ -190,6 +190,11 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
     const { remap } = await mergeDumpsterFaces(d._id);
     for (const f of faces) if (f.clusterId && remap.has(f.clusterId)) f.clusterId = remap.get(f.clusterId);
   }
+  // Faces someone hid (strangers in the background) stay off this shot too.
+  const hidden = new Set(
+    (await clusters.find({ dumpsterId: d._id, hidden: true }, { projection: { _id: 1 } }).toArray()).map((c) => c._id),
+  );
+  for (let i = faces.length - 1; i >= 0; i--) if (faces[i].clusterId && hidden.has(faces[i].clusterId!)) faces.splice(i, 1);
 }
 
 async function processVideo(m: Media, d: Dumpster) {

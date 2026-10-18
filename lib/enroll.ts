@@ -65,7 +65,7 @@ export async function matchSelfie(
 
   return {
     ...(guest ? { guest: { name: guest.name } } : {}),
-    faceIds: hits.filter((h) => !h.c.guestId).sort((a, b) => b.score - a.score).map((h) => h.c._id),
+    faceIds: hits.filter((h) => !h.c.guestId && !h.c.hidden).sort((a, b) => b.score - a.score).map((h) => h.c._id),
   };
 }
 
@@ -119,7 +119,7 @@ export async function enrollGuest(
 
   // Claim the unclaimed faces that look like you (the ones you picked), and name them.
   const candidates = await clusters
-    .find({ dumpsterId: d._id, $or: [{ guestId: { $exists: false } }, { guestId }] })
+    .find({ dumpsterId: d._id, hidden: { $ne: true }, $or: [{ guestId: { $exists: false } }, { guestId }] })
     .toArray();
   const picked = input.claim && new Set(input.claim);
   const matched = candidates
@@ -216,7 +216,7 @@ export async function claimFaces(d: Dumpster, guest: Pick<Guest, "_id" | "name">
   if (!faceIds.length) return 0;
   const { clusters } = await cols();
   const r = await clusters.updateMany(
-    { _id: { $in: faceIds }, dumpsterId: d._id, $or: [{ guestId: { $exists: false } }, { guestId: guest._id }] },
+    { _id: { $in: faceIds }, dumpsterId: d._id, hidden: { $ne: true }, $or: [{ guestId: { $exists: false } }, { guestId: guest._id }] },
     { $set: { guestId: guest._id, name: guest.name, updatedAt: new Date() } },
   );
   return r.matchedCount;

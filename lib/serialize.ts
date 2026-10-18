@@ -85,7 +85,7 @@ export function publicSticker(s: Sticker): PublicSticker {
 /** Face gallery: every person detected in the dumpster, largest groups first. Names are added on the face itself. */
 export async function publicClusters(d: Dumpster): Promise<PublicCluster[]> {
   const { clusters, media } = await cols();
-  const list = await clusters.find({ dumpsterId: d._id }, { projection: { centroid: 0, exemplars: 0 } }).toArray();
+  const list = await clusters.find({ dumpsterId: d._id, hidden: { $ne: true } }, { projection: { centroid: 0, exemplars: 0 } }).toArray();
   const coverIds = list.map((c) => c.cover?.mediaId).filter(Boolean) as string[];
   const covers = new Map(
     (

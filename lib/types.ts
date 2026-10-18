@@ -127,6 +127,11 @@ export interface Cluster {
   exemplars?: number[][];
   /** Added by anyone in the dumpster from the face gallery. */
   name?: string;
+  /**
+   * Someone said this face doesn't matter (a stranger in the background). It leaves the
+   * gallery and the shots, and new shots of it stay hidden too.
+   */
+  hidden?: boolean;
   cover?: { mediaId: string; box: Box };
   expiresAt: Date;
   updatedAt: Date;

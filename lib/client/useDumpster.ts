@@ -132,6 +132,17 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
     [id, refresh],
   );
 
+  /** Hide a face nobody claimed (a stranger in the background) for everyone. Returns the error, if any. */
+  const hideFace = useCallback(
+    async (faceId: string): Promise<string | null> => {
+      const r = await fetch(`/api/dumpsters/${id}/faces/${faceId}`, { method: "DELETE" }).catch(() => null);
+      const error = r?.ok ? null : ((await r?.json().catch(() => null))?.error ?? "Couldn’t reach Dump. Check your signal and try again.");
+      await refresh();
+      return error;
+    },
+    [id, refresh],
+  );
+
   /** Take a sticker out of the pack for everyone. */
   const deleteSticker = useCallback(
     async (stickerId: string) => {
@@ -174,5 +185,5 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
     [id],
   );
 
-  return { state, destroyed, refresh, react, remove, makeSticker, deleteSticker, nameFaces, claimFace };
+  return { state, destroyed, refresh, react, remove, makeSticker, deleteSticker, nameFaces, claimFace, hideFace };
 }

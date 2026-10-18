@@ -29,7 +29,7 @@ export const GET = route<Ctx>(async (_req, { params }) => {
   const [photos, people, faces] = await Promise.all([
     media.countDocuments({ dumpsterId: d._id, status: "ready" }),
     guests.countDocuments({ dumpsterId: d._id }),
-    clusters.countDocuments({ dumpsterId: d._id, n: { $gt: 0 } }),
+    clusters.countDocuments({ dumpsterId: d._id, n: { $gt: 0 }, hidden: { $ne: true } }),
   ]);
   return NextResponse.json({ velocity, photos, people, faces, source: tiger.enabled() ? "tigerdata" : "mongo" });
 });

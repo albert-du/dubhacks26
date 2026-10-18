@@ -28,6 +28,8 @@ export function Viewer(props: {
   onPerson: (clusterId: string, name: string) => void;
   /** "That's me" on an unclaimed face. Resolves to an error message, or null. */
   onClaim: (clusterId: string) => Promise<string | null>;
+  /** Hide an unclaimed face (a stranger in the background) for everyone. */
+  onHideFace: (clusterId: string) => Promise<string | null>;
 }) {
   const { list, index, onIndex, onClose } = props;
   const m = list[index];
@@ -209,6 +211,21 @@ export function Viewer(props: {
               {focusedCluster && (
                 <button className="btn btn-ghost !py-2 !text-sm" onClick={() => props.onPerson(focusedCluster, focused.label)}>
                   Their shots
+                </button>
+              )}
+              {canClaim && (
+                <button
+                  className="btn btn-ghost col-span-2 !py-2 !text-sm"
+                  disabled={claiming}
+                  onClick={async () => {
+                    if (!confirm("Hide this face for everyone? It comes off the face row and the shots, and new shots of it stay hidden.")) return;
+                    const error = await props.onHideFace(focusedCluster!);
+                    if (error) return flash(error);
+                    setFocus(null);
+                    flash("Hidden. That face won’t be tagged again.");
+                  }}
+                >
+                  Nobody we know · Hide face
                 </button>
               )}
             </div>

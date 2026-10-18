@@ -138,6 +138,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         {tab === "dump" && (
           <Dump
             onNameFaces={dumpster.nameFaces}
+            onHideFace={dumpster.hideFace}
             id={id}
             media={state.media}
             byId={byId}
@@ -210,6 +211,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           clusters={state.clusters}
           myClusterIds={me.clusterIds}
           onClaim={dumpster.claimFace}
+          onHideFace={dumpster.hideFace}
           byId={byId}
           onIndex={(index) => setViewing({ ...viewing, index })}
           onClose={() => setViewing(null)}
