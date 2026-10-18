@@ -1,3 +1,4 @@
+import OpenAI from "openai";
 import { config } from "./config";
 import type { Box, DetectedObject } from "./types";
 
@@ -46,29 +47,37 @@ export const perceptron = {
   enabled: () => !!config.perceptron.apiKey,
 
   async analyze(jpeg: Buffer): Promise<VisionResult> {
-    const res = await fetch(`${config.perceptron.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${config.perceptron.apiKey}` },
-      body: JSON.stringify({
-        model: config.perceptron.model,
-        temperature: 0,
-        reasoning_effort: "high",
-        max_completion_tokens: 8192,
-        vision_config: { annotation_format: "box" },
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpeg.toString("base64")}` } },
-              { type: "text", text: PROMPT },
-            ],
-          },
-        ],
-      }),
-      signal: AbortSignal.timeout(60_000),
+    if (!config.perceptron.apiKey) throw new Error("perceptron is not configured");
+    // The OpenAI SDK is a client for Perceptron's compatible API, not OpenAI hosting.
+    const client = new OpenAI({
+      apiKey: config.perceptron.apiKey,
+      baseURL: config.perceptron.baseUrl,
+      timeout: 60_000,
+      maxRetries: 0,
     });
-    if (!res.ok) throw new Error(`perceptron ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    return parseVision(visionContent(await res.json()));
+    const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & {
+      vision_config: { annotation_format: "box" };
+    } = {
+      model: config.perceptron.model,
+      temperature: 0,
+      reasoning_effort: "high",
+      max_completion_tokens: 8192,
+      vision_config: { annotation_format: "box" },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpeg.toString("base64")}` } },
+            { type: "text", text: PROMPT },
+          ],
+        },
+      ],
+    };
+    const completion = await client.chat.completions.create(request).catch((error: unknown) => {
+      if (error instanceof OpenAI.APIError) throw new Error(`perceptron ${error.status ?? "request failed"}`);
+      throw error;
+    });
+    return parseVision(visionContent(completion));
   },
 };
 
