@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { fitIMessageSticker } from "./imaging";
+import { fitIMessageSticker, IMESSAGE_STICKER_MAX_BYTES, IMESSAGE_STICKER_MAX_EDGE } from "./imaging";
 import { STICKER_FILE_NAME } from "./sticker";
 
 function fileName(key: string) {
@@ -18,8 +18,21 @@ export function downloadFilename(key: string) {
 
 export async function downloadBody(key: string, body: Buffer) {
   if (isSticker(key)) {
-    const png = /\.webp$/i.test(key) ? await sharp(body).png().toBuffer() : body;
-    return fitIMessageSticker(png);
+    if (/\.webp$/i.test(key)) return fitIMessageSticker(await sharp(body).png().toBuffer());
+    // The stored PNG is already a sticker. Re-encoding every one on the way to the pack
+    // was a sharp pass per sticker before the picture could even show.
+    if (body.length < IMESSAGE_STICKER_MAX_BYTES) {
+      const meta = await sharp(body, { failOn: "none" }).metadata();
+      if (
+        meta.format === "png" &&
+        (meta.width ?? 0) > 0 &&
+        (meta.width ?? 0) <= IMESSAGE_STICKER_MAX_EDGE &&
+        (meta.height ?? 0) <= IMESSAGE_STICKER_MAX_EDGE
+      ) {
+        return body;
+      }
+    }
+    return fitIMessageSticker(body);
   }
   if (!/\.webp$/i.test(key)) return body;
   return sharp(body).flatten({ background: "white" }).jpeg({ quality: 92 }).toBuffer();

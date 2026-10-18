@@ -20,7 +20,7 @@ export const MAP_COLORS = {
   farmland: "#e7e1d2",
 } as const;
 
-const TILES = "https://tiles.openfreemap.org/planet";
+export const MAP_TILES = "https://tiles.openfreemap.org/planet";
 const GLYPHS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 
 const POLY = ["match", ["geometry-type"], ["MultiPolygon", "Polygon"], true, false];
@@ -37,7 +37,7 @@ export function dumpMapStyle(): StyleSpecification {
     version: 8,
     name: "Dump",
     sources: {
-      openmaptiles: { type: "vector", url: TILES },
+      openmaptiles: { type: "vector", url: MAP_TILES },
     },
     glyphs: GLYPHS,
     layers: [

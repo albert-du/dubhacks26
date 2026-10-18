@@ -6,7 +6,8 @@ import { mergeDumpsterFaces } from "./faceIdentity";
 import { faceEmbed } from "./ai-face-embed";
 import { cols } from "./mongo";
 import { perceptron, type VisionResult } from "./ai-perceptron";
-import { composeSticker, cropSticker, normalizeImage, renderPublic } from "./imaging";
+import { composeSticker, cropSticker, normalizeImage, renderPublic, renderThumb } from "./imaging";
+import { PREVIEW_EDGES, previewKey } from "./preview";
 import { storage } from "./storage";
 import { findMentions, transcriber } from "./ai-transcribe";
 import type { Cluster, Dumpster, FaceHit, Media, TextHit } from "./types";
@@ -22,6 +23,19 @@ const STALE_CLAIM_MS = 5 * 60_000;
 /** First cut can download the matte weights. Keep the claim until that finishes. */
 const STICKER_STALE_CLAIM_MS = 10 * 60_000;
 const MAX_ATTEMPTS = 3;
+
+/** Small copies for grids, the map, and the sticker pack. The full file still publishes if this fails. */
+async function storePreviews(publicKey: string, image: Buffer) {
+  try {
+    await Promise.all(
+      PREVIEW_EDGES.map(async (edge) => {
+        await storage.put(previewKey(publicKey, edge), await renderThumb(image, edge), "image/webp");
+      }),
+    );
+  } catch {
+    // The full public file is already stored. A missing preview is built on the next view.
+  }
+}
 
 async function liveDumpster(id: string) {
   const { dumpsters } = await cols();
@@ -82,7 +96,9 @@ async function processImage(m: Media, d: Dumpster) {
   await assignClusters(d, m._id, faces);
 
   const publicKey = `${d._id}/public/${m._id}.webp`;
-  await storage.put(publicKey, await renderPublic(jpeg), "image/webp");
+  const rendered = await renderPublic(jpeg);
+  await storage.put(publicKey, rendered, "image/webp");
+  await storePreviews(publicKey, rendered);
 
   await media.updateOne(
     { _id: m._id },
@@ -250,6 +266,7 @@ export async function processNextSticker(): Promise<boolean> {
     const png = await composeSticker(crop, await foregroundMask(crop));
     const publicKey = `${s.dumpsterId}/public/sticker-${s._id}.png`;
     await storage.put(publicKey, png, "image/png");
+    await storePreviews(publicKey, png);
     const done = await stickers.updateOne(
       { _id: s._id, status: "pending" },
       { $set: { status: "ready", publicKey, claimedAt: null, updatedAt: new Date() } },

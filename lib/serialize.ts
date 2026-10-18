@@ -48,8 +48,9 @@ export function publicMedia(m: Media, myReactions: ReactionKey[]): PublicMedia {
   return {
     id: m._id,
     kind: m.kind,
-    // Version param busts caches when a re-render (e.g. after a guest consents) replaces the file.
-    url: m.publicKey ? `${fileUrl(m.publicKey)}?v=${m.updatedAt.getTime()}` : "",
+    // The public file is written once, before any browser sees this URL. Reactions and
+    // mentions also bump updatedAt; using that here made every screen reload the photo.
+    url: m.publicKey ? `${fileUrl(m.publicKey)}?v=${m.createdAt.getTime()}` : "",
     width: m.width,
     height: m.height,
     // ~11 m precision: enough to map the party, not enough to pinpoint someone's front door.
@@ -76,6 +77,7 @@ export function publicSticker(s: Sticker): PublicSticker {
     id: s._id,
     mediaId: s.mediaId,
     label: s.label,
+    // updatedAt, not createdAt: a retry cuts the sticker again at the same key.
     url: s.publicKey ? `${fileUrl(s.publicKey)}?v=${s.updatedAt.getTime()}` : undefined,
     status: s.status,
     target: s.target ?? { kind: "frame" },
@@ -94,7 +96,7 @@ export async function publicClusters(d: Dumpster, { hidden = false } = {}): Prom
       await media
         .find(
           { _id: { $in: coverIds }, status: "ready" },
-          { projection: { publicKey: 1, width: 1, height: 1, updatedAt: 1 } },
+          { projection: { publicKey: 1, width: 1, height: 1, createdAt: 1 } },
         )
         .toArray()
     ).map((m) => [m._id, m]),
@@ -109,7 +111,7 @@ export async function publicClusters(d: Dumpster, { hidden = false } = {}): Prom
         claimed: !!c.guestId,
         cover:
           m?.publicKey && c.cover
-            ? { url: `${fileUrl(m.publicKey)}?v=${m.updatedAt.getTime()}`, box: c.cover.box, w: m.width ?? 1, h: m.height ?? 1 }
+            ? { url: `${fileUrl(m.publicKey)}?v=${m.createdAt.getTime()}`, box: c.cover.box, w: m.width ?? 1, h: m.height ?? 1 }
             : undefined,
       };
     })

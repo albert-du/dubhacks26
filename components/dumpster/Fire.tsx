@@ -2,6 +2,7 @@
 
 import { FireIcon } from "@/components/Brand";
 import { ReactionBar } from "@/components/Reactions";
+import { ShotImage } from "@/components/ui";
 import { engagement, fireRank, type ReactionKey } from "@/lib/reactions";
 import type { PublicMedia } from "@/lib/types";
 
@@ -42,7 +43,7 @@ export function Fire({
       {top && (
         <article className="border-b-3 border-ink">
           <button className="relative block w-full" onClick={() => onOpen(ranked, top.id)}>
-            <Thumb m={top} className="block max-h-[60dvh] w-full object-cover" />
+            <Thumb m={top} edge={960} eager className="block max-h-[60dvh] w-full object-cover" />
             <span className="display absolute top-0 left-0 bg-fire px-2 text-6xl leading-none">01</span>
           </button>
           <div className="p-3">
@@ -56,7 +57,7 @@ export function Fire({
           <li key={m.id} className="grid grid-cols-[3rem_80px_1fr] border-b border-ink">
             <span className="display border-r border-ink pt-2 text-center text-2xl">{String(i + 2).padStart(2, "0")}</span>
             <button onClick={() => onOpen(ranked, m.id)} className="size-20 overflow-hidden border-r border-ink">
-              <Thumb m={m} className="size-full object-cover" />
+              <Thumb m={m} eager={i < 8} className="size-full object-cover" />
             </button>
             <div className="flex min-w-0 flex-col justify-center gap-1 px-3 py-2">
               <p className="flex items-center gap-1.5">
@@ -79,10 +80,9 @@ export function Fire({
   );
 }
 
-function Thumb({ m, className }: { m: PublicMedia; className: string }) {
+function Thumb({ m, className, edge = 320, eager = false }: { m: PublicMedia; className: string; edge?: 320 | 960; eager?: boolean }) {
   return m.kind === "image" ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={m.url} alt={m.caption ?? ""} loading="lazy" className={className} />
+    <ShotImage url={m.url} alt={m.caption ?? ""} edge={edge} eager={eager} className={className} />
   ) : (
     <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className={className} />
   );
