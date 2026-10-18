@@ -78,7 +78,7 @@ The pile. Faces sit across the top, named people first.
 - Type to filter. A word has to show up in the picture, on a sign, in something someone said, in a face’s name, or in a place. Every word in the box has to match.
 - Tap the camera next to the search box and search with a photo. A face finds that person’s shots. Anything else finds shots with the same things in them. The search photo is not kept.
 - The same photo uploaded twice stays hidden until you tap to show the dupes.
-- **All shots** is a grid. **Moments** groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
+- **All shots** is a grid, newest first by when the shot was taken. A shot with no capture time uses when it was dropped. **Moments** groups shots taken within about 20 minutes and 250 meters of each other, and names the group from the place or the tags.
 - Tap **Select** to save shots. On an iPhone or iPad, Save opens the system share sheet so Save Image and Save Video can put the files in the camera roll. Several shots stay separate files. More than 25 come through in batches. On other phones, one shot downloads as a file and several come down as a zip.
 
 If Ask is on, the search box grows an **Ask** button. Ask answers the sentence and shows the shots it means. The word filter still works either way. Ask appears when `BACKBOARD_API_KEY` is set. The key stays on the server.
