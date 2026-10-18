@@ -166,6 +166,12 @@ textarea:focus-visible {
 }
 
 /* OpenFreeMap controls, squared off to match the paper and the thick rules. */
+.dump-map.maplibregl-map {
+  /* MapLibre sets position: relative, which otherwise collapses our inset map to zero height. */
+  position: absolute;
+  inset: 0;
+}
+
 .dump-map .maplibregl-ctrl-bottom-right {
   left: 0;
   right: 0;
