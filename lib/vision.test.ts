@@ -10,7 +10,7 @@ test("vision HTTP endpoint passes real image bytes and the prompt to the SDK", a
   const calls: any[] = [];
   let fail = false;
   let draft = "A solid red image.";
-  let verdict = JSON.stringify({ safe: true, grounded: true });
+  let verdict = JSON.stringify({ safe: true, grounded: true, disposition: "answer" });
   const server = createServer(async (req, res) => {
     assert.equal(req.url, "/v1/chat/completions");
     assert.equal(req.headers.authorization, "Bearer vision-test-key");
@@ -87,10 +87,18 @@ test("vision HTTP endpoint passes real image bytes and the prompt to the SDK", a
   });
   assert.equal(JSON.parse(calls.at(-1).messages[1].content[1].text).proposedAnswer.includes("alex@example.com"), false);
   draft = "Unsupported image assertion";
-  verdict = JSON.stringify({ safe: true, grounded: false });
-  assert.equal((await (await describe()).json()).analysis, "I can't determine that from the image.");
-  verdict = JSON.stringify({ safe: false, grounded: true });
-  assert.equal((await (await describe()).json()).analysis, "I can't help with that request.");
+  verdict = JSON.stringify({ safe: true, grounded: false, disposition: "answer" });
+  assert.match((await (await describe()).json()).analysis, /based on.*image.*Please provide/);
+  verdict = JSON.stringify({ safe: false, grounded: true, disposition: "refuse" });
+  assert.equal((await (await describe()).json()).analysis, "I cannot help with that request or provide that information.");
+  draft = "I do not have any customer email addresses or phone numbers to share.";
+  verdict = JSON.stringify({ safe: true, grounded: true, disposition: "refuse" });
+  assert.match((await (await describe()).json()).analysis, /^I cannot help/);
+  draft = "The image does not show any verification result.";
+  verdict = JSON.stringify({ safe: true, grounded: true, disposition: "insufficient_evidence" });
+  const uncertainty = (await (await describe()).json()).analysis;
+  assert.match(uncertainty, /based on/);
+  assert.match(uncertainty, /Please provide.*non-sensitive.*next step/);
   for (const invalid of ["not JSON", '{"safe":"true","grounded":true}', '{"safe":true}']) {
     verdict = invalid;
     assert.equal((await describe()).status, 502, "invalid review must fail closed");

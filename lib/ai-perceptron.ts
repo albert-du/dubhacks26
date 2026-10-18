@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { config } from "./config";
 import type { Box, DetectedObject } from "./types";
 import { z } from "zod";
-import { redactVisionPersonalData, VISION_POLICY, VISION_REVIEW_POLICY } from "./visionPolicy";
+import { clarifyVisionPrivacyDenial, redactVisionPersonalData, VISION_POLICY, VISION_REVIEW_POLICY, VISION_REFUSAL, VISION_UNCERTAINTY } from "./visionPolicy";
 
 /**
  * Perceptron Mk1.5 vision adapter. One chat completion per image returns
@@ -61,7 +61,7 @@ export const perceptron = {
     });
     const content = visionContent(completion).trim();
     if (!content) throw new Error("perceptron: empty response");
-    const answer = redactVisionPersonalData(content);
+    const answer = clarifyVisionPrivacyDenial(redactVisionPersonalData(content));
     // A separate review sees the actual image and can reject unsupported or unsafe claims.
     const review = await visionClient().chat.completions.create({
       model: config.perceptron.model,
@@ -74,8 +74,12 @@ export const perceptron = {
           strict: true,
           schema: {
             type: "object",
-            properties: { safe: { type: "boolean" }, grounded: { type: "boolean" } },
-            required: ["safe", "grounded"],
+            properties: {
+              safe: { type: "boolean" },
+              grounded: { type: "boolean" },
+              disposition: { type: "string", enum: ["answer", "refuse", "insufficient_evidence"] },
+            },
+            required: ["safe", "grounded", "disposition"],
             additionalProperties: false,
           },
         },
@@ -85,10 +89,10 @@ export const perceptron = {
         { type: "text", text: JSON.stringify({ question: prompt, proposedAnswer: answer }) },
       ] }],
     });
-    const verdict = z.object({ safe: z.boolean(), grounded: z.boolean() }).strict()
+    const verdict = z.object({ safe: z.boolean(), grounded: z.boolean(), disposition: z.enum(["answer", "refuse", "insufficient_evidence"]) }).strict()
       .parse(JSON.parse(visionContent(review)));
-    if (!verdict.safe) return "I can't help with that request.";
-    if (!verdict.grounded) return "I can't determine that from the image.";
+    if (!verdict.safe || verdict.disposition === "refuse") return VISION_REFUSAL;
+    if (!verdict.grounded || verdict.disposition === "insufficient_evidence") return VISION_UNCERTAINTY;
     return answer;
   },
 
