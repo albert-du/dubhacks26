@@ -183,16 +183,19 @@ export function Viewer(props: {
           </button>
         )}
 
-        <dl className="space-y-1.5 text-sm">
-          {tags.length > 0 && (
-            <Row k="Who">
-              <span className="flex flex-wrap gap-1.5">
-                {tags.map((t) =>
+        {/* One line, on every shot. Wrapping names, or hiding this row when nobody is tagged, changes how tall the photo above it is. */}
+        <dl className="text-sm">
+          <Row k="Who">
+            <div className="no-scrollbar flex h-8 items-center gap-1.5 overflow-x-auto">
+              {tags.length === 0 ? (
+                <span className="shrink-0 text-paper/60">No one in this shot</span>
+              ) : (
+                tags.map((t) =>
                   t.name && t.clusterId ? (
                     <button
                       key={t.clusterId}
                       onClick={() => props.onPerson(t.clusterId!, t.name!)}
-                      className="border border-green px-1.5 text-green underline-offset-2 hover:underline"
+                      className="shrink-0 border border-green px-1.5 whitespace-nowrap text-green underline-offset-2 hover:underline"
                     >
                       {t.name} →
                     </button>
@@ -201,15 +204,15 @@ export function Viewer(props: {
                       key={t.clusterId ?? `face-${t.face}`}
                       onClick={() => setFocus(focus === t.face ? null : t.face)}
                       aria-pressed={focus === t.face}
-                      className={`border border-dashed px-1.5 ${focus === t.face ? "border-fire bg-fire text-ink" : "border-paper/60"}`}
+                      className={`shrink-0 border border-dashed px-1.5 whitespace-nowrap ${focus === t.face ? "border-fire bg-fire text-ink" : "border-paper/60"}`}
                     >
                       Unnamed · {t.label}
                     </button>
                   ),
-                )}
-              </span>
-            </Row>
-          )}
+                )
+              )}
+            </div>
+          </Row>
         </dl>
 
         {focused && (
@@ -304,9 +307,9 @@ export function Viewer(props: {
 
 function Row({ k, children }: { k: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[3.5rem_1fr] gap-2">
-      <dt className="label pt-0.5 text-paper/60">{k}</dt>
-      <dd className="min-w-0 break-words">{children}</dd>
+    <div className="grid grid-cols-[3.5rem_1fr] items-center gap-2">
+      <dt className="label text-paper/60">{k}</dt>
+      <dd className="min-w-0">{children}</dd>
     </div>
   );
 }
