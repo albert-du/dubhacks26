@@ -75,6 +75,8 @@ if (!dumpsters.includes("if (!isDumpsterId(id)) return null")) fail("R6", "getLi
 // R7: selfies and search-by-photo query images are never persisted.
 const enroll = files.find((f) => f.p === "lib/enroll.ts")?.src ?? "";
 if (/storage\.put/.test(enroll)) fail("R7", "enroll.ts must not write selfies to storage");
+const photoSearch = files.find((f) => f.p === "lib/photoSearch.ts")?.src ?? "";
+if (!photoSearch || /storage\.put/.test(photoSearch)) fail("R7", "photoSearch.ts must not write query photos to storage");
 
 // R8: purge deletes every ephemeral collection.
 const cleanup = files.find((f) => f.p === "lib/cleanup.ts")?.src ?? "";
