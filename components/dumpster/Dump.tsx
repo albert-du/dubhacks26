@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { FireIcon } from "@/components/Brand";
 import { FaceThumb, frameNo } from "@/components/ui";
+import { useSaveShots } from "@/lib/client/useSaveShots";
 import { prepareFile } from "@/lib/client/uploadQueue";
+import { attachmentUrl } from "@/lib/saveToPhotos";
 import { groupMoments } from "@/lib/moments";
 import { matchSources, SOURCE_LABEL, type MatchSource } from "@/lib/search";
 import type { PublicCluster, PublicMedia, DumpsterState, SameName } from "@/lib/types";
@@ -488,7 +490,7 @@ function CameraIcon() {
   );
 }
 
-/** Pinned above the tab bar while selecting. One shot saves directly; several come down as a ZIP. */
+/** Pinned above the tab bar while selecting. iPhone saves into the camera roll; other devices download, zipping when there are several. */
 function SelectBar(props: {
   dumpsterId: string;
   selected: PublicMedia[];
@@ -498,39 +500,46 @@ function SelectBar(props: {
   onDone: () => void;
 }) {
   const n = props.selected.length;
-  const save = () => {
-    if (n === 1) {
-      const url = props.selected[0].url;
-      window.location.href = `${url}${url.includes("?") ? "&" : "?"}download=1`;
+  const downloadShots = (shots: { id: string; url: string }[]) => {
+    if (!shots.length) return;
+    if (shots.length === 1) {
+      window.location.href = attachmentUrl(shots[0].url);
       return;
     }
     // A real form POST lets the browser stream the ZIP to disk instead of holding it in memory.
     const form = document.createElement("form");
     form.method = "POST";
     form.action = `/api/dumpsters/${props.dumpsterId}/download`;
-    for (const m of props.selected) {
+    for (const shot of shots) {
       const input = document.createElement("input");
       input.type = "hidden";
       input.name = "ids";
-      input.value = m.id;
+      input.value = shot.id;
       form.appendChild(input);
     }
     document.body.appendChild(form);
     form.submit();
     form.remove();
   };
+  const camera = useSaveShots(
+    props.selected.map((m) => ({ id: m.id, url: m.url, kind: m.kind })),
+    downloadShots,
+  );
   return (
-    <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-nav mx-auto flex w-full max-w-[430px] items-stretch border-t-3 border-ink bg-paper">
-      <span className="label flex items-center px-3">{n} selected</span>
-      <button className="label ml-auto border-l border-ink px-3" onClick={n === props.allCount ? props.onNone : props.onAll}>
-        {n === props.allCount ? "None" : "All"}
-      </button>
-      <button className="display border-l-3 border-ink bg-green px-4 py-3 text-sm disabled:opacity-40" disabled={!n} onClick={save}>
-        {n > 1 ? `Save ${n}` : "Save"}
-      </button>
-      <button className="display border-l border-ink px-3" onClick={props.onDone} aria-label="Done selecting">
-        ✕
-      </button>
+    <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-nav mx-auto w-full max-w-[430px] border-t-3 border-ink bg-paper">
+      {camera.note && <p className="px-3 py-2 text-xs leading-snug">{camera.note}</p>}
+      <div className="flex items-stretch">
+        <span className="label flex items-center px-3">{n} selected</span>
+        <button className="label ml-auto border-l border-ink px-3" onClick={n === props.allCount ? props.onNone : props.onAll}>
+          {n === props.allCount ? "None" : "All"}
+        </button>
+        <button className="display border-l-3 border-ink bg-green px-4 py-3 text-sm disabled:opacity-40" disabled={!n || camera.busy} onClick={camera.save}>
+          {camera.label}
+        </button>
+        <button className="display border-l border-ink px-3" onClick={props.onDone} aria-label="Done selecting">
+          ✕
+        </button>
+      </div>
     </div>
   );
 }

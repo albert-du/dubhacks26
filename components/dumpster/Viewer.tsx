@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { downloadUrl, MediaStage } from "@/components/MediaStage";
+import { MediaStage } from "@/components/MediaStage";
 import { ReactionBar } from "@/components/Reactions";
 import { frameNo } from "@/components/ui";
+import { useSaveShots } from "@/lib/client/useSaveShots";
 import type { ReactionKey } from "@/lib/reactions";
+import { attachmentUrl } from "@/lib/saveToPhotos";
 import { faceOverlapping } from "@/lib/sticker";
 import type { Box, PublicCluster, PublicMedia, StickerTarget } from "@/lib/types";
 
@@ -33,6 +35,10 @@ export function Viewer(props: {
 }) {
   const { list, index, onIndex, onClose } = props;
   const m = list[index];
+  const camera = useSaveShots(m ? [{ id: m.id, url: m.url, kind: m.kind }] : [], (shots) => {
+    const url = shots[0]?.url;
+    if (url) window.location.href = attachmentUrl(url);
+  });
   const [marks, setMarks] = useState(false);
   const [cutMenu, setCutMenu] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -274,9 +280,9 @@ export function Viewer(props: {
           ) : (
             <span />
           )}
-          <a className="btn btn-ghost !px-1 !text-sm" href={downloadUrl(m.url)} download>
-            Save
-          </a>
+          <button className="btn btn-ghost !px-1 !text-sm" disabled={camera.busy} onClick={camera.save}>
+            {camera.label}
+          </button>
           <button
             className="btn btn-ghost !px-1 !text-sm"
             onClick={async () => {
@@ -289,6 +295,7 @@ export function Viewer(props: {
           >
             Delete
           </button>
+          {camera.note && <p className="col-span-4 text-center text-xs leading-snug">{camera.note}</p>}
         </div>
       </div>
     </div>
