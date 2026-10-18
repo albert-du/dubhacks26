@@ -2,6 +2,7 @@ import { getLiveDumpster } from "@/lib/dumpsters";
 import { cols } from "@/lib/mongo";
 import { storage } from "@/lib/storage";
 import { zipStream } from "@/lib/zip";
+import { downloadBody, downloadFilename } from "@/lib/download";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -30,9 +31,9 @@ export async function POST(req: Request, { params }: Ctx) {
 
   const stream = zipStream(
     list.map((m, i) => ({
-      name: `${String(i + 1).padStart(3, "0")}-${m.publicKey!.split("/").pop()}`,
+      name: `${String(i + 1).padStart(3, "0")}-${downloadFilename(m.publicKey!)}`,
       date: m.takenAt ?? m.createdAt,
-      read: () => storage.get(m.publicKey!),
+      read: async () => downloadBody(m.publicKey!, await storage.get(m.publicKey!)),
     })),
   );
   const slug = d.name.replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "dump";
