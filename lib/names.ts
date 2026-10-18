@@ -2,12 +2,10 @@ import { findMentions } from "./ai-transcribe";
 import { mergeClusters } from "./faceIdentity";
 import { HttpError } from "./http";
 import { cols } from "./mongo";
-import type { Dumpster } from "./types";
+import { nameKey } from "./nameKey";
+import type { Dumpster, Guest } from "./types";
 
-/** Names are unique within a dumpster, ignoring case and spacing, so the name alone finds you again. */
-export function nameKey(name: string) {
-  return name.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
-}
+export { nameKey };
 
 /**
  * Who already goes by this name here: a signed-in guest, and any faces named it.
@@ -54,15 +52,24 @@ export async function nameFace(d: Dumpster, faceId: string, input: string, group
   if (holders && (holders.guest || holders.faces.length)) {
     const otherGuest = holders.guest?._id ?? holders.faces.find((c) => c.guestId)?.guestId;
     if (!group) throw sameNameError(holders, `There’s already a ${holders.name} here. Same person?`);
-    // Same person. Two sign-ins for one person become one (theirs keeps the name).
-    if (face.guestId && otherGuest && otherGuest !== face.guestId) await mergeGuests(d, face.guestId, otherGuest);
-    // One face group, under their name and sign-in.
+    // Same person: this face group joins theirs, under their name and sign-in. If it was
+    // claimed by someone else, only this face group moves; their sign-in and other faces stay
+    // theirs (merging two sign-ins is done by renaming yourself in Me).
     const theirs = otherGuest ? await clusters.find({ dumpsterId: d._id, guestId: otherGuest }).toArray() : [];
     const ids = new Set([faceId, ...holders.faces.map((c) => c._id), ...theirs.map((c) => c._id)]);
-    const members = await clusters.find({ _id: { $in: [...ids] } }).toArray();
+    const members = (await clusters.find({ _id: { $in: [...ids] } }).toArray()).map((c) =>
+      // The moving face's old owner must not decide which group survives or whose it is.
+      c._id === faceId && c.guestId !== otherGuest ? { ...c, guestId: undefined } : c,
+    );
     keep = await mergeClusters(d._id, members);
     name = holders.name;
-    await clusters.updateOne({ _id: keep }, { $set: { name, updatedAt: now, ...(otherGuest ? { guestId: otherGuest } : {}) } });
+    await clusters.updateOne(
+      { _id: keep },
+      otherGuest
+        ? { $set: { name, updatedAt: now, guestId: otherGuest } }
+        : // Nobody signed in with this name: a face taken from someone else's sign-in is nobody's now.
+          { $set: { name, updatedAt: now }, ...(face.guestId ? { $unset: { guestId: "" } } : {}) },
+    );
   } else {
     await clusters.updateOne({ _id: faceId }, name ? { $set: { name, updatedAt: now } } : { $unset: { name: "" }, $set: { updatedAt: now } });
   }
@@ -78,6 +85,10 @@ export async function nameFace(d: Dumpster, faceId: string, input: string, group
     if (changed) await media.updateOne({ _id: v._id }, { $set: { mentions: [...next], updatedAt: now } });
   }
   return { id: keep, name: name || undefined };
+}
+
+function viewerIdsOf(g: Guest & { viewerId?: string }) {
+  return g.viewerIds ?? (g.viewerId ? [g.viewerId] : []);
 }
 
 /**
@@ -100,8 +111,9 @@ export async function mergeGuests(d: Dumpster, fromId: string, intoId: string) {
   await guests.updateOne(
     { _id: intoId },
     {
-      $addToSet: { viewerIds: { $each: from.viewerIds } },
-      $inc: { pendingPhotoAlerts: from.pendingPhotoAlerts, pendingMentionAlerts: from.pendingMentionAlerts },
+      // Records from before name sign-in hold one `viewerId` instead of a list.
+      $addToSet: { viewerIds: { $each: [...viewerIdsOf(from), ...(into.viewerIds ? [] : viewerIdsOf(into))] } },
+      $inc: { pendingPhotoAlerts: from.pendingPhotoAlerts ?? 0, pendingMentionAlerts: from.pendingMentionAlerts ?? 0 },
       ...(Object.keys(carry).length ? { $set: carry } : {}),
     },
   );
