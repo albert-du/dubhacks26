@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { DumpsterState, PublicDumpster } from "@/lib/types";
 import type { Tab } from "./DumpsterView";
+import { resetMapHint } from "./EventMap";
 import { NotificationSettings } from "./NotificationSettings";
 import { SelfiePicker } from "./Selfie";
 
@@ -46,11 +47,14 @@ export function Me(props: {
     return call({ method: "POST", body: form }, "Selfie updated.");
   };
   const signOut = () => {
-    if (confirm(`Sign out on this phone? Sign back in any time with just “${me.name}”.`)) void call({ method: "DELETE" }, "Signed out.");
+    if (!confirm(`Sign out on this phone? Sign back in any time with just “${me.name}”.`)) return;
+    resetMapHint(me.guestId);
+    void call({ method: "DELETE" }, "Signed out.");
   };
   const forget = () => {
-    if (confirm("Forget you in this dumpster? Your name, face match and texts are deleted on every phone."))
-      void call({ method: "DELETE" }, "Forgotten.", `${base}?forget=1`);
+    if (!confirm("Forget you in this dumpster? Your name, face match and texts are deleted on every phone.")) return;
+    resetMapHint(me.guestId);
+    void call({ method: "DELETE" }, "Forgotten.", `${base}?forget=1`);
   };
 
   return (
