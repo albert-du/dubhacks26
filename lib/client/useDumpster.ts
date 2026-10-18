@@ -78,17 +78,19 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ key }),
-      });
-      if (r.ok) {
+      }).catch(() => null);
+      if (r?.ok) {
         const { on, reactions } = await r.json();
         patch((m) => ({
           ...m,
           reactions,
           myReactions: on ? [...new Set([...m.myReactions, key])] : m.myReactions.filter((k) => k !== key),
         }));
+      } else {
+        await refresh();
       }
     },
-    [id],
+    [id, refresh],
   );
 
   const remove = useCallback(
