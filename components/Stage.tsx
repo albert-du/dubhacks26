@@ -229,7 +229,7 @@ export function Stage({ initial }: { initial: DumpsterState }) {
   const fire = fireRank(state.media.filter((m) => m.kind === "image"))[0];
 
   return (
-    <div className="stage-root min-h-dvh bg-ink text-paper">
+    <div className="stage-root min-h-svh bg-ink text-paper">
       <div className="border-b-3 border-paper px-6 py-3">
         <a href={`/${id}`} className="btn btn-ghost !px-3 !py-2 !text-sm" aria-label="Back to the dumpster">
           ← Dumpster

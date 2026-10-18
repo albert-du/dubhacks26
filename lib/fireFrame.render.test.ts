@@ -35,7 +35,7 @@ test("fire board: the winner's frame is reserved and loads immediately", () => {
       onOpen: () => {},
     }),
   );
-  const frameAt = html.indexOf("min(60dvh, calc(100cqw * 900 / 1600))");
+  const frameAt = html.indexOf("min(60svh, calc(100cqw * 900 / 1600))");
   assert.ok(frameAt > 0);
   const frame = html.slice(frameAt, html.indexOf(">01<"));
   assert.match(frame, /src="\/api\/files\/top\?s=960"/);

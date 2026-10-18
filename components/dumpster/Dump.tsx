@@ -194,7 +194,7 @@ export function Dump(props: {
   return (
     <section className={selecting ? "pb-14" : ""}>
       {/* People */}
-      <div className="no-scrollbar flex overflow-x-auto border-b-3 border-ink">
+      <div className="no-scrollbar scroll-x flex border-b-3 border-ink">
         <FaceButton active={!filter} onClick={() => setFilter(null)} label="Everyone">
           <span className="display grid size-[64px] place-items-center bg-ink text-xl text-paper">ALL</span>
         </FaceButton>
@@ -244,7 +244,7 @@ export function Dump(props: {
       </div>
 
       {showHidden && props.hiddenFaces.length > 0 && (
-        <div className="no-scrollbar flex items-center gap-3 overflow-x-auto border-b-3 border-ink bg-bone px-3 py-2">
+        <div className="no-scrollbar scroll-x flex items-center gap-3 border-b-3 border-ink bg-bone px-3 py-2">
           <span className="label shrink-0 !text-[9px]">Hidden</span>
           {props.hiddenFaces.map((c, i) => (
             <button
