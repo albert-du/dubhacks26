@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import sharp from "sharp";
-import { composeSticker, stickerCropRect } from "./imaging";
-import { faceOverlapping, personBox, stickerFilename, stickerId } from "./sticker";
+import { composeSticker, fitIMessageSticker, IMESSAGE_STICKER_MAX_BYTES, stickerCropRect } from "./imaging";
+import { faceOverlapping, isPng, personBox, STICKER_FILE_NAME, stickerId } from "./sticker";
 import type { Box } from "./types";
 
 test("sticker: a full-frame crop covers the photo and a tight box stays inside it", () => {
@@ -36,13 +36,16 @@ test("sticker: the face inside a person box is the one that gets the name", () =
   assert.equal(faceOverlapping(faces, [0, 0.8, 0.1, 0.9]), undefined);
 });
 
-test("sticker: ids and download names stay in the public key", () => {
+test("sticker: ids stay in the public key and the share name is a plain png", () => {
   assert.equal(stickerId("abc", { kind: "frame" }), "abc-frame");
   assert.equal(stickerId("abc", { kind: "face", index: 2 }), "abc-face-2");
   assert.equal(stickerId("abc", { kind: "object", index: 0 }), "abc-object-0");
-  assert.equal(stickerFilename("Sam O'Neil"), "dump-Sam-O-Neil.png");
-  assert.equal(stickerFilename("!!!"), "dump-sticker.png");
-  assert.ok(stickerFilename("x".repeat(80)).length < 60);
+  assert.equal(STICKER_FILE_NAME, "sticker.png");
+  assert.equal(/dump/i.test(STICKER_FILE_NAME), false);
+  const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]);
+  assert.equal(isPng(png), true);
+  assert.equal(isPng(png.subarray(0, 4)), false);
+  assert.equal(isPng(Uint8Array.from([0xff, 0xd8, 0xff, 0xd8, 0, 0, 0, 0, 0])), false);
 });
 
 test("sticker: the cutout drops the background and keeps a white die-cut edge", async () => {
@@ -69,6 +72,7 @@ test("sticker: the cutout drops the background and keeps a white die-cut edge", 
   assert.equal(meta.height, 512);
   assert.equal(meta.format, "png");
   assert.equal(meta.exif, undefined);
+  assert.ok(png.length < IMESSAGE_STICKER_MAX_BYTES);
 
   const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const px = (x: number, y: number) => {
@@ -100,4 +104,25 @@ test("sticker: the cutout drops the background and keeps a white die-cut edge", 
     if (a > 200 && r > 245 && g > 245 && b > 245) edge = true;
   }
   assert.ok(edge, "the midline should cross the white sticker edge");
+});
+
+test("sticker: a huge cutout is squeezed under the iMessage sticker limit", async () => {
+  const width = 900;
+  const height = 900;
+  const raw = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < raw.length; i += 4) {
+    raw[i] = i % 251;
+    raw[i + 1] = (i * 3) % 251;
+    raw[i + 2] = (i * 7) % 251;
+    raw[i + 3] = i % 5 === 0 ? 0 : 255;
+  }
+  const big = await sharp(raw, { raw: { width, height, channels: 4 } }).png({ compressionLevel: 0 }).toBuffer();
+  assert.ok(big.length > IMESSAGE_STICKER_MAX_BYTES);
+  const fitted = await fitIMessageSticker(big);
+  const meta = await sharp(fitted).metadata();
+  assert.equal(meta.format, "png");
+  assert.equal(meta.hasAlpha, true);
+  assert.ok((meta.width ?? 999) <= 618);
+  assert.ok((meta.height ?? 999) <= 618);
+  assert.ok(fitted.length < IMESSAGE_STICKER_MAX_BYTES, `sticker is ${fitted.length} bytes`);
 });

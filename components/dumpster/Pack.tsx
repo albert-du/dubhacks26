@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { stickerFilename } from "@/lib/sticker";
+import { isPng, STICKER_FILE_NAME } from "@/lib/sticker";
 import type { PublicSticker, StickerTarget } from "@/lib/types";
 import type { Tab } from "./DumpsterView";
 
@@ -32,7 +32,7 @@ export function Pack({
         </h2>
         <p className="mt-3 text-sm leading-snug">
           Open a photo, tap <b>Sticker</b>, and pick a person. Dump cuts them out of the shot. <b>Add to phone</b> opens the
-          share sheet so you can keep it or send it to Messages, WhatsApp, or Instagram. Press and hold a sticker to save it too.
+          share sheet with a PNG sticker, so Messages on an iPhone receives the sticker itself. Press and hold a sticker to save it too.
         </p>
       </div>
 
@@ -63,7 +63,7 @@ function StickerCard({
   onRetry: (mediaId: string, target: StickerTarget) => Promise<boolean>;
   onDelete: (stickerId: string) => Promise<boolean>;
 }) {
-  const file = useStickerFile(sticker.status === "ready" ? sticker.url : undefined, sticker.label);
+  const file = useStickerFile(sticker.status === "ready" ? sticker.url : undefined);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -75,9 +75,11 @@ function StickerCard({
     setBusy(true);
     setNote(null);
     try {
-      if (canShareFile(file)) {
+      // A title makes iOS send the file name, or fail the share on some iPhones.
+      const payload = { files: [file] };
+      if (canShare(payload)) {
         try {
-          await navigator.share({ files: [file], title: file.name });
+          await navigator.share(payload);
           return;
         } catch (e) {
           if ((e as Error).name === "AbortError") return;
@@ -148,7 +150,7 @@ function StickerCard({
   );
 }
 
-function useStickerFile(url: string | undefined, label: string) {
+function useStickerFile(url: string | undefined) {
   const [file, setFile] = useState<File | null>(null);
   useEffect(() => {
     if (!url) return;
@@ -157,23 +159,21 @@ function useStickerFile(url: string | undefined, label: string) {
       try {
         const res = await fetch(`${url}${url.includes("?") ? "&" : "?"}download=1`, { signal: ac.signal });
         if (!res.ok) return;
-        const blob = await res.blob();
-        if (ac.signal.aborted) return;
-        const type = blob.type || "image/png";
-        const name = type === "image/webp" ? stickerFilename(label).replace(/\.png$/, ".webp") : stickerFilename(label);
-        setFile(new File([blob], name, { type }));
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        if (ac.signal.aborted || !isPng(bytes)) return;
+        setFile(new File([bytes], STICKER_FILE_NAME, { type: "image/png" }));
       } catch (e) {
         if ((e as Error).name === "AbortError") return;
       }
     })();
     return () => ac.abort();
-  }, [url, label]);
+  }, [url]);
   return file;
 }
 
-function canShareFile(file: File) {
+function canShare(data: ShareData) {
   try {
-    return !!navigator.canShare?.({ files: [file] });
+    return !!navigator.canShare?.(data);
   } catch {
     return false;
   }
