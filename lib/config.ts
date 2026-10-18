@@ -34,10 +34,16 @@ export const config = {
     model: env("TRANSCRIBE_MODEL") ?? "whisper-1",
   },
 
-  photon: {
-    url: env("PHOTON_API_URL"),
-    apiKey: env("PHOTON_API_KEY"),
-    webhookSecret: env("PHOTON_WEBHOOK_SECRET"),
+  /** Read on each access so the worker can load `.env.local` before the first send. */
+  get photon() {
+    return {
+      apiKey: env("PHOTON_API_KEY"),
+      projectId: env("PHOTON_PROJECT_ID"),
+      agentUserId: env("PHOTON_AGENT_USER_ID"),
+      platform: env("PHOTON_PLATFORM") ?? "imessage",
+      webhookSecret: env("PHOTON_WEBHOOK_SECRET"),
+      baseUrl: (env("PHOTON_API_URL") ?? "https://api.photon.codes/v1").replace(/\/$/, ""),
+    };
   },
 
   backboard: {

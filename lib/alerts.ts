@@ -29,7 +29,9 @@ export async function flushFaceAlerts() {
     if (mm > 0) lines.push(`🎙️ Your name was mentioned in ${mm === 1 ? "a new video" : `${mm} new videos`}.`);
     lines.push(url);
     try {
-      await photon.send(g.phone, lines.join("\n"));
+      await photon.send(g.phone, lines.join("\n"), {
+        idempotencyKey: `alert:${g._id}:${p}:${mm}:${g.lastAlertAt?.getTime() ?? 0}`,
+      });
       await guests.updateOne(
         { _id: g._id },
         { $inc: { pendingPhotoAlerts: -p, pendingMentionAlerts: -mm }, $set: { lastAlertAt: new Date() } },
@@ -66,6 +68,6 @@ export async function sendExpiryWarnings() {
 
     const phones = new Set<string>();
     for (const g of await guests.find({ dumpsterId: d._id, phone: { $exists: true } }).toArray()) if (g.phone) phones.add(g.phone);
-    await Promise.allSettled([...phones].map((p) => photon.send(p, text)));
+    await Promise.allSettled([...phones].map((p) => photon.send(p, text, { idempotencyKey: `warn:${d._id}:${p}` })));
   }
 }

@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "worker": "tsx worker/index.ts",
+    "worker": "node --env-file-if-exists=.env.local --import tsx worker/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test lib/**/*.test.ts",
     "audit:privacy": "tsx scripts/privacy-audit.ts",

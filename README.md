@@ -52,8 +52,10 @@ cp .env.example .env.local
 docker compose up -d mongo timescale   # add face-embed too (first build downloads ~300MB of models)
 npm install
 npm run dev                            # http://localhost:3000
-npx tsx --env-file=.env.local worker/index.ts   # second terminal: processing, alerts, cleanup
+npm run worker                         # second terminal: processing, alerts, cleanup
 ```
+
+`npm run worker` loads `.env.local` when that file exists. Variables already set in the environment win.
 
 Without API keys, everything still runs:
 
@@ -71,10 +73,12 @@ curl -X POST localhost:3000/api/photon/webhook -H 'content-type: application/jso
   -H 'x-photon-secret: change-me' -d '{"from":"+12065550123","text":"Create dumpster \"Mt. Si Hike\" 48h"}'
 ```
 
+Live deliveries are Photon `message.received` events, signed as Standard Webhooks (`webhook-id`, `webhook-timestamp`, `webhook-signature`) with `PHOTON_WEBHOOK_SECRET`. The handler replies in that event's space.
+
 ## Integration notes: verify before demo
 
 - **Perceptron** (`lib/perceptron.ts`): assumes an OpenAI-compatible `/chat/completions` endpoint and 0–1000 box coordinates.
-- **Photon** (`lib/photon.ts` and the webhook route): the send endpoint and inbound payload fields are placeholders.
+- **Photon 2.0** (`lib/photon.ts`, webhook route): outbound text creates or reuses a User and a Space, then `POST /v1/projects/{id}/messages` with `{ spaceId, senderId, content: { type: "text", format: "plain", text } }`. Set `PHOTON_API_KEY`, `PHOTON_PROJECT_ID`, `PHOTON_AGENT_USER_ID`, and `PHOTON_PLATFORM`. A shared iMessage line only delivers after that person has texted the agent; cold photo alerts and burn warnings need SMS or a dedicated line.
 - **Backboard** (`lib/backboard.ts`): the publish endpoint is a placeholder.
 - **VEYZL** (`.github/workflows/privacy-audit.yml`): the action reference is a TODO.
 
