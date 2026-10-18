@@ -8,6 +8,7 @@ import { emptyReactions, fireRank } from "./reactions";
 import { isDumpsterId, DUMPSTER_ID_ALPHABET, DUMPSTER_ID_LENGTH } from "./dumpsters";
 import { normalizeImage } from "./imaging";
 import { findMentions } from "./transcribe";
+import { crc32, zipStream } from "./zip";
 
 test("photon: parses create commands with smart quotes and TTL", () => {
   assert.deepEqual(parseCommand("Create dumpster “Mt. Si Hike” 48h"), { type: "create", name: "Mt. Si Hike", ttlHours: 48 });
@@ -108,4 +109,25 @@ test("reactions: Dumpster Fire rank uses only fire, then other reactions, then a
     fireRank(items).map((m) => m.id),
     ["five", "two-loved", "two-old", "two-new"],
   );
+});
+
+test("zip: a streamed STORE archive has valid structure and CRCs", async () => {
+  const files = { "a.txt": Buffer.from("hello"), "b.bin": Buffer.from([0, 1, 2, 3, 255]) };
+  const stream = zipStream(Object.entries(files).map(([name, data]) => ({ name, date: new Date(2026, 9, 17), read: async () => data })));
+  const chunks: Uint8Array[] = [];
+  const reader = stream.getReader();
+  for (let r = await reader.read(); !r.done; r = await reader.read()) chunks.push(r.value);
+  const zip = Buffer.concat(chunks);
+  assert.equal(zip.readUInt32LE(0), 0x04034b50);
+  const eocd = zip.length - 22;
+  assert.equal(zip.readUInt32LE(eocd), 0x06054b50);
+  assert.equal(zip.readUInt16LE(eocd + 10), 2);
+  assert.equal(crc32(Buffer.from("hello")), 0x3610a686);
+  // central directory points at each local header
+  let p = zip.readUInt32LE(eocd + 16);
+  for (let n = 0; n < 2; n++) {
+    assert.equal(zip.readUInt32LE(p), 0x02014b50);
+    assert.equal(zip.readUInt32LE(zip.readUInt32LE(p + 42)), 0x04034b50);
+    p += 46 + zip.readUInt16LE(p + 28);
+  }
 });

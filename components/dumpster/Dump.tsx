@@ -35,6 +35,20 @@ export function Dump(props: {
   const [answer, setAnswer] = useState<string | null>(null);
   const [askError, setAskError] = useState<string | null>(null);
   const [naming, setNaming] = useState<{ ids: string[]; value: string } | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggle = (mediaId: string) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(mediaId)) next.delete(mediaId);
+      else next.add(mediaId);
+      return next;
+    });
+  const stopSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
 
   const saveName = async () => {
     if (!naming) return;
@@ -122,7 +136,7 @@ export function Dump(props: {
   );
 
   return (
-    <section>
+    <section className={selecting ? "pb-14" : ""}>
       {/* People */}
       <div className="no-scrollbar flex overflow-x-auto border-b-3 border-ink">
         <FaceButton active={!filter} onClick={() => setFilter(null)} label="Everyone">
@@ -253,6 +267,15 @@ export function Dump(props: {
             {showDupes ? "Hide" : "Show"} {dupes} dupe{dupes === 1 ? "" : "s"}
           </button>
         )}
+        {results.length > 0 && (
+          <button
+            onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+            className={`label border-l border-ink px-3 ${selecting ? "bg-green" : ""}`}
+            aria-pressed={selecting}
+          >
+            Select
+          </button>
+        )}
       </div>
 
       {results.length === 0 ? (
@@ -266,7 +289,7 @@ export function Dump(props: {
           )}
         </div>
       ) : view === "grid" ? (
-        <Grid list={results} {...props} />
+        <Grid list={results} {...props} selecting={selecting} selected={selected} onToggle={toggle} />
       ) : (
         moments.map((mo, i) => {
           const list = mo.ids.map((x) => props.byId.get(x)!).reverse();
@@ -280,12 +303,70 @@ export function Dump(props: {
                   {mo.end - mo.start > 60_000 ? `–${t(mo.end)}` : ""} · {list.length} {list.length === 1 ? "shot" : "shots"}
                 </p>
               </header>
-              <Grid list={list} {...props} />
+              <Grid list={list} {...props} selecting={selecting} selected={selected} onToggle={toggle} />
             </section>
           );
         })
       )}
+
+      {selecting && (
+        <SelectBar
+          dumpsterId={props.id}
+          selected={results.filter((m) => selected.has(m.id))}
+          allCount={results.length}
+          onAll={() => setSelected(new Set(results.map((m) => m.id)))}
+          onNone={() => setSelected(new Set())}
+          onDone={stopSelecting}
+        />
+      )}
     </section>
+  );
+}
+
+/** Pinned above the tab bar while selecting. One shot saves directly; several come down as a ZIP. */
+function SelectBar(props: {
+  dumpsterId: string;
+  selected: PublicMedia[];
+  allCount: number;
+  onAll: () => void;
+  onNone: () => void;
+  onDone: () => void;
+}) {
+  const n = props.selected.length;
+  const save = () => {
+    if (n === 1) {
+      const url = props.selected[0].url;
+      window.location.href = `${url}${url.includes("?") ? "&" : "?"}download=1`;
+      return;
+    }
+    // A real form POST lets the browser stream the ZIP to disk instead of holding it in memory.
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = `/api/dumpsters/${props.dumpsterId}/download`;
+    for (const m of props.selected) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "ids";
+      input.value = m.id;
+      form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
+  };
+  return (
+    <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-nav mx-auto flex w-full max-w-[430px] items-stretch border-t-3 border-ink bg-paper">
+      <span className="label flex items-center px-3">{n} selected</span>
+      <button className="label ml-auto border-l border-ink px-3" onClick={n === props.allCount ? props.onNone : props.onAll}>
+        {n === props.allCount ? "None" : "All"}
+      </button>
+      <button className="display border-l-3 border-ink bg-green px-4 py-3 text-sm disabled:opacity-40" disabled={!n} onClick={save}>
+        {n > 1 ? `Save ${n}` : "Save"}
+      </button>
+      <button className="display border-l border-ink px-3" onClick={props.onDone} aria-label="Done selecting">
+        ✕
+      </button>
+    </div>
   );
 }
 
@@ -294,17 +375,27 @@ function Grid({
   frames,
   byId,
   onOpen,
+  selecting,
+  selected,
+  onToggle,
 }: {
   list: PublicMedia[];
   frames: Map<string, number>;
   byId: Map<string, PublicMedia>;
   onOpen: (list: PublicMedia[], id: string) => void;
+  selecting: boolean;
+  selected: Set<string>;
+  onToggle: (id: string) => void;
 }) {
   return (
     <ul className="grid grid-cols-3 gap-[3px] bg-ink">
       {list.map((m) => (
         <li key={m.id} className="animate-drop">
-          <button onClick={() => onOpen(list, m.id)} className="relative block aspect-square w-full overflow-hidden bg-bone">
+          <button
+            onClick={() => (selecting ? onToggle(m.id) : onOpen(list, m.id))}
+            aria-pressed={selecting ? selected.has(m.id) : undefined}
+            className="relative block aspect-square w-full overflow-hidden bg-bone"
+          >
             {m.kind === "image" ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={m.url} alt={m.caption ?? ""} loading="lazy" className="z-media relative size-full object-cover" />
@@ -315,6 +406,15 @@ function Grid({
             {m.kind === "video" && <span className="label z-labels absolute top-0 left-0 bg-paper px-1 !text-[9px]">▶ Clip</span>}
             {m.duplicateOf && byId.has(m.duplicateOf) && (
               <span className="label z-labels absolute right-0 bottom-0 bg-paper px-1 !text-[9px]">Dupe</span>
+            )}
+            {selecting && (
+              <span
+                className={`z-labels absolute inset-0 grid place-items-center ${selected.has(m.id) ? "bg-green/40 outline-4 -outline-offset-4 outline-green" : ""}`}
+              >
+                <span className={`display grid size-8 place-items-center border-3 border-ink text-lg ${selected.has(m.id) ? "bg-green" : "bg-paper/80"}`}>
+                  {selected.has(m.id) ? "✓" : ""}
+                </span>
+              </span>
             )}
             {m.reactions.fire > 0 && (
               <span className="z-labels absolute top-0 right-0 flex items-center gap-0.5 bg-paper py-0.5 pr-1 pl-0.5">

@@ -162,7 +162,7 @@ export function Viewer(props: {
           ) : (
             <span />
           )}
-          <a className="btn btn-ghost !px-1 !text-sm" href={m.url} download>
+          <a className="btn btn-ghost !px-1 !text-sm" href={`${m.url}${m.url.includes("?") ? "&" : "?"}download=1`} download>
             Save
           </a>
           <button
