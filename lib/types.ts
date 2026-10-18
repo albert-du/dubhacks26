@@ -28,9 +28,12 @@ export interface Dumpster {
 export interface Guest {
   _id: string;
   dumpsterId: string;
-  viewerId: string;
+  /** Every browser signed in as this guest. Typing the name again adds another. */
+  viewerIds: string[];
   /** What they signed in to this dumpster as. Also names their face. */
   name: string;
+  /** `name` folded for lookup; unique within a dumpster, so the name alone gets you back in. */
+  nameKey: string;
   phone?: string;
   /** Verified routing for this guest only; never sent to another browser. */
   notification?: {

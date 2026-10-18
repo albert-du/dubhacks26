@@ -7,7 +7,7 @@ This file is the rulebook for the VEYZL PR audit. Every PR runs two layers:
 
 ## Design stance
 
-Dump is **account-free and host-less**. To use a dumpster you sign in to that one dumpster with a name and a selfie; there are no accounts and the sign-in burns with the dumpster. Nobody owns a dumpster, nothing records who created a dumpster or who uploaded which photo, and everyone signed in has the same powers, including deleting any photo. The privacy guarantees come from four properties: dumpsters can't be found, uploads aren't tied to people, retention is short, and deletion is complete.
+Dump is **account-free and host-less**. To use a dumpster you sign in to that one dumpster: a name and a selfie the first time, and the name alone after that. There are no accounts and the sign-in burns with the dumpster. Nobody owns a dumpster, nothing records who created a dumpster or who uploaded which photo, and everyone signed in has the same powers, including deleting any photo. The privacy guarantees come from four properties: dumpsters can't be found, uploads aren't tied to people, retention is short, and deletion is complete.
 
 ## Rules
 
@@ -33,8 +33,8 @@ All of the following is deleted when the dumpster burns.
 | Detected objects, written text, captions, transcripts | Search and organization | — |
 | Pixel hash and byte hash | Duplicate detection | — |
 | Face clusters (vectors) and optional face names | Face gallery, filtering, mention texts | People in photos. A name appears only if someone in the dumpster adds one |
-| Guest name and selfie vector | Sign-in to one dumpster; names their face | The guest. Deleted on Sign out or burn |
-| Guest verified phone, iMessage conversation routing, pending connection-code hash | Opt-in texts; codes expire after ten minutes | The guest, by their own choice. Routing and codes stay server-side. Deleted on disconnect, Sign out, or burn |
+| Guest name and selfie vector | Sign-in to one dumpster; names their face | The guest. Deleted on Forget me or burn. Sign out only drops this browser |
+| Guest verified phone, iMessage conversation routing, pending connection-code hash | Opt-in texts; codes expire after ten minutes | The guest, by their own choice. Routing and codes stay server-side. Deleted on disconnect, Forget me, or burn |
 | Search-by-photo query image | Photo search | Never stored. Analyzed in memory for the one request |
 | Reactions (per-browser random id) | Toggle a reaction instead of stacking | No one: the id is a random cookie, not linked to uploads |
 | Backboard assistant and thread | Ask the dump, and free-text Photon replies | No phone number and no face vector. Ask sees captions, tags, object labels, writing, transcript text, face names, venue, and fire counts. A text turn is deleted before the reply is sent. Ask is deleted when the dumpster burns |
@@ -53,6 +53,7 @@ The Dumpster Fire leaderboard is computed only from people's 🔥 reactions, wit
 ## Known gaps (to be flagged, not hidden)
 
 - Open moderation means any guest can delete any media. That's intended, but there's no undo or rate limit yet.
+- A name is the only thing needed to sign back in. Anyone with the link who types a name already signed in here becomes that guest: their face match, and their alert connection (they can disconnect it or point it at their own number). No phone number or vector is revealed. This matches the stance that the link is the lock.
 - People in photos are visible unblurred to everyone with the dumpster link. The link is the only access control.
 - Browser HTTP caches may hold public renders for up to 1 hour after a burn. The service worker never caches media.
 - The map tab loads OpenFreeMap vector tiles for the area around shots. A tile request tells OpenFreeMap that area. It is the same rounded GPS already shown to anyone with the dumpster link. No dumpster id, photo, or account is sent.
