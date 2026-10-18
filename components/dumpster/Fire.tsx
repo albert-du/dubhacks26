@@ -2,6 +2,7 @@
 
 import { FireIcon } from "@/components/Brand";
 import { ReactionBar } from "@/components/Reactions";
+import { topFireFrameStyle } from "@/lib/fireFrame";
 import { engagement, fireRank, type ReactionKey } from "@/lib/reactions";
 import type { PublicMedia } from "@/lib/types";
 
@@ -41,10 +42,15 @@ export function Fire({
 
       {top && (
         <article className="border-b-3 border-ink">
-          <button className="relative block w-full" onClick={() => onOpen(ranked, top.id)}>
-            <Thumb m={top} className="block max-h-[60dvh] w-full object-cover" />
-            <span className="display absolute top-0 left-0 bg-fire px-2 text-6xl leading-none">01</span>
-          </button>
+          {/* The container makes 100cqw the board width, so the #1 frame is full size before its file loads. */}
+          <div style={{ containerType: "inline-size" }}>
+            <button className="relative block w-full" onClick={() => onOpen(ranked, top.id)}>
+              <span className="bg-bone" style={topFireFrameStyle(top.width, top.height)}>
+                <Thumb m={top} eager className="absolute inset-0 size-full object-cover" />
+                <span className="display z-labels absolute top-0 left-0 bg-fire px-2 text-6xl leading-none">01</span>
+              </span>
+            </button>
+          </div>
           <div className="p-3">
             <ReactionBar m={top} onReact={(k) => onReact(top.id, k)} />
           </div>
@@ -79,11 +85,34 @@ export function Fire({
   );
 }
 
-function Thumb({ m, className }: { m: PublicMedia; className: string }) {
+function Thumb({ m, className, eager = false }: { m: PublicMedia; className: string; eager?: boolean }) {
+  // The winner sits in a frame that is already the right size. Fill that frame; don't wait on the file to grow it.
+  const fill = eager
+    ? { position: "absolute" as const, inset: 0, width: "100%", height: "100%", objectFit: "cover" as const }
+    : undefined;
   return m.kind === "image" ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={m.url} alt={m.caption ?? ""} loading="lazy" className={className} />
+    <img
+      src={m.url}
+      alt={m.caption ?? ""}
+      width={m.width || undefined}
+      height={m.height || undefined}
+      loading={eager ? "eager" : "lazy"}
+      fetchPriority={eager ? "high" : undefined}
+      decoding="async"
+      style={fill}
+      className={className}
+    />
   ) : (
-    <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className={className} />
+    <video
+      src={`${m.url}#t=0.1`}
+      muted
+      playsInline
+      preload={eager ? "auto" : "metadata"}
+      width={m.width || undefined}
+      height={m.height || undefined}
+      style={fill}
+      className={className}
+    />
   );
 }
