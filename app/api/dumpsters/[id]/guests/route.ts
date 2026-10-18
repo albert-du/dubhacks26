@@ -21,8 +21,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
 
   if (req.headers.get("content-type")?.includes("application/json")) {
     const { name, confirm } = z.object({ name: Name, confirm: z.boolean().optional() }).parse(await req.json());
-    const status = await signInByName(d, await viewerId(), name, !!confirm);
-    return NextResponse.json({ status });
+    return NextResponse.json(await signInByName(d, await viewerId(), name, !!confirm));
   }
 
   const form = await req.formData();
@@ -40,8 +39,8 @@ export const POST = route<Ctx>(async (req, { params }) => {
 export const PATCH = route<Ctx>(async (req, { params }) => {
   const d = await getLiveDumpster((await params).id);
   if (!d) throw notFound();
-  const { name } = z.object({ name: Name }).parse(await req.json());
-  await renameGuest(d, await viewerId(), name);
+  const { name, group } = z.object({ name: Name, group: z.boolean().optional() }).parse(await req.json());
+  await renameGuest(d, await viewerId(), name, !!group);
   return NextResponse.json({ ok: true, name });
 });
 

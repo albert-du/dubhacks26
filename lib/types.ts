@@ -230,5 +230,15 @@ export interface DumpsterState {
   cursor: string;
 }
 
+/** Someone here already goes by this name: who, so the page can ask "same person?". */
+export interface SameName {
+  /** The name as they spell it. */
+  name: string;
+  /** Faces already called that. */
+  faceIds: string[];
+  /** A guest signed in with that name. */
+  signedIn: boolean;
+}
+
 /** Connection state only. Private routing and guest numbers stay on the server. */
 export type NotificationStatus = { state: "disconnected" | "connected" } | { state: "pending"; expiresAt: string };
