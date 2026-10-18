@@ -1,0 +1,9 @@
+dumpster.photo {
+    request_body {
+        # Allow a 150 MiB upload plus multipart overhead.
+        max_size 160MB
+    }
+    reverse_proxy 127.0.0.1:3000 {
+        flush_interval -1
+    }
+}
