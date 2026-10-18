@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLiveDumpster } from "@/lib/dumpsters";
+import { nameKey } from "@/lib/enroll";
 import { requireGuest } from "@/lib/guestAuth";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
@@ -21,10 +22,15 @@ export const POST = route<Ctx>(async (req, { params }) => {
   if (!d) throw notFound();
   await requireGuest(d._id);
   const { name } = Body.parse(await req.json());
-  const { clusters, media } = await cols();
+  const { clusters, media, guests } = await cols();
 
-  const face = await clusters.findOne({ _id: faceId, dumpsterId: id }, { projection: { name: 1 } });
+  const face = await clusters.findOne({ _id: faceId, dumpsterId: id }, { projection: { name: 1, guestId: 1 } });
   if (!face) throw new HttpError(404, "That face isn’t here anymore");
+  // No two people share a name: a signed-in guest's name only goes on their own faces.
+  const holder = name ? await guests.findOne({ dumpsterId: id, nameKey: nameKey(name) }, { projection: { _id: 1 } }) : null;
+  if (holder && holder._id !== face.guestId) {
+    throw new HttpError(409, `${name} is signed in here. If this is them, they can tap the face and choose That’s me.`);
+  }
   const now = new Date();
   await clusters.updateOne(
     { _id: faceId },

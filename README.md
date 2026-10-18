@@ -27,7 +27,7 @@ With Backboard configured, a looser text works too, such as "open one for the hi
 
 ## On a phone
 
-**Sign in.** Type your name. If someone already signed in here with that name, Dump asks whether it's you and lets you straight in. A new name goes on to a selfie, then an optional phone number for texts when you show up in new photos or videos. Names are unique within a dumpster, ignoring capitals and spacing.
+**Sign in.** Type your name. If someone already signed in here with that name, Dump asks whether it's you and lets you straight in. A new name goes on to a selfie. If the selfie looks like someone already signed in, Dump asks whether that's you. If your face is already in the pile, Dump shows those faces and you pick the ones that are you; their shots, and new shots of you after that, are yours. Then an optional phone number for texts when you show up in new photos or videos. Names are unique within a dumpster, ignoring capitals and spacing, and a face can't be named after someone else who is signed in.
 
 A dumpster is six tabs along the bottom.
 
@@ -37,13 +37,13 @@ A dumpster is six tabs along the bottom.
 
 **Fire.** The leaderboard. Open a shot and tap the flaming can. The shot with the most fires is on top. Hearts, laughs, and the other reactions only break a tie. The order comes from those taps.
 
-**Map.** Moments that have a location, on a paper-and-ink map. Pins with a fire on them are marked. Drag with two fingers so the page can still scroll. Under the map, the moments are listed in order; tap one to flip through it. The map loads tiles for that area from OpenFreeMap. Those tiles use the same rounded locations already on the pins.
+**Map.** Every shot with a location, as a small thumbnail on a paper-and-ink map. Shots with a fire have an orange edge. Zoom in (pinch, or the + and − buttons) and the thumbnails grow and shots taken at the same spot spread apart; tap one to open it. Drag with two fingers so the page can still scroll, or tap **Full screen** to fill the phone and pan with one finger. Under the map, the moments are listed in order; tap one to flip through it. The map loads tiles for that area from OpenFreeMap. Those tiles use the same rounded locations already on the pins.
 
 **Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick a person, an object, or everyone in the frame. Dump removes the background and draws a white sticker edge. Add to phone opens the share sheet so you can save it or send it to Messages, WhatsApp, or Instagram. Download saves the PNG. Press and hold a sticker to save it too.
 
 **Me.** Who you signed in as and how many shots you're in. Change your name or take a new selfie here; your name goes on your face in the Dump. The selfie is used to find your face and is not kept. Texts are optional. Add your number on the last step of your first sign-in, or later here: enter your registered demo number, then send the one-time connection message to your assigned number. Codes expire after ten minutes and only work from the number you entered. Once connected, Dump texts you when new photos of you land, and when a video says the name on your face. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone connected gets one warning and a link, so they can save what they want. Change your number or disconnect in Me. Sign out forgets you on this phone only; type your name to get back in. Forget me deletes your name, face match and number for good. The connection expires with the dumpster.
 
-Open a shot to see who is in it, what was recognized, any writing, and any words from a video. From there you can react, save a copy, cut a sticker, or delete it for everyone.
+Open a shot to see who is in it. Only people are tagged: captions, writing, objects and words from a video are not shown, but the search box still finds them. Each face is a name or Unnamed · Person N. Tap an unnamed tag and its face is outlined in orange on the photo, so two unnamed people can be told apart; tap **That's me** to claim it. The face takes your name, and new shots of it count as yours. From there you can react, save a copy, cut a sticker, or delete it for everyone.
 
 If Ask is on, the Dump search box grows an Ask button. Ask answers the sentence and shows the shots it means. The word filter still works either way. Ask only appears when `BACKBOARD_API_KEY` is set. The key stays on the server.
 

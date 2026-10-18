@@ -1,20 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import type { DumpsterState, PublicDumpster } from "@/lib/types";
+import { FaceThumb } from "@/components/ui";
+import type { DumpsterState, PublicCluster, PublicDumpster } from "@/lib/types";
 import { NotificationSettings } from "./NotificationSettings";
 import { SelfiePicker } from "./Selfie";
 
-type Step = "name" | "returning" | "selfie" | "phone";
+type Step = "name" | "returning" | "selfie" | "sameFace" | "claim" | "phone";
+type Match = { guest?: { name: string }; faceIds: string[] };
 
 /**
  * The door to a dumpster. Your name first. Been here before? That's all it takes.
  * New here: a quick selfie, then an optional number for texts when you show up in new shots.
+ * If the selfie looks like someone already signed in, we ask whether that's you. If your face
+ * is already in the pile, you pick the faces that are you and those shots become yours.
  * No account; it's just for this one.
  */
-export function SignIn({ dumpster, me, onSignedIn, onEnrolled, onDone }: {
+export function SignIn({ dumpster, me, clusters, onSignedIn, onEnrolled, onDone }: {
   dumpster: PublicDumpster;
   me?: DumpsterState["me"];
+  clusters: PublicCluster[];
   onSignedIn: () => Promise<void>;
   /** The guest exists now; keep this screen up for the phone step. */
   onEnrolled: () => void;
@@ -23,14 +28,16 @@ export function SignIn({ dumpster, me, onSignedIn, onEnrolled, onDone }: {
   const [step, setStep] = useState<Step>(me ? "phone" : "name");
   const [name, setName] = useState(me?.name ?? "");
   const [selfie, setSelfie] = useState<Blob | null>(null);
+  const [match, setMatch] = useState<Match>({ faceIds: [] });
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const base = `/api/dumpsters/${dumpster.id}/guests`;
 
-  async function send(init: RequestInit) {
+  async function send({ url = base, ...init }: RequestInit & { url?: string }) {
     setBusy(true);
     setError(null);
-    const r = await fetch(base, { method: "POST", ...init }).catch(() => null);
+    const r = await fetch(url, { method: "POST", ...init }).catch(() => null);
     const body = await r?.json().catch(() => ({}));
     setBusy(false);
     if (!r?.ok) {
@@ -40,8 +47,8 @@ export function SignIn({ dumpster, me, onSignedIn, onEnrolled, onDone }: {
     return body;
   }
 
-  const byName = (confirm: boolean) =>
-    send({ headers: { "content-type": "application/json" }, body: JSON.stringify({ name: name.trim(), confirm }) });
+  const byName = (confirm: boolean, as = name.trim()) =>
+    send({ headers: { "content-type": "application/json" }, body: JSON.stringify({ name: as, confirm }) });
 
   async function submitName(e: React.FormEvent) {
     e.preventDefault();
@@ -56,12 +63,33 @@ export function SignIn({ dumpster, me, onSignedIn, onEnrolled, onDone }: {
     else if (body) setStep("selfie");
   }
 
+  /** Check the selfie against the pile first: same face as someone signed in? Your shots already here? */
   async function submitSelfie(e: React.FormEvent) {
     e.preventDefault();
     if (!selfie) return;
     const form = new FormData();
+    form.append("selfie", selfie, "selfie.jpg");
+    const r = await send({ body: form, url: `${base}/match` });
+    if (!r) return;
+    const found: Match = { guest: r.guest, faceIds: (r.faceIds ?? []).filter((id: string) => clusters.some((c) => c.id === id)) };
+    setMatch(found);
+    setPicked(new Set(found.faceIds));
+    if (found.guest) setStep("sameFace");
+    else if (found.faceIds.length) setStep("claim");
+    else await enroll([]);
+  }
+
+  async function signInAs(existing: string) {
+    const body = await byName(true, existing);
+    if (body?.status === "signed-in") await onSignedIn();
+  }
+
+  async function enroll(claim: string[]) {
+    if (!selfie) return;
+    const form = new FormData();
     form.append("name", name.trim());
     form.append("selfie", selfie, "selfie.jpg");
+    form.append("claim", JSON.stringify(claim));
     if (!(await send({ body: form }))) return;
     onEnrolled();
     setStep("phone");
@@ -107,13 +135,88 @@ export function SignIn({ dumpster, me, onSignedIn, onEnrolled, onDone }: {
         <SelfiePicker value={selfie} onChange={setSelfie} />
         {errorBox}
         <button className="btn btn-green w-full !py-5 !text-xl" disabled={busy || !selfie}>
-          {busy ? "Finding your face…" : "Next →"}
+          {busy ? "Looking for you…" : "Next →"}
         </button>
         <button type="button" className="label underline" disabled={busy} onClick={() => { setError(null); setStep("name"); }}>
           Back
         </button>
       </form>
     );
+
+  if (step === "sameFace" && match.guest) {
+    const other = match.guest.name;
+    return (
+      <div className="space-y-5 px-4 pt-6 pb-10">
+        {title}
+        <p className="text-lg">
+          You look like <b>{other}</b>, who already signed in here. Is that you?
+        </p>
+        {errorBox}
+        <button className="btn btn-green w-full !py-5 !text-xl" disabled={busy} onClick={() => void signInAs(other)}>
+          {busy ? "Getting you in…" : `Yes, I’m ${other} →`}
+        </button>
+        <button
+          className="btn btn-ghost w-full"
+          disabled={busy}
+          onClick={() => (match.faceIds.length ? setStep("claim") : void enroll([]))}
+        >
+          No, I’m {name.trim()}
+        </button>
+      </div>
+    );
+  }
+
+  if (step === "claim") {
+    const faces = match.faceIds.map((id) => clusters.find((c) => c.id === id)).filter((c): c is PublicCluster => !!c);
+    const shots = faces.filter((c) => picked.has(c.id)).reduce((n, c) => n + c.count, 0);
+    return (
+      <div className="space-y-5 px-4 pt-6 pb-10">
+        {title}
+        {stepLabel(2, "Your shots")}
+        <p className="text-sm leading-snug">
+          These faces are already in the pile and look like you. Tap any that aren’t you. The rest take your name, and new
+          shots of them go to you.
+        </p>
+        <ul className="grid grid-cols-3 gap-2">
+          {faces.map((c) => {
+            const on = picked.has(c.id);
+            return (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() =>
+                    setPicked((p) => {
+                      const next = new Set(p);
+                      if (on) next.delete(c.id);
+                      else next.add(c.id);
+                      return next;
+                    })
+                  }
+                  className={`relative block w-full border-3 ${on ? "border-green" : "border-ink opacity-50"}`}
+                >
+                  {c.cover ? <FaceThumb cover={c.cover} size={104} /> : <span className="block aspect-square bg-bone" />}
+                  <span className={`display absolute top-1 left-1 grid size-6 place-items-center border-2 border-ink text-sm ${on ? "bg-green" : "bg-paper"}`}>
+                    {on ? "✓" : ""}
+                  </span>
+                  <span className="label block bg-paper py-0.5 text-center !text-[9px]">
+                    {c.count} shot{c.count === 1 ? "" : "s"}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {errorBox}
+        <button className="btn btn-green w-full !py-5 !text-xl" disabled={busy || !picked.size} onClick={() => void enroll([...picked])}>
+          {busy ? "Claiming…" : `That’s me · ${shots} shot${shots === 1 ? "" : "s"} →`}
+        </button>
+        <button className="btn btn-ghost w-full" disabled={busy} onClick={() => void enroll([])}>
+          None of these are me
+        </button>
+      </div>
+    );
+  }
 
   if (step === "phone") {
     const connected = me?.notifications?.state === "connected";

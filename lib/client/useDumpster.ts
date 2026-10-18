@@ -97,9 +97,9 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
     [id],
   );
 
-  /** Name (or clear) one or more faces. Optimistic; the stream confirms. */
+  /** Name (or clear) one or more faces. Optimistic; the stream confirms. Returns the error, if any. */
   const nameFaces = useCallback(
-    async (faceIds: string[], name: string) => {
+    async (faceIds: string[], name: string): Promise<string | null> => {
       const clean = name.trim().slice(0, 40);
       setState((s) => ({
         ...s,
@@ -111,12 +111,28 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ name: clean }),
-          }).then((r) => r.ok, () => false),
+          }).then(
+            async (r) => (r.ok ? null : ((await r.json().catch(() => null))?.error ?? "Couldn’t save that name.")),
+            () => "Couldn’t reach Dump. Check your signal and try again.",
+          ),
         ),
       );
-      return results.every(Boolean);
+      const error = results.find(Boolean) ?? null;
+      if (error) await refresh();
+      return error;
     },
-    [id],
+    [id, refresh],
+  );
+
+  /** "That's me" on a face nobody has claimed. Returns the error, if any. */
+  const claimFace = useCallback(
+    async (faceId: string): Promise<string | null> => {
+      const r = await fetch(`/api/dumpsters/${id}/faces/${faceId}/claim`, { method: "POST" }).catch(() => null);
+      const error = r?.ok ? null : ((await r?.json().catch(() => null))?.error ?? "Couldn’t reach Dump. Check your signal and try again.");
+      await refresh();
+      return error;
+    },
+    [id, refresh],
   );
 
   const makeSticker = useCallback(
@@ -140,5 +156,5 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
     [id],
   );
 
-  return { state, destroyed, refresh, react, remove, makeSticker, nameFaces };
+  return { state, destroyed, refresh, react, remove, makeSticker, nameFaces, claimFace };
 }

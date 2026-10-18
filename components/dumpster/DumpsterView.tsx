@@ -120,6 +120,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         <SignIn
           dumpster={state.dumpster}
           me={state.me}
+          clusters={state.clusters}
           onSignedIn={dumpster.refresh}
           onEnrolled={() => setOnboarding(true)}
           onDone={() => setOnboarding(false)}
@@ -206,6 +207,9 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           index={Math.min(viewing.index, viewList.length - 1)}
           frames={frames}
           names={names}
+          clusters={state.clusters}
+          myClusterIds={me.clusterIds}
+          onClaim={dumpster.claimFace}
           byId={byId}
           onIndex={(index) => setViewing({ ...viewing, index })}
           onClose={() => setViewing(null)}
@@ -216,12 +220,6 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
             setViewing(null);
             setQ("");
             setFilter({ kind: "faces", ids: [clusterId], label: name, name });
-            setTab("dump");
-          }}
-          onSearch={(text) => {
-            setViewing(null);
-            setFilter(null);
-            setQ(text);
             setTab("dump");
           }}
         />

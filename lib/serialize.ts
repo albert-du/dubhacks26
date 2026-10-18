@@ -104,6 +104,7 @@ export async function publicClusters(d: Dumpster): Promise<PublicCluster[]> {
         id: c._id,
         name: c.name,
         count: c.n,
+        claimed: !!c.guestId,
         cover:
           m?.publicKey && c.cover
             ? { url: `${fileUrl(m.publicKey)}?v=${m.updatedAt.getTime()}`, box: c.cover.box, w: m.width ?? 1, h: m.height ?? 1 }
