@@ -4,6 +4,7 @@ import { perceptron } from "@/lib/ai-perceptron";
 import { config } from "@/lib/config";
 import { HttpError, route } from "@/lib/http";
 import { normalizeImage } from "@/lib/imaging";
+import { visionRequestSafetyReply } from "@/lib/visionPolicy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,7 +56,7 @@ export const POST = route(async (req: Request) => {
   try { ({ jpeg } = await normalizeImage(bytes)); }
   catch { throw new HttpError(415, "Could not decode the image."); }
   let analysis: string;
-  try { analysis = await perceptron.describe(jpeg, prompt); }
+  try { analysis = visionRequestSafetyReply(prompt) ?? await perceptron.describe(jpeg, prompt); }
   catch { throw new HttpError(502, "Vision model request failed. Try again later."); }
   return NextResponse.json({ analysis, model: config.perceptron.model }, { headers: { "cache-control": "no-store" } });
 });
