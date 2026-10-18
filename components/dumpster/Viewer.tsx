@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { downloadUrl, MediaStage } from "@/components/MediaStage";
 import { ReactionBar } from "@/components/Reactions";
 import { frameNo } from "@/components/ui";
 import type { ReactionKey } from "@/lib/reactions";
 import type { Box, PublicMedia } from "@/lib/types";
 
-type Mark = { box: Box; label: string; tone: "person" | "thing" | "text" };
+type Mark = { box: Box; label: string; tone: "person" | "text" };
 
 export function Viewer(props: {
   list: PublicMedia[];
@@ -19,13 +20,16 @@ export function Viewer(props: {
   onReact: (id: string, key: ReactionKey) => void;
   onDelete: (id: string) => Promise<boolean>;
   onSticker: (id: string, object: number) => Promise<boolean>;
+  /** Tap a name under Who: show that person's shots. */
+  onPerson: (clusterId: string, name: string) => void;
+  /** Tap writing under Says: search the dump for it. */
+  onSearch: (text: string) => void;
 }) {
   const { list, index, onIndex, onClose } = props;
   const m = list[index];
   const [marks, setMarks] = useState(false);
   const [cutMenu, setCutMenu] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const touchX = useRef<number | null>(null);
 
   const prev = () => index > 0 && onIndex(index - 1);
   const next = () => index < list.length - 1 && onIndex(index + 1);
@@ -58,11 +62,15 @@ export function Viewer(props: {
   };
 
   const original = m.duplicateOf ? props.byId.get(m.duplicateOf) : undefined;
-  const people = m.faces.map((f) => (f.clusterId ? props.names.get(f.clusterId) : undefined)).filter(Boolean) as string[];
-  const things = [...new Set(m.objects.map((o) => o.label).filter((l) => l !== "person"))];
+  // Named people in this shot, once each. Object labels stay internal (search only).
+  const people = [
+    ...new Map(
+      m.faces.filter((f) => f.clusterId && props.names.get(f.clusterId)).map((f) => [f.clusterId!, props.names.get(f.clusterId!)!]),
+    ).entries(),
+  ];
+  const writing = [...new Set(m.text.map((t) => t.text))];
   const overlay: Mark[] = [
     ...m.faces.map((f) => ({ box: f.box, label: (f.clusterId && props.names.get(f.clusterId)) || "person", tone: "person" as const })),
-    ...m.objects.filter((o) => o.label !== "person").map((o) => ({ box: o.box, label: o.label, tone: "thing" as const })),
     ...m.text.map((t) => ({ box: t.box, label: t.text, tone: "text" as const })),
   ];
 
@@ -80,26 +88,15 @@ export function Viewer(props: {
         </button>
       </div>
 
-      <div
-        className="relative grid min-h-0 flex-1 place-items-center p-2"
-        onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
-        onTouchEnd={(e) => {
-          if (touchX.current === null) return;
-          const dx = e.changedTouches[0].clientX - touchX.current;
-          if (dx > 50) prev();
-          if (dx < -50) next();
-          touchX.current = null;
-        }}
-      >
-        <div className="relative inline-block">
-          {m.kind === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={m.id} src={m.url} alt={m.caption ?? ""} className="z-media relative block max-h-[calc(100dvh-330px)] max-w-full animate-drop" />
-          ) : (
-            <video key={m.id} src={m.url} controls playsInline autoPlay className="z-media relative block max-h-[calc(100dvh-330px)] max-w-full" />
-          )}
-          {marks && m.kind === "image" && <Marks marks={overlay} />}
-        </div>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <MediaStage
+          m={m}
+          prev={list[index - 1]}
+          next={list[index + 1]}
+          onPrev={prev}
+          onNext={next}
+          overlay={marks && m.kind === "image" ? <Marks marks={overlay} /> : null}
+        />
         {toast && (
           <p className="display z-toast absolute bottom-4 left-1/2 -translate-x-1/2 bg-green px-3 py-2 whitespace-nowrap text-ink">{toast}</p>
         )}
@@ -120,10 +117,29 @@ export function Viewer(props: {
         {m.caption && <p className="display text-xl leading-tight">{m.caption}</p>}
 
         <dl className="space-y-1.5 text-sm">
-          {people.length > 0 && <Row k="Who">{[...new Set(people)].join(", ")}</Row>}
-          {things.length > 0 && <Row k="What">{things.join(", ")}</Row>}
+          {people.length > 0 && (
+            <Row k="Who">
+              <span className="flex flex-wrap gap-1.5">
+                {people.map(([id, name]) => (
+                  <button key={id} onClick={() => props.onPerson(id, name)} className="border border-green px-1.5 text-green underline-offset-2 hover:underline">
+                    {name} →
+                  </button>
+                ))}
+              </span>
+            </Row>
+          )}
           {m.venue && <Row k="Where">{m.venue}</Row>}
-          {m.text.length > 0 && <Row k="Says">“{m.text.map((t) => t.text).join(" · ")}”</Row>}
+          {writing.length > 0 && (
+            <Row k="Says">
+              <span className="flex flex-wrap gap-1.5">
+                {writing.map((t) => (
+                  <button key={t} onClick={() => props.onSearch(t)} className="border border-paper/60 px-1.5 text-left">
+                    “{t}” →
+                  </button>
+                ))}
+              </span>
+            </Row>
+          )}
           {m.transcript && (
             <Row k="Heard">
               “{m.transcript}”{m.mentions.length > 0 && <span className="text-green"> · names {m.mentions.join(", ")}</span>}
@@ -162,7 +178,7 @@ export function Viewer(props: {
           ) : (
             <span />
           )}
-          <a className="btn btn-ghost !px-1 !text-sm" href={`${m.url}${m.url.includes("?") ? "&" : "?"}download=1`} download>
+          <a className="btn btn-ghost !px-1 !text-sm" href={downloadUrl(m.url)} download>
             Save
           </a>
           <button
@@ -194,7 +210,6 @@ function Row({ k, children }: { k: string; children: React.ReactNode }) {
 
 const TONE = {
   person: { line: "border-green", chip: "bg-green text-ink" },
-  thing: { line: "border-paper border-dashed", chip: "bg-paper text-ink" },
   text: { line: "border-fire", chip: "bg-fire text-ink" },
 };
 

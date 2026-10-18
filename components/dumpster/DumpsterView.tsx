@@ -199,6 +199,18 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           onReact={dumpster.react}
           onDelete={dumpster.remove}
           onSticker={dumpster.makeSticker}
+          onPerson={(clusterId, name) => {
+            setViewing(null);
+            setQ("");
+            setFilter({ kind: "faces", ids: [clusterId], label: name, name });
+            setTab("dump");
+          }}
+          onSearch={(text) => {
+            setViewing(null);
+            setFilter(null);
+            setQ(text);
+            setTab("dump");
+          }}
         />
       )}
     </div>
