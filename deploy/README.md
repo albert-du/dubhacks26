@@ -44,8 +44,10 @@ state lives on the expiring guest record. Failed sends retain pending alerts;
 expiry reminders retry the same saved payload and idempotency key.
 
 `PHOTON_AGENT_USER_ID` is an optional fallback for manual sends and the local
-simulator. `NEXT_PUBLIC_PHOTON_NUMBER` is no longer used. Shared iMessage messages
-omit `parentMessageId`, because shared lines reject threaded replies.
+simulator. `NEXT_PUBLIC_PHOTON_NUMBER` is no longer used. Shared iMessage sends
+include `parentMessageId` when it is the inbound message the phone already sent,
+so the shared line can deliver the reply. A 409 on that thread is retried once
+in the same Space without a parent.
 
 Backboard now powers Ask the pool and free-text Photon replies. Set
 `BACKBOARD_API_KEY` to enable it; `BACKBOARD_URL` defaults to

@@ -57,6 +57,8 @@ export interface Guest {
   embedding?: number[];
   pendingPhotoAlerts: number;
   pendingMentionAlerts: number;
+  /** Opened when the current unsent photo or mention batch starts. The text waits two minutes from here. */
+  alertBatchStartedAt?: Date;
   lastAlertAt?: Date;
   createdAt: Date;
   expiresAt: Date;

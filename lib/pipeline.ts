@@ -11,6 +11,7 @@ import { PREVIEW_EDGES, previewKey } from "./preview";
 import { storage } from "./storage";
 import { findMentions, readyVideoFields, transcriber } from "./ai-transcribe";
 import { extractSpeechWav } from "./audio";
+import { queueGuestAlert } from "./alerts";
 import type { Cluster, Dumpster, FaceHit, Media, TextHit } from "./types";
 
 /*
@@ -76,7 +77,7 @@ export async function processNextMedia(): Promise<boolean> {
 }
 
 async function processImage(m: Media, d: Dumpster) {
-  const { media, guests, clusters } = await cols();
+  const { media, clusters } = await cols();
   const { jpeg, width, height } = await normalizeImage(await storage.get(m.originalKey));
   const phash = await pixelHash(jpeg);
   const duplicateOf = await detectDuplicate(m, phash);
@@ -134,7 +135,7 @@ async function processImage(m: Media, d: Dumpster) {
       .find({ _id: { $in: clusterIds }, guestId: { $exists: true } }, { projection: { guestId: 1 } })
       .toArray();
     const guestIds = [...new Set(claimed.map((c) => c.guestId!))];
-    if (guestIds.length) await guests.updateMany({ _id: { $in: guestIds } }, { $inc: { pendingPhotoAlerts: 1 } });
+    await queueGuestAlert(guestIds, "photo");
   }
 }
 
@@ -215,7 +216,7 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
 }
 
 async function processVideo(m: Media, d: Dumpster) {
-  const { media, guests, clusters } = await cols();
+  const { media, clusters } = await cols();
   const buf = await storage.get(m.originalKey);
   const ext = m.originalKey.split(".").pop() ?? "mp4";
   const duplicateOf = await detectDuplicate(m);
@@ -249,7 +250,7 @@ async function processVideo(m: Media, d: Dumpster) {
       [...new Set(named.map((c) => c.name!))],
     );
     const ids = [...new Set(named.filter((c) => c.guestId && mentions.includes(c.name!)).map((c) => c.guestId!))];
-    if (ids.length) await guests.updateMany({ _id: { $in: ids } }, { $inc: { pendingMentionAlerts: 1 } });
+    await queueGuestAlert(ids, "mention");
   }
 
   const publicKey = `${d._id}/public/${m._id}.${ext}`;

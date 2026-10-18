@@ -152,6 +152,9 @@ async function directSpace(platform: PhotonPlatform, handle: string, agentId: st
   return created;
 }
 
+/** Photon message ids. A parent that is not one of these is omitted so the send still goes out. */
+const PHOTON_MESSAGE_ID = /^pho_msg_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+
 async function postMessage(input: {
   spaceId: string;
   senderId: string;
@@ -159,19 +162,35 @@ async function postMessage(input: {
   parentMessageId?: string;
   idempotencyKey?: string;
 }) {
-  // Shared iMessage Spaces reject threaded replies (parentMessageId) with 409.
-  // Send a normal message in the same Space; keep the idempotency key for retries.
-  const parentMessageId = config.photon.platform === "imessage" ? undefined : input.parentMessageId;
-  await post(
-    "/messages",
-    {
-      spaceId: input.spaceId,
-      senderId: input.senderId,
-      ...(parentMessageId ? { parentMessageId } : {}),
-      content: { type: "text", format: "plain", text: input.text },
-    },
-    input.idempotencyKey ?? randomUUID(),
-  );
+  // A shared iMessage line delivers to someone who already texted it. Replying to
+  // that inbound message is what reaches the phone. Some lines reject the thread
+  // with 409; the same text is then sent in the Space without a parent.
+  const parentMessageId = input.parentMessageId && PHOTON_MESSAGE_ID.test(input.parentMessageId)
+    ? input.parentMessageId
+    : undefined;
+  const content = { type: "text" as const, format: "plain" as const, text: input.text };
+  const key = input.idempotencyKey ?? randomUUID();
+  const body = {
+    spaceId: input.spaceId,
+    senderId: input.senderId,
+    ...(parentMessageId ? { parentMessageId } : {}),
+    content,
+  };
+  try {
+    await post("/messages", body, key);
+  } catch (error) {
+    if (!parentMessageId || !threadedReplyRejected(error)) throw error;
+    await post("/messages", { spaceId: input.spaceId, senderId: input.senderId, content }, directKey(key));
+  }
+}
+
+function threadedReplyRejected(error: unknown) {
+  return error instanceof Error && error.message.startsWith("photon 409:");
+}
+
+function directKey(key: string) {
+  const suffix = ":direct";
+  return (key.length + suffix.length <= 255 ? key : key.slice(0, 255 - suffix.length)) + suffix;
 }
 
 async function post(path: string, body: unknown, idempotencyKey: string): Promise<unknown> {

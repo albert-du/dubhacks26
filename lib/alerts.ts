@@ -4,17 +4,44 @@ import { cols } from "./mongo";
 import { maskPhone } from "./photon";
 import { sendGuestNotification } from "./notifications";
 
-/** Sends batched "N new photos of you" / "you were mentioned" texts. Debounced per guest. */
+type AlertCounts = { pendingPhotoAlerts?: number; pendingMentionAlerts?: number; alertBatchStartedAt?: Date };
+
+/** True once a connected guest's open batch has been collecting for the full window. */
+export function alertIsDue(guest: AlertCounts, now = Date.now()) {
+  const pending = (guest.pendingPhotoAlerts ?? 0) > 0 || (guest.pendingMentionAlerts ?? 0) > 0;
+  if (!pending) return false;
+  // A batch queued before this field existed has already waited; send it.
+  if (!guest.alertBatchStartedAt) return true;
+  return now - guest.alertBatchStartedAt.getTime() >= config.alertDebounceMs;
+}
+
+/** Count one more photo or mention. The first one opens a two-minute batch; later ones join it. */
+export async function queueGuestAlert(guestIds: string[], kind: "photo" | "mention") {
+  if (!guestIds.length) return;
+  const field = kind === "photo" ? "pendingPhotoAlerts" : "pendingMentionAlerts";
+  const { guests } = await cols();
+  await guests.updateMany({ _id: { $in: guestIds } }, [
+    {
+      $set: {
+        [field]: { $add: [{ $ifNull: [`$${field}`, 0] }, 1] },
+        alertBatchStartedAt: { $ifNull: ["$alertBatchStartedAt", "$$NOW"] },
+      },
+    },
+  ]);
+}
+
+/** Sends one "N new photos of you" / "you were mentioned" text after the batch window. */
 export async function flushFaceAlerts() {
   const { guests, dumpsters } = await cols();
-  const cutoff = new Date(Date.now() - config.alertDebounceMs);
+  const now = Date.now();
+  const cutoff = new Date(now - config.alertDebounceMs);
   const due = await guests
     .find({
       "notification.verifiedAt": { $exists: true },
-      expiresAt: { $gt: new Date() },
+      expiresAt: { $gt: new Date(now) },
       $and: [
         { $or: [{ pendingPhotoAlerts: { $gt: 0 } }, { pendingMentionAlerts: { $gt: 0 } }] },
-        { $or: [{ lastAlertAt: { $exists: false } }, { lastAlertAt: { $lt: cutoff } }] },
+        { $or: [{ alertBatchStartedAt: { $lte: cutoff } }, { alertBatchStartedAt: { $exists: false } }] },
       ],
     })
     .limit(50)
@@ -34,9 +61,36 @@ export async function flushFaceAlerts() {
       const sent = await sendGuestNotification(g, lines.join("\n"),
         `alert:${g._id}:${g.notification.verifiedAt.getTime()}:${p}:${mm}:${g.lastAlertAt?.getTime() ?? 0}`);
       if (!sent) continue;
+      // Subtract only the counts that were sent. Photos that landed during the send
+      // stay pending and open a new two-minute batch.
       await guests.updateOne(
-        { _id: g._id, "notification.verifiedAt": g.notification.verifiedAt },
-        { $inc: { pendingPhotoAlerts: -p, pendingMentionAlerts: -mm }, $set: { lastAlertAt: new Date() } },
+        {
+          _id: g._id,
+          "notification.verifiedAt": g.notification.verifiedAt,
+          pendingPhotoAlerts: { $gte: p },
+          pendingMentionAlerts: { $gte: mm },
+        },
+        [
+          {
+            $set: {
+              pendingPhotoAlerts: { $subtract: ["$pendingPhotoAlerts", p] },
+              pendingMentionAlerts: { $subtract: ["$pendingMentionAlerts", mm] },
+              lastAlertAt: "$$NOW",
+              alertBatchStartedAt: {
+                $cond: [
+                  {
+                    $or: [
+                      { $gt: [{ $subtract: ["$pendingPhotoAlerts", p] }, 0] },
+                      { $gt: [{ $subtract: ["$pendingMentionAlerts", mm] }, 0] },
+                    ],
+                  },
+                  "$$NOW",
+                  "$$REMOVE",
+                ],
+              },
+            },
+          },
+        ],
       );
     } catch {
       console.warn(`[alerts] ${maskPhone(g.phone ?? "")}: notification send failed`);
