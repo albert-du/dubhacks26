@@ -1,5 +1,5 @@
 import { config } from "./config";
-import { cosine } from "./faces";
+import { identityScore } from "./faces";
 import { faceEmbed } from "./faceEmbed";
 import { HttpError } from "./http";
 import { normalizeImage } from "./imaging";
@@ -47,12 +47,12 @@ export async function searchByPhoto(d: Dumpster, image: Buffer): Promise<PhotoSe
 
   // People: match each face in the query to the closest known face.
   if (faces.length) {
-    const known = await clusters.find({ dumpsterId: d._id }, { projection: { centroid: 1, name: 1 } }).toArray();
+    const known = await clusters.find({ dumpsterId: d._id }, { projection: { centroid: 1, exemplars: 1, name: 1 } }).toArray();
     const matched = new Map<string, string | undefined>();
     for (const f of faces) {
       let best: { id: string; name?: string; sim: number } | null = null;
       for (const c of known) {
-        const sim = cosine(c.centroid, f.embedding);
+        const sim = identityScore(c, f.embedding);
         if (sim >= config.faceMatchThreshold && (!best || sim > best.sim)) best = { id: c._id, name: c.name, sim };
       }
       if (best) matched.set(best.id, best.name);

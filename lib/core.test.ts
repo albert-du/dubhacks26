@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import sharp from "sharp";
 import { parseCommand } from "./commands";
-import { cosine, nearest, updateCentroid } from "./faces";
+import { bestIdentity, cosine, identityScore, mergeGroups, nearest, updateCentroid, withExemplar } from "./faces";
 import { parseVision, visionContent } from "./perceptron";
 import { emptyReactions, fireRank } from "./reactions";
 import { isDumpsterId, DUMPSTER_ID_ALPHABET, DUMPSTER_ID_LENGTH } from "./dumpsters";
@@ -134,4 +134,31 @@ test("zip: a streamed STORE archive has valid structure and CRCs", async () => {
     assert.equal(zip.readUInt32LE(zip.readUInt32LE(p + 42)), 0x04034b50);
     p += 46 + zip.readUInt16LE(p + 28);
   }
+});
+
+test("faces: one person seen from different angles stays one identity", () => {
+  // Unit vectors at known angles: cos = similarity.
+  const at = (deg: number) => [Math.cos((deg * Math.PI) / 180), Math.sin((deg * Math.PI) / 180), 0];
+  const frontal = { centroid: at(0), exemplars: [at(0), at(50)] }; // has a profile exemplar
+  // 60° off the centroid (cos 0.5) but 10° off the profile exemplar.
+  assert.ok(identityScore(frontal, at(60)) > 0.95);
+  assert.equal(bestIdentity([{ centroid: at(90) }, frontal], at(60), 0.42), 1);
+  assert.equal(withExemplar([at(0)], at(5)).length, 1); // same angle: not added
+  assert.equal(withExemplar([at(0)], at(60)).length, 2); // new angle: added
+
+  // Two groups of the same person merge; a stranger and a different guest don't.
+  const groups = mergeGroups(
+    [
+      { centroid: [...at(0), 0], exemplars: [[...at(40), 0]] },
+      { centroid: [...at(55), 0] }, // same person, other angle
+      { centroid: [0, 0, 0, 1] }, // stranger
+      { centroid: [0, 0, 1, 0], guestId: "g1" }, // two signed-in guests who look
+      { centroid: [0, 0, 0.99, 0.14], guestId: "g2" }, // almost identical
+    ],
+    0.42,
+  );
+  const groupOf = (i: number) => groups.find((g) => g.includes(i));
+  assert.ok(groupOf(0) && groupOf(0) === groupOf(1), "same person from two angles stayed split");
+  assert.equal(groupOf(2), undefined, "stranger merged");
+  assert.ok(!groups.some((g) => g.includes(3) && g.includes(4)), "two different signed-in guests merged");
 });

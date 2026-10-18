@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { config } from "./config";
-import { cosine } from "./faces";
+import { identityScore } from "./faces";
 import { faceEmbed } from "./faceEmbed";
 import { HttpError } from "./http";
 import { cols } from "./mongo";
@@ -52,7 +52,7 @@ export async function enrollGuest(
   const candidates = await clusters
     .find({ dumpsterId: d._id, $or: [{ guestId: { $exists: false } }, { guestId: guest._id }] })
     .toArray();
-  const matched = candidates.filter((c) => cosine(c.centroid, embedding!) >= config.faceMatchThreshold).map((c) => c._id);
+  const matched = candidates.filter((c) => identityScore(c, embedding!) >= config.faceMatchThreshold).map((c) => c._id);
 
   if (matched.length) {
     await clusters.updateMany({ _id: { $in: matched } }, { $set: { guestId: guest._id, updatedAt: new Date() } });

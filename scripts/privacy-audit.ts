@@ -37,8 +37,8 @@ for (const c of used) if (!(c in EPHEMERAL_COLLECTIONS)) fail("R2", `collection 
 for (const f of files) {
   const client = f.src.includes('"use client"');
   // Allowed mentions: Mongo projections that EXCLUDE the field, and Omit<> types that drop it.
-  const stripped = f.src.replace(/"faces\.embedding": 0|centroid: 0|Omit<Cluster, "centroid">/g, "");
-  if ((client || f.p === "lib/serialize.ts") && /\b(embedding|centroid)\b/.test(stripped)) {
+  const stripped = f.src.replace(/"faces\.embedding": 0|centroid: 0|exemplars: 0|Omit<Cluster, "centroid">/g, "");
+  if ((client || f.p === "lib/serialize.ts") && /\b(embedding|centroid|exemplars)\b/.test(stripped)) {
     fail("R3", `${f.p} references face vectors`);
   }
 }

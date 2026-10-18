@@ -168,7 +168,7 @@ async function loadShots(dumpsterId: string): Promise<ShotCard[]> {
   const { media, clusters } = await cols();
   const [list, clusterList] = await Promise.all([
     media.find({ dumpsterId, status: "ready" }, { projection: { "faces.embedding": 0 } }).sort({ createdAt: -1 }).limit(500).toArray(),
-    clusters.find({ dumpsterId }, { projection: { centroid: 0 } }).toArray(),
+    clusters.find({ dumpsterId }, { projection: { centroid: 0, exemplars: 0 } }).toArray(),
   ]);
   const names = new Map<string, string>();
   for (const c of clusterList) if (c.name) names.set(c._id, c.name);

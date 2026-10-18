@@ -102,6 +102,8 @@ export interface Cluster {
   centroid: number[];
   n: number;
   guestId?: string;
+  /** A few face vectors from different angles, so one person stays one face. */
+  exemplars?: number[][];
   /** Added by anyone in the dumpster from the face gallery. */
   name?: string;
   cover?: { mediaId: string; box: Box };
