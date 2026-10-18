@@ -30,6 +30,9 @@ export function Dump(props: {
   goTo: (t: Tab) => void;
   /** Hide a face nobody claimed (a stranger in the background). Resolves to an error, or null. */
   onHideFace: (faceId: string) => Promise<string | null>;
+  /** Faces someone hid, and a way to bring one back. */
+  hiddenFaces: PublicCluster[];
+  onUnhideFace: (faceId: string) => Promise<string | null>;
 }) {
   const { media, clusters, filter, q } = props;
   const [view, setView] = useState<View>("grid");
@@ -38,6 +41,7 @@ export function Dump(props: {
   const [answer, setAnswer] = useState<string | null>(null);
   const [askError, setAskError] = useState<string | null>(null);
   const [naming, setNaming] = useState<{ ids: string[]; value: string } | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
   /** A name someone here already has: ask whether these faces are the same person before grouping. */
   const [sameName, setSameName] = useState<{ ids: string[]; value: string; holder: SameName } | null>(null);
   const [photoSearching, setPhotoSearching] = useState(false);
@@ -218,10 +222,40 @@ export function Dump(props: {
             {c.cover ? <FaceThumb cover={c.cover} size={64} /> : <span className="block size-[64px] bg-bone" />}
           </FaceButton>
         ))}
+        {props.hiddenFaces.length > 0 && (
+          <button
+            onClick={() => setShowHidden((v) => !v)}
+            aria-expanded={showHidden}
+            className={`label shrink-0 self-center px-3 !text-[9px] underline ${showHidden ? "font-bold" : "text-smoke"}`}
+          >
+            {props.hiddenFaces.length} hidden
+          </button>
+        )}
         {others.length === 0 && (
           <p className="label flex items-center px-3 leading-relaxed text-smoke">People show up here as photos land.</p>
         )}
       </div>
+
+      {showHidden && props.hiddenFaces.length > 0 && (
+        <div className="no-scrollbar flex items-center gap-3 overflow-x-auto border-b-3 border-ink bg-bone px-3 py-2">
+          <span className="label shrink-0 !text-[9px]">Hidden</span>
+          {props.hiddenFaces.map((c) => (
+            <button
+              key={c.id}
+              className="flex shrink-0 flex-col items-center gap-1"
+              aria-label="Unhide this face"
+              onClick={async () => {
+                const error = await props.onUnhideFace(c.id);
+                if (error) setAskError(error);
+                if (props.hiddenFaces.length <= 1) setShowHidden(false);
+              }}
+            >
+              {c.cover ? <FaceThumb cover={c.cover} size={40} /> : <span className="block size-10 bg-paper" />}
+              <span className="label !text-[9px] underline">Unhide</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {naming && (
         <form

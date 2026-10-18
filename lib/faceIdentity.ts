@@ -82,12 +82,15 @@ export async function mergeClusters(dumpsterId: string, members: Cluster[]): Pro
     { arrayFilters: [{ "f.clusterId": { $in: restIds } }] },
   );
   await clusters.deleteMany({ _id: { $in: restIds } });
+  // A stranger's boxes merged into a real person come back onto their shots.
+  if (!hidden && members.some((c) => c.hidden)) await setFacesHidden(dumpsterId, keep._id, false);
   return keep._id;
 }
 
 /**
- * Hide a face nobody signed in has claimed: it leaves the gallery and every shot (its boxes come
- * off), and new shots of the same face stay hidden. The group itself is kept so it keeps matching.
+ * Hide a face nobody signed in has claimed: it leaves the gallery and every shot (its boxes are
+ * marked hidden, not deleted), and new shots of the same face stay hidden. The group itself is
+ * kept so it keeps matching, and so it can be unhidden.
  */
 export async function hideFace(dumpsterId: string, faceId: string) {
   const { clusters, media } = await cols();
@@ -95,8 +98,27 @@ export async function hideFace(dumpsterId: string, faceId: string) {
   if (!c) throw new HttpError(404, "That face isn’t here anymore");
   if (c.guestId) throw new HttpError(409, `That’s ${c.name ?? "someone"}, who signed in. Only faces nobody has claimed can be hidden.`);
   const now = new Date();
-  await clusters.updateOne({ _id: faceId }, { $set: { hidden: true, updatedAt: now }, $unset: { name: "", cover: "" } });
-  await media.updateMany({ dumpsterId, "faces.clusterId": faceId }, { $pull: { faces: { clusterId: faceId } }, $set: { updatedAt: now } });
+  await clusters.updateOne({ _id: faceId }, { $set: { hidden: true, updatedAt: now }, $unset: { name: "" } });
+  await setFacesHidden(dumpsterId, faceId, true);
+}
+
+/** Bring a hidden face back: to the gallery, and its boxes back onto every shot. */
+export async function unhideFace(dumpsterId: string, faceId: string) {
+  const { clusters } = await cols();
+  const r = await clusters.updateOne({ _id: faceId, dumpsterId, hidden: true }, { $unset: { hidden: "" }, $set: { updatedAt: new Date() } });
+  if (!r.matchedCount) throw new HttpError(404, "That face isn’t hidden anymore");
+  await setFacesHidden(dumpsterId, faceId, false);
+}
+
+async function setFacesHidden(dumpsterId: string, clusterId: string, hidden: boolean) {
+  const { media } = await cols();
+  await media.updateMany(
+    { dumpsterId, "faces.clusterId": clusterId },
+    hidden
+      ? { $set: { "faces.$[f].hidden": true, updatedAt: new Date() } }
+      : { $unset: { "faces.$[f].hidden": "" }, $set: { updatedAt: new Date() } },
+    { arrayFilters: [{ "f.clusterId": clusterId }] },
+  );
 }
 
 /** Worker sweep: re-merge every live dumpster's faces. */

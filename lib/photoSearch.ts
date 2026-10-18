@@ -47,7 +47,10 @@ export async function searchByPhoto(d: Dumpster, image: Buffer): Promise<PhotoSe
 
   // People: match each face in the query to the closest known face.
   if (faces.length) {
-    const known = await clusters.find({ dumpsterId: d._id }, { projection: { centroid: 1, exemplars: 1, name: 1 } }).toArray();
+    // Hidden faces (strangers someone hid) aren't searchable.
+    const known = await clusters
+      .find({ dumpsterId: d._id, hidden: { $ne: true } }, { projection: { centroid: 1, exemplars: 1, name: 1 } })
+      .toArray();
     const matched = new Map<string, string | undefined>();
     for (const f of faces) {
       let best: { id: string; name?: string; sim: number } | null = null;

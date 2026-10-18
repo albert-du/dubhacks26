@@ -33,7 +33,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export function inFilter(m: PublicMedia, filter: Filter | null) {
   if (filter?.kind === "faces") {
-    const inFrame = m.faces.some((f) => f.clusterId && filter.ids.includes(f.clusterId));
+    const inFrame = m.faces.some((f) => f.clusterId && !f.hidden && filter.ids.includes(f.clusterId));
     const mentioned = !!filter.name && m.mentions.includes(filter.name);
     return inFrame || mentioned;
   }
@@ -139,6 +139,8 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           <Dump
             onNameFaces={dumpster.nameFaces}
             onHideFace={dumpster.hideFace}
+            hiddenFaces={state.hiddenFaces}
+            onUnhideFace={dumpster.unhideFace}
             id={id}
             media={state.media}
             byId={byId}
