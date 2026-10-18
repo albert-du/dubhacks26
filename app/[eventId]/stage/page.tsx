@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Stage } from "@/components/Stage";
 import { getLiveDumpster } from "@/lib/dumpsters";
-import { roomState } from "@/lib/serialize";
+import { dumpsterState } from "@/lib/serialize";
 import { viewerId } from "@/lib/viewer";
 
 type Props = { params: Promise<{ eventId: string }> };
@@ -17,5 +17,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function StagePage({ params }: Props) {
   const d = await getLiveDumpster((await params).eventId);
   if (!d) notFound();
-  return <Stage initial={await roomState(d, await viewerId())} />;
+  return <Stage initial={await dumpsterState(d, await viewerId())} />;
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { parseCommand } from "@/lib/commands";
 import { config } from "@/lib/config";
-import { createDumpster, roomUrl } from "@/lib/dumpsters";
+import { createDumpster, dumpsterUrl } from "@/lib/dumpsters";
 import { authorizeWebhook, parseInbound, photon } from "@/lib/photon";
 
 const HELP = `DUMP 🗑️ commands:
@@ -26,8 +26,9 @@ export async function POST(req: Request) {
   const cmd = parseCommand(text);
   let reply: string;
   if (cmd.type === "create") {
-    const { dumpster } = await createDumpster({ name: cmd.name, ttlHours: cmd.ttlHours, hostPhone: from });
-    const url = roomUrl(dumpster._id);
+    // The sender's number is used for this one reply and never stored with the dumpster.
+    const dumpster = await createDumpster({ name: cmd.name, ttlHours: cmd.ttlHours });
+    const url = dumpsterUrl(dumpster._id);
     reply = [
       `🗑️ Dumpster "${dumpster.name}" is open for ${cmd.ttlHours}h.`,
       `Share: ${url}`,

@@ -1,10 +1,10 @@
 import { config } from "./config";
-import type { Box, Subject } from "./types";
+import type { Box, DetectedObject } from "./types";
 
 /**
  * Perceptron vision adapter (Isaac / Mk1). One grounded call per image returns
- * OCR text with boxes, face boxes, subject boxes, a caption, venue/landmark text,
- * and a "Dumpster Fire" candid/humor score.
+ * every readable piece of text (OCR) with boxes, face boxes, every primary object and person
+ * with a label and box, a caption, scene tags and venue/landmark text.
  *
  * Uses an OpenAI-compatible chat-completions request with an inline image.
  * VERIFY against Perceptron's current API docs: base URL, model id, and whether
@@ -15,24 +15,24 @@ export interface VisionResult {
   caption?: string;
   tags: string[];
   venue?: string;
-  candidScore: number;
-  fireReason?: string;
   faces: { box: Box }[];
-  text: { text: string; box: Box; sensitiveHint?: string }[];
-  subjects: Subject[];
+  text: { text: string; box: Box }[];
+  objects: DetectedObject[];
 }
 
 const PROMPT = `You are the vision system for a party photo-sharing app. Analyze the image and reply with ONLY a JSON object:
 {
   "caption": "one short, playful sentence",
-  "tags": ["up to 6 lowercase tags"],
+  "tags": ["up to 8 lowercase scene/activity tags"],
   "venue": "venue, landmark, or event signage name visible in the image, or null",
-  "candid_score": 0-100, // how candid, chaotic, or funny the moment is (100 = legendary blooper)
-  "fire_reason": "why it's funny/candid in under 10 words, or null",
-  "faces": [{"box": [x1,y1,x2,y2]}],             // every human face, including background people
-  "text": [{"text": "...", "box": [x1,y1,x2,y2], "sensitive": "license_plate|id_card|credit_card|address|phone|email|null"}],
-  "subjects": [{"label": "short noun", "box": [x1,y1,x2,y2]}]  // up to 3 sticker-worthy subjects
+  "faces": [{"box": [x1,y1,x2,y2]}],
+  "objects": [{"label": "lowercase noun, e.g. person, dog, cake, guitar", "box": [x1,y1,x2,y2]}],
+  "text": [{"text": "exact text as written", "box": [x1,y1,x2,y2]}]
 }
+Rules:
+- faces: every human face, including people in the background.
+- objects: every primary object and every person in the photo (label people "person"), most prominent first, max 20.
+- text: every legible word, sign, shirt print, banner or label, one entry per line of text.
 Boxes are integer pixel coordinates normalized to a 0-1000 grid.`;
 
 export const perceptron = {
@@ -73,22 +73,17 @@ export function parseVision(content: string): VisionResult {
   const str = (v: unknown) => (typeof v === "string" && v && v !== "null" ? v : undefined);
   return {
     caption: str(raw.caption),
-    tags: Array.isArray(raw.tags) ? raw.tags.filter((t: unknown) => typeof t === "string").slice(0, 6) : [],
+    tags: Array.isArray(raw.tags) ? raw.tags.filter((t: unknown) => typeof t === "string").slice(0, 8) : [],
     venue: str(raw.venue),
-    candidScore: clamp(Number(raw.candid_score) || 0, 0, 100),
-    fireReason: str(raw.fire_reason),
     faces: (raw.faces ?? []).map((f: { box: unknown }) => ({ box: toBox(f.box) })).filter((f: { box: Box | null }) => f.box),
     text: (raw.text ?? [])
-      .map((t: { text: unknown; box: unknown; sensitive: unknown }) => ({
-        text: String(t.text ?? ""),
-        box: toBox(t.box),
-        sensitiveHint: str(t.sensitive),
-      }))
-      .filter((t: { box: Box | null; text: string }) => t.box && t.text),
-    subjects: (raw.subjects ?? [])
-      .map((s: { label: unknown; box: unknown }) => ({ label: String(s.label ?? "thing"), box: toBox(s.box) }))
-      .filter((s: { box: Box | null }) => s.box)
-      .slice(0, 3),
+      .map((t: { text: unknown; box: unknown }) => ({ text: String(t.text ?? "").trim(), box: toBox(t.box) }))
+      .filter((t: { box: Box | null; text: string }) => t.box && t.text)
+      .slice(0, 60),
+    objects: (raw.objects ?? [])
+      .map((s: { label: unknown; box: unknown }) => ({ label: String(s.label ?? "thing").toLowerCase().trim(), box: toBox(s.box) }))
+      .filter((s: { box: Box | null; label: string }) => s.box && s.label)
+      .slice(0, 20),
   };
 }
 

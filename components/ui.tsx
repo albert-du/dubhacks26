@@ -46,21 +46,6 @@ export function FaceThumb({ cover, size }: { cover: NonNullable<PublicCluster["c
   );
 }
 
-/** 10-segment meter for the AI's candid/chaos score. */
-export function HeatMeter({ value }: { value: number }) {
-  const lit = Math.round(value / 10);
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex gap-[2px]" aria-hidden>
-        {Array.from({ length: 10 }, (_, i) => (
-          <span key={i} className={`h-3 w-2 ${i < lit ? "bg-fire" : "bg-bone"} border border-ink`} />
-        ))}
-      </div>
-      <span className="label">AI heat {Math.round(value)}</span>
-    </div>
-  );
-}
-
 export function frameNo(n: number) {
   return `#${String(n).padStart(3, "0")}`;
 }

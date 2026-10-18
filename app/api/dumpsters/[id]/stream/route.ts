@@ -1,6 +1,6 @@
 import { getLiveDumpster } from "@/lib/dumpsters";
 import { cols } from "@/lib/mongo";
-import { publicClusters, publicMedia, publicSticker } from "@/lib/serialize";
+import { myReactions, publicClusters, publicMedia, publicSticker } from "@/lib/serialize";
 import { viewerId } from "@/lib/viewer";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -12,7 +12,7 @@ const POLL_MS = 2000;
 const OVERLAP_MS = 5000;
 
 /**
- * Server-Sent Events feed for a room. Works everywhere without extra infra; Backboard
+ * Server-Sent Events feed for a dumpster. Works everywhere without extra infra; Backboard
  * (lib/backboard.ts) carries the same events for stage displays when configured.
  */
 export async function GET(req: Request, { params }: Ctx) {
@@ -21,7 +21,7 @@ export async function GET(req: Request, { params }: Ctx) {
   if (!d0) return new Response("gone", { status: 404 });
   const viewer = await viewerId();
   const since0 = new URL(req.url).searchParams.get("since");
-  const { media, stickers, clusters, votes } = await cols();
+  const { media, stickers, clusters } = await cols();
   const enc = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -45,19 +45,21 @@ export async function GET(req: Request, { params }: Ctx) {
 
           const changed = await media
             .find(
-              { dumpsterId: id, updatedAt: { $gt: after }, status: { $in: ["ready", "rerender", "deleted", "failed"] } },
+              { dumpsterId: id, updatedAt: { $gt: after }, status: { $in: ["ready", "deleted", "failed"] } },
               { projection: { "faces.embedding": 0 } },
             )
             .sort({ updatedAt: 1 })
             .limit(200)
             .toArray();
           if (changed.length) {
-            const mine = new Set(
-              (await votes.find({ viewerId: viewer, mediaId: { $in: changed.map((m) => m._id) } }).toArray()).map((v) => v.mediaId),
+            const mine = await myReactions(
+              id,
+              viewer,
+              changed.map((m) => m._id),
             );
             send(
               "media",
-              changed.map((m) => publicMedia(m, viewer, mine.has(m._id), !d.settings.blurNonConsented)),
+              changed.map((m) => publicMedia(m, mine.get(m._id) ?? [])),
             );
             sent = true;
           }

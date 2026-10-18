@@ -6,7 +6,6 @@ const env = (k: string) => (process.env[k] ? process.env[k] : undefined);
 export const config = {
   appUrl: env("NEXT_PUBLIC_APP_URL") ?? "http://localhost:3000",
   cronSecret: env("CRON_SECRET"),
-  allowUnscannedPublish: env("ALLOW_UNSCANNED_PUBLISH") === "true",
   maxUploadBytes: 150 * 1024 * 1024,
 
   mongoUri: env("MONGODB_URI") ?? "mongodb://localhost:27017",

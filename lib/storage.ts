@@ -17,7 +17,7 @@ import { config } from "./config";
  *
  * Key layout — everything for an event lives under one prefix so a purge is one prefix delete:
  *   {dumpsterId}/original/{mediaId}.{ext}   never served to browsers
- *   {dumpsterId}/public/{mediaId}.webp      redacted render, served via /api/files
+ *   {dumpsterId}/public/{mediaId}.webp      metadata-stripped render, served via /api/files
  *   {dumpsterId}/public/sticker-{id}.webp
  */
 

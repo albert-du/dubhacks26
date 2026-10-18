@@ -1,25 +1,26 @@
 "use client";
 
-import { useState } from "react";
 import type { useUploader, UploadItem } from "@/lib/client/useUploader";
 import type { PublicDumpster } from "@/lib/types";
 
 const STATUS: Record<UploadItem["state"], string> = {
   queued: "Queued",
   uploading: "Throwing",
-  waiting: "No signal — held on your phone",
-  processing: "Landed · scanning faces",
-  failed: "Rejected",
+  waiting: "No signal — waiting on your phone",
+  processing: "Landed · sorting",
+  failed: "Didn’t go in",
 };
 
 export function Drop({
   dumpster,
   uploader,
-  showShare,
+  onCopyLink,
+  copied,
 }: {
   dumpster: PublicDumpster;
   uploader: ReturnType<typeof useUploader>;
-  showShare: boolean;
+  onCopyLink: () => void;
+  copied: boolean;
 }) {
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) uploader.add(e.target.files);
@@ -36,7 +37,7 @@ export function Drop({
           <br />
           it in.
         </span>
-        <span className="label">No login · {dumpster.ttlHours}h then it’s all gone</span>
+        <span className="label">Everything here burns {dumpster.ttlHours}h after it opened</span>
         <input type="file" multiple accept={accept} onChange={pick} className="sr-only" />
       </label>
 
@@ -51,7 +52,7 @@ export function Drop({
             <input type="file" accept="video/*" capture="environment" onChange={pick} className="sr-only" />
           </label>
         ) : (
-          <span className="btn btn-ghost opacity-40">No video</span>
+          <span className="btn btn-ghost opacity-40">Photos only</span>
         )}
       </div>
 
@@ -89,47 +90,25 @@ export function Drop({
         </ul>
       )}
 
-      <p className="border-l-[6px] border-ink pl-3 text-sm leading-snug">
-        {dumpster.settings.blurNonConsented
-          ? "Faces of anyone who hasn’t opted in are blurred before anyone else sees your shots. "
-          : "The host turned off face blurring for this Dumpster. "}
-        {dumpster.settings.redactSensitiveText && "IDs, plates and card numbers get redacted. "}
-        Location data is stripped from every file.
-      </p>
-
-      {showShare && <Share id={dumpster.id} />}
+      <Share id={dumpster.id} onCopyLink={onCopyLink} copied={copied} />
     </section>
   );
 }
 
-function Share({ id }: { id: string }) {
-  const [copied, setCopied] = useState(false);
-  const url = typeof window === "undefined" ? `/${id}` : `${window.location.origin}/${id}`;
+function Share({ id, onCopyLink, copied }: { id: string; onCopyLink: () => void; copied: boolean }) {
   return (
     <div className="border-3 border-ink">
-      <p className="label border-b border-ink bg-ink px-3 py-1 text-paper">Pass it around</p>
-      <div className="grid grid-cols-[132px_1fr]">
+      <p className="label border-b border-ink bg-ink px-3 py-1 text-paper">Get everyone in</p>
+      <div className="grid grid-cols-[120px_1fr]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`/api/dumpsters/${id}/qr`} alt="QR code to join this Dumpster" className="size-[132px] border-r-3 border-ink" />
+        <img src={`/api/dumpsters/${id}/qr`} alt="QR code for this Dumpster" className="size-[120px] border-r-3 border-ink" />
         <div className="flex min-w-0 flex-col justify-between gap-2 p-3">
-          <p className="text-sm break-all">{url.replace(/^https?:\/\//, "")}</p>
-          <div className="flex gap-2">
-            <button
-              className="btn !px-3 !py-2 !text-sm"
-              onClick={async () => {
-                if (navigator.share) await navigator.share({ url, title: "Drop your photos" }).catch(() => {});
-                else {
-                  await navigator.clipboard.writeText(url);
-                  setCopied(true);
-                }
-              }}
-            >
-              {copied ? "Copied" : "Share"}
-            </button>
-            <a className="btn btn-ghost !px-3 !py-2 !text-sm" href={`/${id}/stage`} target="_blank" rel="noreferrer">
-              Stage
-            </a>
-          </div>
+          <button className="btn btn-green w-full !py-3" onClick={onCopyLink}>
+            {copied ? "Copied!" : "Copy Dumpster link"}
+          </button>
+          <a className="btn btn-ghost w-full !py-2 !text-sm" href={`/${id}/stage`} target="_blank" rel="noreferrer">
+            Big-screen view
+          </a>
         </div>
       </div>
     </div>

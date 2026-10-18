@@ -10,7 +10,7 @@ create table if not exists upload_events (
   bytes       bigint      not null
 );
 select create_hypertable('upload_events', 'time', if_not_exists => true);
-create index if not exists upload_events_room on upload_events (dumpster_id, time desc);
+create index if not exists upload_events_dumpster on upload_events (dumpster_id, time desc);
 
 create table if not exists engagement_events (
   time        timestamptz not null,
@@ -41,7 +41,7 @@ select add_retention_policy('upload_events', interval '14 days', if_not_exists =
 select add_retention_policy('engagement_events', interval '14 days', if_not_exists => true);
 
 -- Countdown / cleanup execution queue. The worker's source of truth is Mongo's expiresAt;
--- this table is the audit trail proving each room was purged on time.
+-- this table is the audit trail proving each dumpster was purged on time.
 create table if not exists cleanup_queue (
   dumpster_id text primary key,
   run_at      timestamptz not null,

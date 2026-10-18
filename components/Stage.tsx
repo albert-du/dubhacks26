@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FireIcon } from "@/components/Brand";
 import { Burned } from "@/components/Burned";
 import { Countdown } from "@/components/ui";
-import { useRoom } from "@/lib/client/useRoom";
-import type { RoomState } from "@/lib/types";
+import { useDumpster } from "@/lib/client/useDumpster";
+import { fireRank } from "@/lib/reactions";
+import type { DumpsterState } from "@/lib/types";
 
 interface Stats {
   velocity: { t: string; n: number }[];
@@ -14,8 +16,8 @@ interface Stats {
 }
 
 /** Projector / TV view: live mosaic, giant QR, upload velocity, countdown. */
-export function Stage({ initial }: { initial: RoomState }) {
-  const { state, destroyed } = useRoom(initial);
+export function Stage({ initial }: { initial: DumpsterState }) {
+  const { state, destroyed } = useDumpster(initial);
   const [stats, setStats] = useState<Stats | null>(null);
   const id = state.dumpster.id;
 
@@ -33,7 +35,7 @@ export function Stage({ initial }: { initial: RoomState }) {
   if (destroyed) return <Burned />;
 
   const latest = state.media.filter((m) => m.kind === "image").slice(0, 11);
-  const fire = [...state.media].filter((m) => m.kind === "image").sort((a, b) => b.votes - a.votes || b.aiFire - a.aiFire)[0];
+  const fire = fireRank(state.media.filter((m) => m.kind === "image"))[0];
   const bars = buildBars(stats?.velocity ?? []);
   const peak = Math.max(1, ...bars);
   const perMin = bars.slice(-5).reduce((s, n) => s + n, 0) / 5;
@@ -81,8 +83,8 @@ export function Stage({ initial }: { initial: RoomState }) {
         <dl className="grid grid-cols-3 border-3 border-paper">
           {[
             ["Photos", stats?.photos ?? state.media.length],
-            ["Faces", stats?.faces ?? state.clusters.length],
-            ["Opted in", stats?.people ?? 0],
+            ["People", stats?.faces ?? state.clusters.length],
+            ["Fires", state.media.reduce((s, m) => s + m.reactions.fire, 0)],
           ].map(([k, v], i) => (
             <div key={k} className={`p-3 ${i ? "border-l-3 border-paper" : ""}`}>
               <dt className="label">{k}</dt>
@@ -93,7 +95,7 @@ export function Stage({ initial }: { initial: RoomState }) {
 
         <div>
           <div className="mb-2 flex items-baseline justify-between">
-            <span className="label">Uploads / min · last 15</span>
+            <span className="label">Drops per minute</span>
             <span className="display text-2xl tabular-nums">{perMin.toFixed(1)}</span>
           </div>
           <div className="flex h-20 items-end gap-[3px] border-b-3 border-paper" role="img" aria-label="Upload velocity">
@@ -103,19 +105,22 @@ export function Stage({ initial }: { initial: RoomState }) {
           </div>
         </div>
 
-        {fire && fire.votes > 0 && (
+        {fire && (
           <div className="grid grid-cols-[96px_1fr] border-3 border-fire">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={fire.url} alt="" className="size-24 object-cover" />
             <div className="p-2">
               <p className="label text-fire">Top Dumpster Fire</p>
-              <p className="display text-3xl">🔥 {fire.votes}</p>
+              <p className="flex items-center gap-2">
+                <FireIcon size={36} />
+                <span className="display text-3xl tabular-nums">{fire.reactions.fire}</span>
+              </p>
             </div>
           </div>
         )}
 
         <div className="mt-auto">
-          <p className="label mb-1">Self-destructs in</p>
+          <p className="label mb-1">Burns in</p>
           <div className="hazard p-2">
             <Countdown expiresAt={state.dumpster.expiresAt} className="display block bg-ink px-3 text-5xl" />
           </div>

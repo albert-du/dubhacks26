@@ -8,7 +8,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
 
-/** Upload velocity (TigerData continuous metrics, Mongo fallback) + room totals for the stage display. */
+/** Upload velocity (TigerData continuous metrics, Mongo fallback) + dumpster totals for the stage display. */
 export const GET = route<Ctx>(async (_req, { params }) => {
   const d = await getLiveDumpster((await params).id);
   if (!d) throw notFound();
