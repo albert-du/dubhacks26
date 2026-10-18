@@ -130,7 +130,7 @@ export async function dumpsterState(d: Dumpster, viewer: string): Promise<Dumpst
     dumpster: publicDumpster(d),
     media: list.map((m) => publicMedia(m, mine.get(m._id) ?? [])),
     clusters: await publicClusters(d),
-    stickers: (await stickers.find({ dumpsterId: d._id }).sort({ createdAt: -1 }).toArray()).map(publicSticker),
+    stickers: (await stickers.find({ dumpsterId: d._id, status: { $ne: "deleted" } }).sort({ createdAt: -1 }).toArray()).map(publicSticker),
     me: me
       ? { guestId: me._id, name: me.name, phoneLast4: me.notification ? me.phone?.slice(-4) : undefined, clusterIds: myClusters.map((c) => c._id), notifications: notificationStatus(me) }
       : undefined,

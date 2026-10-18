@@ -36,7 +36,10 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
       const incoming: PublicSticker[] = JSON.parse((e as MessageEvent).data);
       setState((s) => {
         const byId = new Map(s.stickers.map((x) => [x.id, x]));
-        for (const x of incoming) byId.set(x.id, x);
+        for (const x of incoming) {
+          if (x.status === "deleted") byId.delete(x.id);
+          else byId.set(x.id, x);
+        }
         return { ...s, stickers: [...byId.values()] };
       });
     });
@@ -129,6 +132,16 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
     [id, refresh],
   );
 
+  /** Take a sticker out of the pack for everyone. */
+  const deleteSticker = useCallback(
+    async (stickerId: string) => {
+      const r = await fetch(`/api/dumpsters/${id}/stickers/${encodeURIComponent(stickerId)}`, { method: "DELETE" }).catch(() => null);
+      if (r?.ok) setState((s) => ({ ...s, stickers: s.stickers.filter((x) => x.id !== stickerId) }));
+      return !!r?.ok;
+    },
+    [id],
+  );
+
   /** "That's me" on a face nobody has claimed. Returns the error, if any. */
   const claimFace = useCallback(
     async (faceId: string): Promise<string | null> => {
@@ -161,5 +174,5 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
     [id],
   );
 
-  return { state, destroyed, refresh, react, remove, makeSticker, nameFaces, claimFace };
+  return { state, destroyed, refresh, react, remove, makeSticker, deleteSticker, nameFaces, claimFace };
 }

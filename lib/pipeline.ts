@@ -245,10 +245,15 @@ export async function processNextSticker(): Promise<boolean> {
     const png = await composeSticker(crop, await foregroundMask(crop));
     const publicKey = `${s.dumpsterId}/public/sticker-${s._id}.png`;
     await storage.put(publicKey, png, "image/png");
-    await stickers.updateOne({ _id: s._id }, { $set: { status: "ready", publicKey, claimedAt: null, updatedAt: new Date() } });
+    const done = await stickers.updateOne(
+      { _id: s._id, status: "pending" },
+      { $set: { status: "ready", publicKey, claimedAt: null, updatedAt: new Date() } },
+    );
+    // Deleted while it was being cut: drop the file too.
+    if (!done.modifiedCount) await storage.delete(publicKey);
   } catch (e) {
     console.error("[sticker]", (e as Error).message);
-    await stickers.updateOne({ _id: s._id }, { $set: { status: "failed", claimedAt: null, updatedAt: new Date() } });
+    await stickers.updateOne({ _id: s._id, status: "pending" }, { $set: { status: "failed", claimedAt: null, updatedAt: new Date() } });
   }
   return true;
 }

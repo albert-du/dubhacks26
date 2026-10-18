@@ -146,7 +146,8 @@ export interface Sticker {
   /** What the guest picked. Missing on stickers cut before person mattes. */
   target?: StickerTarget;
   publicKey?: string;
-  status: "pending" | "ready" | "failed";
+  /** "deleted": someone took it out of the pack; kept until burn so other phones hear about it. */
+  status: "pending" | "ready" | "failed" | "deleted";
   claimedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
