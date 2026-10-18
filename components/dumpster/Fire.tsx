@@ -3,6 +3,7 @@
 import { FireIcon } from "@/components/Brand";
 import { ReactionBar } from "@/components/Reactions";
 import { ShotImage } from "@/components/ui";
+import { topFireFrameStyle } from "@/lib/fireFrame";
 import { engagement, fireRank, type ReactionKey } from "@/lib/reactions";
 import type { PublicMedia } from "@/lib/types";
 
@@ -42,10 +43,15 @@ export function Fire({
 
       {top && (
         <article className="border-b-3 border-ink">
-          <button className="relative block w-full" onClick={() => onOpen(ranked, top.id)}>
-            <Thumb m={top} edge={960} eager className="block max-h-[60dvh] w-full object-cover" />
-            <span className="display absolute top-0 left-0 bg-fire px-2 text-6xl leading-none">01</span>
-          </button>
+          {/* The container makes 100cqw the board width, so the #1 frame is full size before its file loads. */}
+          <div style={{ containerType: "inline-size" }}>
+            <button className="relative block w-full" onClick={() => onOpen(ranked, top.id)}>
+              <span className="bg-bone" style={topFireFrameStyle(top.width, top.height)}>
+                <Thumb m={top} edge={960} eager fill className="absolute inset-0 size-full object-cover" />
+                <span className="display z-labels absolute top-0 left-0 bg-fire px-2 text-6xl leading-none">01</span>
+              </span>
+            </button>
+          </div>
           <div className="p-3">
             <ReactionBar m={top} onReact={(k) => onReact(top.id, k)} />
           </div>
@@ -80,10 +86,33 @@ export function Fire({
   );
 }
 
-function Thumb({ m, className, edge = 320, eager = false }: { m: PublicMedia; className: string; edge?: 320 | 960; eager?: boolean }) {
+function Thumb({
+  m,
+  className,
+  edge = 320,
+  eager = false,
+  fill = false,
+}: {
+  m: PublicMedia;
+  className: string;
+  edge?: 320 | 960;
+  eager?: boolean;
+  /** Cover a frame that is already sized, instead of growing the page when the file arrives. */
+  fill?: boolean;
+}) {
+  const fillStyle = fill
+    ? { position: "absolute" as const, inset: 0, width: "100%", height: "100%", objectFit: "cover" as const }
+    : undefined;
   return m.kind === "image" ? (
-    <ShotImage url={m.url} alt={m.caption ?? ""} edge={edge} eager={eager} className={className} />
+    <ShotImage url={m.url} alt={m.caption ?? ""} edge={edge} eager={eager} className={className} style={fillStyle} />
   ) : (
-    <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className={className} />
+    <video
+      src={`${m.url}#t=0.1`}
+      muted
+      playsInline
+      preload={eager ? "auto" : "metadata"}
+      style={fillStyle}
+      className={className}
+    />
   );
 }

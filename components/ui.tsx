@@ -33,12 +33,14 @@ export function ShotImage({
   edge = 320,
   eager = false,
   className,
+  style,
 }: {
   url: string;
   alt?: string;
   edge?: PreviewEdge;
   eager?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const preview = previewUrl(url, edge);
   const [src, setSrc] = useState(preview);
@@ -53,6 +55,7 @@ export function ShotImage({
       fetchPriority={eager ? "high" : undefined}
       draggable={false}
       className={className}
+      style={style}
       onError={() => setSrc((cur) => (cur === url ? cur : url))}
     />
   );
