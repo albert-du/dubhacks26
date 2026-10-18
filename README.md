@@ -51,7 +51,7 @@ If Ask is on, the dump search box grows an Ask button. Ask answers the sentence 
 
 ## On a screen at the venue
 
-Open `/your-dumpster-id/stage` on a TV or a projector. The QR code, the counts, the countdown, and the current top fire sit at the top. Under that, every shot is newest first, and the page scrolls for as long as the pile goes.
+Open `/your-dumpster-id/stage` on a TV or a projector. Back to the dumpster sits above the QR code, the counts, the countdown, and the current top fire. Under that, every shot is newest first, and the page scrolls for as long as the pile goes.
 
 ## When it burns
 
