@@ -16,6 +16,9 @@ export interface Finding {
 
 const RANK: Record<Severity, number> = { medium: 1, high: 2 };
 
+/** Exact DNS names of services on our private Compose network. */
+const INTERNAL_HOSTS = new Set(["face-embed", "whisper"]);
+
 /** Hosts Dump already calls, plus docs, loopback, and RFC example domains. */
 const ALLOWED_SUFFIXES = [
   "photon.codes",
@@ -152,6 +155,7 @@ function urlsIn(text: string): string[] {
 
 function hostAllowed(host: string): boolean {
   const name = host.toLowerCase().replace(/^\.+|\.+$/g, "");
+  if (INTERNAL_HOSTS.has(name)) return true;
   if (name === "localhost" || name === "127.0.0.1" || name === "::1" || name === "0.0.0.0") return true;
   return ALLOWED_SUFFIXES.some((suffix) => name === suffix || name.endsWith(`.${suffix}`));
 }

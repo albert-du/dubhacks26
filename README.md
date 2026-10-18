@@ -91,6 +91,12 @@ curl -X POST localhost:3000/api/photon/webhook -H "content-type: application/jso
 
 Live texts arrive as Photon `message.received` events, signed as Standard Webhooks (`webhook-id`, `webhook-timestamp`, `webhook-signature`). The reply goes back in that same conversation. The sender's number is used for that one reply and is not stored.
 
+## Production deployment
+
+See [deploy/README.md](deploy/README.md) for the production Docker Compose stack
+(web app, worker, internal face embedding, and Whisper), environment setup, and
+HTTPS proxy requirements.
+
 ## What you can turn on
 
 Each of these is optional. The app runs without them. The comments in `.env.example` name the variables.
@@ -103,6 +109,6 @@ Each of these is optional. The app runs without them. The comments in `.env.exam
 | Photon 2.0 | Creates a dumpster by text, and sends photo alerts, mention alerts, and the burn warning. Needs the API key, the project id, and the agent user id. A shared iMessage line only delivers after that person has texted the bot. Cold alerts need SMS or a line of their own. |
 | Backboard | Ask the dump, and texts that are not a fixed command. One assistant per dumpster, deleted when the dumpster burns. A loose text uses a throwaway assistant that is deleted before the reply goes out. New photos still arrive on the site's own live feed. |
 | TigerData | Drops per minute, and a record of each cleanup. Without it, those numbers come from Mongo. |
-| Object storage | Vultr in production. A folder on disk locally. |
+| Object storage | Cloudflare R2 or another S3-compatible bucket. A shared persistent volume is the production fallback; local development uses a folder on disk. |
 
 The privacy rules for reviewers are in `VEYZL.md`. CI runs the privacy check and the VEYZL diff review on every pull request and on pushes to main.

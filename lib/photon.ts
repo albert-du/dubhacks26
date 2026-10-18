@@ -107,12 +107,15 @@ async function postMessage(input: {
   parentMessageId?: string;
   idempotencyKey?: string;
 }) {
+  // Shared iMessage Spaces reject threaded replies (parentMessageId) with 409.
+  // Send a normal message in the same Space; keep the idempotency key for retries.
+  const parentMessageId = config.photon.platform === "imessage" ? undefined : input.parentMessageId;
   await post(
     "/messages",
     {
       spaceId: input.spaceId,
       senderId: input.senderId,
-      ...(input.parentMessageId ? { parentMessageId: input.parentMessageId } : {}),
+      ...(parentMessageId ? { parentMessageId } : {}),
       content: { type: "text", format: "plain", text: input.text },
     },
     input.idempotencyKey ?? randomUUID(),
