@@ -7,6 +7,7 @@ import { dropSavedShots, useSaveShots } from "@/lib/client/useSaveShots";
 import { prepareFile } from "@/lib/client/uploadQueue";
 import { attachmentUrl } from "@/lib/saveToPhotos";
 import { groupMoments } from "@/lib/moments";
+import { namedFirst } from "@/lib/peopleOrder";
 import { matchSources, SOURCE_LABEL, type MatchSource } from "@/lib/search";
 import type { PublicCluster, PublicMedia, DumpsterState, SameName } from "@/lib/types";
 import { inFilter, type Filter, type Tab } from "./DumpsterView";
@@ -148,7 +149,7 @@ export function Dump(props: {
   };
 
   const myIds = new Set(props.me?.clusterIds ?? []);
-  const others = clusters.filter((c) => !myIds.has(c.id));
+  const others = namedFirst(clusters.filter((c) => !myIds.has(c.id)));
   const activeIds = filter?.kind === "faces" ? filter.ids.join() : "";
   const mineIds = props.mine?.kind === "faces" ? props.mine.ids.join() : "";
   const myCover = clusters.find((c) => myIds.has(c.id) && c.cover)?.cover;

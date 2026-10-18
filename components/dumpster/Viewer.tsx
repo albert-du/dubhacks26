@@ -7,6 +7,7 @@ import { frameNo } from "@/components/ui";
 import { useSaveShots } from "@/lib/client/useSaveShots";
 import type { ReactionKey } from "@/lib/reactions";
 import { attachmentUrl } from "@/lib/saveToPhotos";
+import { namedFirst } from "@/lib/peopleOrder";
 import { faceOverlapping } from "@/lib/sticker";
 import type { Box, PublicCluster, PublicMedia, StickerTarget } from "@/lib/types";
 
@@ -105,8 +106,8 @@ export function Viewer(props: {
   cuts.push({ key: "frame", label: "Everyone", target: { kind: "frame" } });
 
   const original = m.duplicateOf ? props.byId.get(m.duplicateOf) : undefined;
-  // Every face in this shot, once per person. Unnamed ones are numbered so their boxes can be matched to the tags.
-  // Only people are tagged on the shot. Captions, writing, objects and speech stay behind the search box.
+  // Every face in this shot, once per person. Unnamed ones are numbered in face order so their boxes match the tags.
+  // The Who row shows named people first. Only people are tagged on the shot. Captions, writing, objects and speech stay behind the search box.
   const claimed = new Set(props.clusters.filter((c) => c.claimed).map((c) => c.id));
   const mine = new Set(props.myClusterIds);
   const labelOf: string[] = [];
@@ -120,6 +121,7 @@ export function Viewer(props: {
     labelOf[i] = label;
     tags.push({ face: i, clusterId: f.clusterId, name, label });
   });
+  const people = namedFirst(tags);
   const focused = focus === null ? undefined : tags.find((t) => t.face === focus);
   const focusedCluster = focused?.clusterId;
   const canClaim = !!focusedCluster && !claimed.has(focusedCluster) && !mine.has(focusedCluster);
@@ -187,10 +189,10 @@ export function Viewer(props: {
         <dl className="text-sm">
           <Row k="Who">
             <div className="no-scrollbar flex h-8 items-center gap-1.5 overflow-x-auto">
-              {tags.length === 0 ? (
+              {people.length === 0 ? (
                 <span className="shrink-0 text-paper/60">No one in this shot</span>
               ) : (
-                tags.map((t) =>
+                people.map((t) =>
                   t.name && t.clusterId ? (
                     <button
                       key={t.clusterId}
