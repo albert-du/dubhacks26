@@ -129,12 +129,19 @@ export interface Cluster {
   updatedAt: Date;
 }
 
+export type StickerTarget =
+  | { kind: "frame" }
+  | { kind: "object"; index: number }
+  | { kind: "face"; index: number };
+
 export interface Sticker {
   _id: string;
   dumpsterId: string;
   mediaId: string;
   label: string;
   box: Box;
+  /** What the guest picked. Missing on stickers cut before person mattes. */
+  target?: StickerTarget;
   publicKey?: string;
   status: "pending" | "ready" | "failed";
   claimedAt?: Date | null;
@@ -193,6 +200,7 @@ export interface PublicSticker {
   label: string;
   url?: string;
   status: Sticker["status"];
+  target: StickerTarget;
 }
 
 export interface PublicDumpster {

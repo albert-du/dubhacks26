@@ -5,6 +5,7 @@ type Ctx = { params: Promise<{ key: string[] }> };
 
 const TYPES: Record<string, string> = {
   webp: "image/webp",
+  png: "image/png",
   mp4: "video/mp4",
   mov: "video/quicktime",
   webm: "video/webm",
@@ -23,6 +24,25 @@ export async function GET(req: Request, { params }: Ctx) {
   // ?download=1 saves the file instead of opening it (works for the S3 redirect too).
   const download = new URL(req.url).searchParams.get("download") === "1";
   const filename = `dump-${key.split("/").pop()}`;
+  // Stickers are proxied so the phone can read the bytes. A redirect to object storage
+  // is cross-origin, and the share sheet cannot turn that into a file.
+  if (download && key.includes("/public/sticker-")) {
+    try {
+      const body = await storage.get(key);
+      const stickerName = (key.split("/").pop() ?? "sticker.png").replace(/[^\w.-]+/g, "") || "sticker.png";
+      const ext = stickerName.split(".").pop() ?? "png";
+      return new Response(new Uint8Array(body), {
+        headers: {
+          "content-type": TYPES[ext] ?? "application/octet-stream",
+          "content-length": String(body.length),
+          "content-disposition": `attachment; filename="${stickerName}"`,
+          "cache-control": "private, no-store",
+        },
+      });
+    } catch {
+      return new Response("not found", { status: 404 });
+    }
+  }
 
   const signed = await storage.signedUrl(key, download ? filename : undefined);
   if (signed) return Response.redirect(signed, 302);

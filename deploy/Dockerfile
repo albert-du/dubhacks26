@@ -15,10 +15,20 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
+FROM dependencies AS fetch-model
+COPY tsconfig.json ./
+COPY lib/stickerModel.ts lib/stickerModel.ts
+COPY scripts/bake-sticker-model.ts scripts/bake-sticker-model.ts
+RUN mkdir -p /app/.data/models \
+  && node node_modules/tsx/dist/cli.mjs scripts/bake-sticker-model.ts /app/.data/models/birefnet-general-lite.onnx
+
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
-RUN mkdir -p /app/.data/storage && chown -R node:node /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
+    STICKER_MODEL_PATH=/app/.data/models/birefnet-general-lite.onnx
+RUN mkdir -p /app/.data/storage /app/.data/models
+COPY --from=fetch-model --chown=node:node /app/.data/models/birefnet-general-lite.onnx /app/.data/models/birefnet-general-lite.onnx
+RUN chown -R node:node /app
 USER node
 
 FROM runtime AS web

@@ -18,7 +18,7 @@ import { config } from "./config";
  * Key layout — everything for an event lives under one prefix so a purge is one prefix delete:
  *   {dumpsterId}/original/{mediaId}.{ext}   never served to browsers
  *   {dumpsterId}/public/{mediaId}.webp      metadata-stripped render, served via /api/files
- *   {dumpsterId}/public/sticker-{id}.webp
+ *   {dumpsterId}/public/sticker-{id}.png
  */
 
 const LOCAL_ROOT = path.join(process.cwd(), ".data", "storage");

@@ -151,7 +151,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         {tab === "map" && (
           <EventMap media={state.media} onOpen={open} />
         )}
-        {tab === "pack" && <Pack stickers={state.stickers} goTo={setTab} />}
+        {tab === "pack" && <Pack stickers={state.stickers} goTo={setTab} onRetry={dumpster.makeSticker} />}
         {tab === "me" && (
           <Me
             dumpster={state.dumpster}

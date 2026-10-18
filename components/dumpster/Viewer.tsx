@@ -5,7 +5,8 @@ import { downloadUrl, MediaStage } from "@/components/MediaStage";
 import { ReactionBar } from "@/components/Reactions";
 import { frameNo } from "@/components/ui";
 import type { ReactionKey } from "@/lib/reactions";
-import type { Box, PublicMedia } from "@/lib/types";
+import { faceOverlapping } from "@/lib/sticker";
+import type { Box, PublicMedia, StickerTarget } from "@/lib/types";
 
 type Mark = { box: Box; label: string; tone: "person" | "text" };
 
@@ -19,7 +20,7 @@ export function Viewer(props: {
   onClose: () => void;
   onReact: (id: string, key: ReactionKey) => void;
   onDelete: (id: string) => Promise<boolean>;
-  onSticker: (id: string, object: number) => Promise<boolean>;
+  onSticker: (id: string, target: StickerTarget) => Promise<boolean>;
   /** Tap a name under Who: show that person's shots. */
   onPerson: (clusterId: string, name: string) => void;
   /** Tap writing under Says: search the dump for it. */
@@ -56,10 +57,30 @@ export function Viewer(props: {
     setToast(t);
     setTimeout(() => setToast(null), 2200);
   };
-  const cut = async (object: number) => {
+  const cut = async (target: StickerTarget) => {
     setCutMenu(false);
-    flash((await props.onSticker(m.id, object)) ? "Cutting it out → Pack" : "Couldn’t cut that one");
+    flash((await props.onSticker(m.id, target)) ? "Cutting them out → Pack" : "Couldn’t cut that one");
   };
+
+  const personObjects = m.objects.map((o, index) => ({ o, index })).filter((x) => x.o.label.toLowerCase() === "person");
+  const cuts: { key: string; label: string; target: StickerTarget }[] = [];
+  if (personObjects.length) {
+    personObjects.forEach(({ o, index }, n) => {
+      const face = faceOverlapping(m.faces, o.box);
+      const name = face?.clusterId ? props.names.get(face.clusterId) : undefined;
+      cuts.push({ key: `object-${index}`, label: name || (personObjects.length > 1 ? `Person ${n + 1}` : "Person"), target: { kind: "object", index } });
+    });
+  } else {
+    m.faces.forEach((f, index) => {
+      const name = f.clusterId ? props.names.get(f.clusterId) : undefined;
+      cuts.push({ key: `face-${index}`, label: name || (m.faces.length > 1 ? `Person ${index + 1}` : "Person"), target: { kind: "face", index } });
+    });
+  }
+  m.objects.forEach((o, index) => {
+    if (o.label.toLowerCase() === "person") return;
+    cuts.push({ key: `object-${index}`, label: o.label, target: { kind: "object", index } });
+  });
+  cuts.push({ key: "frame", label: "Everyone", target: { kind: "frame" } });
 
   const original = m.duplicateOf ? props.byId.get(m.duplicateOf) : undefined;
   // Named people in this shot, once each. Object labels stay internal (search only).
@@ -150,14 +171,15 @@ export function Viewer(props: {
         {cutMenu && (
           <div className="flex flex-wrap gap-2">
             <span className="label self-center">Cut out:</span>
-            {m.objects.map((o, i) => (
-              <button key={i} className="btn btn-green !px-3 !py-2 !text-sm" onClick={() => cut(i)}>
-                {o.label}
+            {cuts.map((choice) => (
+              <button
+                key={choice.key}
+                className={`btn !px-3 !py-2 !text-sm ${choice.target.kind === "frame" ? "btn-ghost" : "btn-green"}`}
+                onClick={() => cut(choice.target)}
+              >
+                {choice.label}
               </button>
             ))}
-            <button className="btn btn-ghost !px-3 !py-2 !text-sm" onClick={() => cut(-1)}>
-              Whole shot
-            </button>
           </div>
         )}
 
@@ -172,7 +194,7 @@ export function Viewer(props: {
             <span />
           )}
           {m.kind === "image" ? (
-            <button className="btn btn-ghost !px-1 !text-sm" onClick={() => (m.objects.length ? setCutMenu((v) => !v) : cut(-1))}>
+            <button className="btn btn-ghost !px-1 !text-sm" aria-expanded={cutMenu} onClick={() => setCutMenu((v) => !v)}>
               Sticker
             </button>
           ) : (

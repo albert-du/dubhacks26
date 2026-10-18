@@ -35,7 +35,7 @@ A dumpster is six tabs along the bottom.
 
 **Map.** Moments that have a location, on a paper-and-ink map. Pins with a fire on them are marked. Drag with two fingers so the page can still scroll. Under the map, the moments are listed in order; tap one to flip through it. The map loads tiles for that area from OpenFreeMap. Those tiles use the same rounded locations already on the pins.
 
-**Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick an object or the whole frame. Press and hold a finished sticker to save it.
+**Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick a person, an object, or everyone in the frame. Dump removes the background and draws a white sticker edge. Add to phone opens the share sheet so you can save it or send it to Messages, WhatsApp, or Instagram. Download saves the PNG. Press and hold a sticker to save it too.
 
 **Me.** Who you signed in as and how many shots you're in. Change your name or take a new selfie here; your name goes on your face in the Dump. The selfie is used to find your face and is not kept. Texts are optional: connect your number by iMessage: enter your registered demo number, then send the one-time connection message to your assigned number. Codes expire after ten minutes and only work from the number you entered. Once connected, Dump texts you when new photos of you land, and when a video says the name on your face. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone connected gets one warning and a link, so they can save what they want. Change your number or disconnect in Me; Sign out forgets your name, face match and number. The connection expires with the dumpster.
 
@@ -62,6 +62,8 @@ npm run worker
 ```
 
 The site is at http://localhost:3000. Run the worker in a second terminal. It sorts uploads, sends texts, and deletes expired dumpsters. It reads `.env.local` when that file exists. Variables already set in the environment win.
+
+The first sticker downloads a cutout model, about 214MB, into `.data/models`. After that, cutting someone out runs on this machine. The photo is not sent anywhere to make the sticker.
 
 Face matching is a separate service. The first build downloads the models, about 300MB:
 

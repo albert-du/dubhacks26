@@ -72,7 +72,14 @@ export function publicMedia(m: Media, myReactions: ReactionKey[]): PublicMedia {
 }
 
 export function publicSticker(s: Sticker): PublicSticker {
-  return { id: s._id, mediaId: s.mediaId, label: s.label, url: s.publicKey ? fileUrl(s.publicKey) : undefined, status: s.status };
+  return {
+    id: s._id,
+    mediaId: s.mediaId,
+    label: s.label,
+    url: s.publicKey ? `${fileUrl(s.publicKey)}?v=${s.updatedAt.getTime()}` : undefined,
+    status: s.status,
+    target: s.target ?? { kind: "frame" },
+  };
 }
 
 /** Face gallery: every person detected in the dumpster, largest groups first. Names are added on the face itself. */
