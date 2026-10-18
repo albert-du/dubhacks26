@@ -86,6 +86,9 @@ export function EventMap({
     void import("maplibre-gl").then((ml) => {
       if (cancelled || !containerRef.current) return;
       try {
+        // MapLibre's default sibling URL is lost when Next bundles its main module.
+        // A static URL lets Webpack emit the matching worker as a build asset.
+        ml.setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).href);
         const first = pinsRef.current[0];
         map = new ml.Map({
           container: containerRef.current,
@@ -105,7 +108,7 @@ export function EventMap({
       }
       map.on("error", (event) => {
         const message = event.error instanceof Error ? event.error.message : "";
-        if (/webgl/i.test(message) && !cancelled) setEngine("grid");
+        if (/webgl|worker.*(?:failed|error)/i.test(message) && !cancelled) setEngine("grid");
       });
       map.touchZoomRotate.disableRotation();
       map.keyboard.disableRotation();
@@ -116,6 +119,8 @@ export function EventMap({
         map?.resize();
         setReady(true);
       });
+    }).catch(() => {
+      if (!cancelled) setEngine("grid");
     });
 
     return () => {
