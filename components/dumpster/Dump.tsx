@@ -6,7 +6,7 @@ import { FaceThumb, frameNo } from "@/components/ui";
 import { prepareFile } from "@/lib/client/uploadQueue";
 import { groupMoments } from "@/lib/moments";
 import { matchSources, SOURCE_LABEL, type MatchSource } from "@/lib/search";
-import type { PublicCluster, PublicMedia, DumpsterState } from "@/lib/types";
+import type { PublicCluster, PublicMedia, DumpsterState, SameName } from "@/lib/types";
 import { inFilter, type Filter, type Tab } from "./DumpsterView";
 
 type View = "grid" | "moments";
@@ -25,7 +25,7 @@ export function Dump(props: {
   q: string;
   setQ: (q: string) => void;
   canAsk: boolean;
-  onNameFaces: (faceIds: string[], name: string) => Promise<string | null>;
+  onNameFaces: (faceIds: string[], name: string, group?: boolean) => Promise<{ error?: string; sameName?: SameName }>;
   onOpen: (list: PublicMedia[], id: string) => void;
   goTo: (t: Tab) => void;
 }) {
@@ -36,6 +36,8 @@ export function Dump(props: {
   const [answer, setAnswer] = useState<string | null>(null);
   const [askError, setAskError] = useState<string | null>(null);
   const [naming, setNaming] = useState<{ ids: string[]; value: string } | null>(null);
+  /** A name someone here already has: ask whether these faces are the same person before grouping. */
+  const [sameName, setSameName] = useState<{ ids: string[]; value: string; holder: SameName } | null>(null);
   const [photoSearching, setPhotoSearching] = useState(false);
 
   /** Search with a photo: a face finds that person's shots, otherwise the things in it. */
@@ -82,12 +84,28 @@ export function Dump(props: {
     if (!naming) return;
     const { ids, value } = naming;
     setNaming(null);
-    const error = await props.onNameFaces(ids, value);
+    setSameName(null);
+    const { error, sameName: holder } = await props.onNameFaces(ids, value);
+    if (holder) return setSameName({ ids, value, holder });
     if (error) return setAskError(error);
     // Keep an active face filter in step with the new name (used for video mentions).
     if (filter?.kind === "faces" && filter.ids.join() === ids.join()) {
       props.setFilter({ ...filter, label: value.trim() || filter.label, name: value.trim() || undefined });
     }
+  };
+
+  /** Same person: fold the faces into the one already called that. Different: pick another name. */
+  const answerSameName = async (same: boolean) => {
+    if (!sameName) return;
+    const { ids, holder, value } = sameName;
+    setSameName(null);
+    if (!same) {
+      setAskError(`Two people can’t both be ${holder.name}. Try adding a last initial.`);
+      return setNaming({ ids, value });
+    }
+    const { error } = await props.onNameFaces(ids, holder.name, true);
+    if (error) return setAskError(error);
+    if (filter?.kind === "faces" && filter.ids.join() === ids.join()) props.setFilter(null);
   };
 
   const setFilter = (f: Filter | null) => {
@@ -228,6 +246,42 @@ export function Dump(props: {
             ✕
           </button>
         </form>
+      )}
+
+      {sameName && (
+        <div className="space-y-3 border-b-3 border-ink bg-bone p-3">
+          <p className="text-sm leading-snug">
+            {sameName.holder.signedIn ? (
+              <>
+                <b>{sameName.holder.name}</b> already signed in here.
+              </>
+            ) : (
+              <>
+                There’s already a face called <b>{sameName.holder.name}</b>.
+              </>
+            )}{" "}
+            Same person? Two people can’t share a name.
+          </p>
+          <div className="flex items-center gap-2">
+            {[...sameName.ids, ...sameName.holder.faceIds].map((faceId, i) => {
+              const c = clusters.find((x) => x.id === faceId);
+              return (
+                <span key={faceId} className="flex items-center gap-2">
+                  {i === sameName.ids.length && <span className="display text-xl">=?</span>}
+                  {c?.cover ? <FaceThumb cover={c.cover} size={56} /> : <span className="block size-14 bg-paper" />}
+                </span>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="btn btn-green !py-2 !text-sm" onClick={() => void answerSameName(true)}>
+              Same person
+            </button>
+            <button className="btn btn-ghost !py-2 !text-sm" onClick={() => void answerSameName(false)}>
+              Different person
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Search. Typing filters on the words. Ask sends the sentence to Backboard. */}

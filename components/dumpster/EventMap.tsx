@@ -7,30 +7,37 @@ import { dumpMapStyle } from "@/lib/mapStyle";
 import { groupMoments } from "@/lib/moments";
 import type { PublicMedia } from "@/lib/types";
 
-/** Smallest and largest thumbnail on the map, in px. */
-const PIN_MIN = 34;
-const PIN_MAX = 168;
+/** Thumbnail size at the fitted view, and the smallest and largest it gets, in px. */
+const PIN_BASE = 56;
+const PIN_MIN = 26;
+const PIN_MAX = 72;
 
-/** Shots at the same rounded spot fan out in a spiral, by a share of the thumbnail size. */
-function spread(k: number, px: number): [number, number] {
+/**
+ * Shots at the same rounded spot fan out in a spiral. The spiral opens up as you zoom in
+ * (`zoomedIn` levels past the fitted view), so a pile comes apart into separate shots.
+ */
+function spread(k: number, px: number, zoomedIn = 0): [number, number] {
   if (k === 0) return [0, 0];
-  const r = px * 0.9 * Math.sqrt(k);
+  const r = px * 1.1 * Math.sqrt(k) * Math.pow(1.35, Math.max(0, zoomedIn));
   const a = k * 2.39996; // golden angle
   return [Math.round(r * Math.cos(a)), Math.round(r * Math.sin(a))];
 }
 
 /**
  * The scene: every shot with a location, as a small thumbnail on an OpenFreeMap drawn in
- * Dump's paper and ink. Zoom in and the thumbnails grow and spread apart so each can be
- * tapped. Full screen frees one-finger panning. Tile requests cover the area already
+ * Dump's paper and ink. Zoom in and the thumbnails get smaller and spread apart, so more
+ * of them show and each can be tapped. The "use two fingers" hint shows once per sign-in. Full screen frees one-finger panning. Tile requests cover the area already
  * shown on the pins. If the phone has no WebGL, the same thumbnails fall back to a grid.
  */
 export function EventMap({
   media,
   onOpen,
+  guestId,
 }: {
   media: PublicMedia[];
   onOpen: (list: PublicMedia[], id: string) => void;
+  /** Who is signed in: the two-finger hint is shown once per sign-in. */
+  guestId: string;
 }) {
   const byId = useMemo(() => new Map(media.map((m) => [m.id, m])), [media]);
   const moments = useMemo(
@@ -94,15 +101,15 @@ export function EventMap({
   const openShotRef = useRef(openShot);
   openShotRef.current = openShot;
 
-  /** Thumbnails grow as you zoom in past the fitted view, and same-spot shots spread with them. */
+  /** Thumbnails shrink as you zoom in past the fitted view, so more of them fit, and same-spot piles open up. */
   const rescale = () => {
     const map = mapRef.current;
     const el = containerRef.current;
     if (!map || !el) return;
-    const base = fitZoomRef.current ?? map.getZoom();
-    const px = Math.round(Math.min(PIN_MAX, Math.max(PIN_MIN, PIN_MIN * Math.pow(1.55, map.getZoom() - base))));
+    const zoomedIn = map.getZoom() - (fitZoomRef.current ?? map.getZoom());
+    const px = Math.round(Math.min(PIN_MAX, Math.max(PIN_MIN, PIN_BASE * Math.pow(0.8, zoomedIn))));
     el.style.setProperty("--pin", `${px}px`);
-    for (const { marker, k } of markersRef.current) marker.setOffset(spread(k, px));
+    for (const { marker, k } of markersRef.current) marker.setOffset(spread(k, px, zoomedIn));
   };
   const rescaleRef = useRef(rescale);
   rescaleRef.current = rescale;
@@ -146,6 +153,14 @@ export function EventMap({
       map.keyboard.disableRotation();
       map.addControl(new ml.ScaleControl({ maxWidth: 72, unit: "metric" }), "bottom-left");
       map.on("zoom", () => rescaleRef.current());
+      // The "use two fingers" hint: once per sign-in, then the map stays quiet about it.
+      const quiet = () => containerRef.current?.classList.add("dump-map-quiet");
+      if (hintSeen(guestId)) quiet();
+      else
+        map.once("cooperativegestureprevented", () => {
+          markHintSeen(guestId);
+          setTimeout(quiet, 2500);
+        });
       mapRef.current = map;
       map.once("load", () => {
         if (cancelled) return;
@@ -165,7 +180,7 @@ export function EventMap({
       map?.remove();
       mapRef.current = null;
     };
-  }, [showMap]);
+  }, [showMap, guestId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -365,4 +380,28 @@ function Grid({
       <span className="label absolute right-2 bottom-2 z-labels bg-paper px-1">≈ {meters} m across</span>
     </>
   );
+}
+
+const hintKey = (guestId: string) => `dump:map-hint:${guestId}`;
+
+/** Whether this sign-in has already seen the two-finger hint. Storage can be blocked; then it shows again. */
+function hintSeen(guestId: string) {
+  try {
+    return localStorage.getItem(hintKey(guestId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markHintSeen(guestId: string) {
+  try {
+    localStorage.setItem(hintKey(guestId), "1");
+  } catch {}
+}
+
+/** Signing out starts over: the next sign-in sees the hint once again. */
+export function resetMapHint(guestId: string) {
+  try {
+    localStorage.removeItem(hintKey(guestId));
+  } catch {}
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { ReactionKey } from "@/lib/reactions";
-import type { PublicCluster, PublicMedia, PublicSticker, DumpsterState, StickerTarget } from "@/lib/types";
+import type { PublicCluster, PublicMedia, PublicSticker, DumpsterState, SameName, StickerTarget } from "@/lib/types";
 
 function sortMedia(list: PublicMedia[]) {
   return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -97,29 +97,34 @@ export function useDumpster(initial: DumpsterState, onReady?: (ids: string[]) =>
     [id],
   );
 
-  /** Name (or clear) one or more faces. Optimistic; the stream confirms. Returns the error, if any. */
+  /**
+   * Name (or clear) one or more faces. Optimistic; the stream confirms. If someone here already
+   * goes by that name, nothing changes and `sameName` comes back so the page can ask
+   * "same person?"; calling again with `group` folds the faces into theirs.
+   */
   const nameFaces = useCallback(
-    async (faceIds: string[], name: string): Promise<string | null> => {
+    async (faceIds: string[], name: string, group = false): Promise<{ error?: string; sameName?: SameName }> => {
       const clean = name.trim().slice(0, 40);
-      setState((s) => ({
-        ...s,
-        clusters: s.clusters.map((c) => (faceIds.includes(c.id) ? { ...c, name: clean || undefined } : c)),
-      }));
-      const results = await Promise.all(
-        faceIds.map((faceId) =>
-          fetch(`/api/dumpsters/${id}/faces/${faceId}`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ name: clean }),
-          }).then(
-            async (r) => (r.ok ? null : ((await r.json().catch(() => null))?.error ?? "Couldn’t save that name.")),
-            () => "Couldn’t reach Dump. Check your signal and try again.",
-          ),
-        ),
-      );
-      const error = results.find(Boolean) ?? null;
-      if (error) await refresh();
-      return error;
+      if (!group) {
+        setState((s) => ({
+          ...s,
+          clusters: s.clusters.map((c) => (faceIds.includes(c.id) ? { ...c, name: clean || undefined } : c)),
+        }));
+      }
+      for (const faceId of faceIds) {
+        const r = await fetch(`/api/dumpsters/${id}/faces/${faceId}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: clean, group }),
+        }).catch(() => null);
+        if (r?.ok) continue;
+        const body = await r?.json().catch(() => null);
+        await refresh();
+        if (!r) return { error: "Couldn’t reach Dump. Check your signal and try again." };
+        return { error: body?.error ?? "Couldn’t save that name.", sameName: body?.sameName };
+      }
+      if (group) await refresh();
+      return {};
     },
     [id, refresh],
   );

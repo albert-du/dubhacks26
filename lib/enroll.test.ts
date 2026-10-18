@@ -31,7 +31,7 @@ test("enroll: first sign-in takes a selfie, then the name alone gets you back in
     const { guests, dumpsters } = await cols();
     await dumpsters.insertOne(d);
 
-    assert.equal(await signInByName(d, "phone", "Sam", false), "new");
+    assert.equal((await signInByName(d, "phone", "Sam", false)).status, "new");
     const { guestId } = await enrollGuest(d, "phone", { name: "Sam", selfie });
     const sam = await guests.findOne({ _id: guestId });
     assert.deepEqual(sam?.viewerIds, ["phone"]);
@@ -41,9 +41,9 @@ test("enroll: first sign-in takes a selfie, then the name alone gets you back in
     await assert.rejects(enrollGuest(d, "stranger", { name: " sam ", selfie }), conflict);
 
     // A second browser: the name finds Sam, and only signs in once confirmed.
-    assert.equal(await signInByName(d, "laptop", "SAM", false), "returning");
+    assert.equal((await signInByName(d, "laptop", "SAM", false)).status, "returning");
     assert.equal((await dumpsterState(d, "laptop")).me, undefined);
-    assert.equal(await signInByName(d, "laptop", "SAM", true), "signed-in");
+    assert.equal((await signInByName(d, "laptop", "SAM", true)).status, "signed-in");
     assert.equal((await dumpsterState(d, "laptop")).me?.guestId, guestId);
     assert.equal((await dumpsterState(d, "phone")).me?.guestId, guestId);
 
@@ -55,7 +55,7 @@ test("enroll: first sign-in takes a selfie, then the name alone gets you back in
 
     await assert.rejects(renameGuest(d, "phone", "ANA"), conflict);
     await renameGuest(d, "phone", "Sammy");
-    assert.equal(await signInByName(d, "tablet", "sammy", false), "returning");
+    assert.equal((await signInByName(d, "tablet", "sammy", false)).status, "returning");
 
     // "That's me" takes unclaimed faces only, and names them.
     const { clusters } = await cols();
@@ -71,12 +71,12 @@ test("enroll: first sign-in takes a selfie, then the name alone gets you back in
     // Sign out forgets this browser only; the name still works.
     await signOutGuest(d, "phone");
     assert.equal((await dumpsterState(d, "phone")).me, undefined);
-    assert.equal(await signInByName(d, "phone", "Sammy", true), "signed-in");
+    assert.equal((await signInByName(d, "phone", "Sammy", true)).status, "signed-in");
 
     // Forget me deletes the guest, so the name is free again.
     await forgetGuest(d, "phone");
     assert.equal(await guests.findOne({ _id: guestId }), null);
-    assert.equal(await signInByName(d, "phone", "Sammy", false), "new");
+    assert.equal((await signInByName(d, "phone", "Sammy", false)).status, "new");
   } finally {
     faceEmbed.enabled = enabled;
     await (await db()).dropDatabase();

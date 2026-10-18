@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { DumpsterState, PublicDumpster } from "@/lib/types";
 import type { Tab } from "./DumpsterView";
+import { resetMapHint } from "./EventMap";
 import { NotificationSettings } from "./NotificationSettings";
 import { SelfiePicker } from "./Selfie";
 
@@ -36,8 +37,26 @@ export function Me(props: {
     await props.onChanged();
   }
 
-  const saveName = () =>
-    call({ method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: name.trim() }) }, "Name updated.");
+  /** Faces already called the new name: ask whether they're you, and group them if so. */
+  const saveName = async () => {
+    const patch = (group: boolean) =>
+      fetch(base, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: name.trim(), group }) })
+        .then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => ({})) }))
+        .catch(() => null);
+    const first = await patch(false);
+    if (first && !first.ok && first.body?.sameName) {
+      const holder = first.body.sameName as { name: string; faceIds: string[] };
+      const n = holder.faceIds.length;
+      if (!confirm(`${n === 1 ? "A face" : `${n} faces`} in the pile ${n === 1 ? "is" : "are"} already called ${holder.name}. Is that you? OK groups them with you.`)) {
+        return setMsg({ tone: "err", text: `Two people can’t both be ${holder.name}. Try adding a last initial.` });
+      }
+      return call({ method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: name.trim(), group: true }) }, "Name updated.");
+    }
+    if (!first?.ok) return setMsg({ tone: "err", text: first?.body?.error ?? "Couldn’t reach Dump. Check your signal and try again." });
+    setEditing(null);
+    setMsg({ tone: "ok", text: "Name updated." });
+    await props.onChanged();
+  };
   const saveSelfie = () => {
     if (!selfie) return;
     const form = new FormData();
@@ -46,11 +65,14 @@ export function Me(props: {
     return call({ method: "POST", body: form }, "Selfie updated.");
   };
   const signOut = () => {
-    if (confirm(`Sign out on this phone? Sign back in any time with just “${me.name}”.`)) void call({ method: "DELETE" }, "Signed out.");
+    if (!confirm(`Sign out on this phone? Sign back in any time with just “${me.name}”.`)) return;
+    resetMapHint(me.guestId);
+    void call({ method: "DELETE" }, "Signed out.");
   };
   const forget = () => {
-    if (confirm("Forget you in this dumpster? Your name, face match and texts are deleted on every phone."))
-      void call({ method: "DELETE" }, "Forgotten.", `${base}?forget=1`);
+    if (!confirm("Forget you in this dumpster? Your name, face match and texts are deleted on every phone.")) return;
+    resetMapHint(me.guestId);
+    void call({ method: "DELETE" }, "Forgotten.", `${base}?forget=1`);
   };
 
   return (
