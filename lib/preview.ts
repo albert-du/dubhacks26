@@ -26,9 +26,11 @@ export function previewUrl(url: string, edge: PreviewEdge = 320) {
   if (!url || /^(data|blob):/.test(url)) return url;
   const hashAt = url.indexOf("#");
   const withoutHash = hashAt === -1 ? url : url.slice(0, hashAt);
-  const parsed = new URL(withoutHash, "http://local");
-  if (parsed.searchParams.get("download") === "1") return url;
-  parsed.searchParams.set("s", String(edge));
-  const query = parsed.searchParams.toString();
-  return `${parsed.pathname}${query ? `?${query}` : ""}`;
+  const split = withoutHash.indexOf("?");
+  const path = split === -1 ? withoutHash : withoutHash.slice(0, split);
+  const params = new URLSearchParams(split === -1 ? "" : withoutHash.slice(split + 1));
+  if (params.get("download") === "1") return url;
+  params.set("s", String(edge));
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
 }
