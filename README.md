@@ -27,7 +27,7 @@ Dumpsters are anonymous and have no hosts. Nobody owns a dumpster, nothing recor
 
 | Track | Where |
 |---|---|
-| **Perceptron** | `lib/perceptron.ts`: one grounded call per image returns every primary object and person with boxes (tags, stickers, overlays), all legible text (OCR search), captions and venue text (Venue Board) |
+| **Perceptron** | `lib/perceptron.ts`: one Mk1.5 chat completion per image returns every primary object and person with boxes (tags, stickers, overlays), all legible text (OCR search), captions and venue text (Venue Board) |
 | **Photon 2.0** | `lib/photon.ts` and `app/api/photon/webhook`: text-to-create, batched "N new photos of you" texts, video-mention alerts, burn-warning digests (`lib/alerts.ts`) |
 | **VEYZL** | `VEYZL.md` policy (anonymity, unguessable ids, retention, complete deletion), `scripts/privacy-audit.ts`, `.github/workflows/privacy-audit.yml` |
 | **MongoDB** | `lib/mongo.ts`: dumpsters, guests, media and detections, face clusters, stickers, reactions. Every collection has a TTL index |
@@ -77,7 +77,7 @@ Live deliveries are Photon `message.received` events, signed as Standard Webhook
 
 ## Integration notes: verify before demo
 
-- **Perceptron** (`lib/perceptron.ts`): assumes an OpenAI-compatible `/chat/completions` endpoint and 0–1000 box coordinates.
+- **Perceptron** (`lib/perceptron.ts`): `POST /v1/chat/completions` with model `perceptron-mk1.5`, `vision_config.annotation_format` set to `box`, and an inline JPEG data URL. Boxes are `<point_box>` markup on a 0–1000 grid inside `choices[0].message.content`, stored as 0–1. `isaac-0.1` is retired and returns 404. `/v1/detect` returns pixel coordinates and is not used.
 - **Photon 2.0** (`lib/photon.ts`, webhook route): outbound text creates or reuses a User and a Space, then `POST /v1/projects/{id}/messages` with `{ spaceId, senderId, content: { type: "text", format: "plain", text } }`. Set `PHOTON_API_KEY`, `PHOTON_PROJECT_ID`, `PHOTON_AGENT_USER_ID`, and `PHOTON_PLATFORM`. A shared iMessage line only delivers after that person has texted the agent; cold photo alerts and burn warnings need SMS or a dedicated line.
 - **Backboard** (`lib/backboard.ts`): the publish endpoint is a placeholder.
 - **VEYZL** (`.github/workflows/privacy-audit.yml`): the action reference is a TODO.
