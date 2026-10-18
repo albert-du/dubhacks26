@@ -276,7 +276,7 @@ function StickerLibrarySheet({ url, label, onClose }: { url: string; label: stri
           Close
         </button>
       </div>
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto overscroll-y-contain px-4 py-4">
         <p className="text-sm leading-snug">{STICKER_LIBRARY_INTRO}</p>
         <div className="mx-auto w-full max-w-[280px] border-3 border-ink bg-bone">
           {preview ? (

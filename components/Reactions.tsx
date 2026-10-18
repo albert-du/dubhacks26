@@ -32,7 +32,7 @@ export function ReactionBar({
         <FireIcon size={30} />
         <span className="display text-lg tabular-nums">{m.reactions.fire}</span>
       </button>
-      <div className="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+      <div className="no-scrollbar scroll-x flex min-w-0 flex-1 gap-1.5">
         {REACTIONS.filter((r) => r.key !== "fire").map((r) => {
           const on = m.myReactions.includes(r.key);
           const n = m.reactions[r.key];

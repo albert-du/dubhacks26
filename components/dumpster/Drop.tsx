@@ -29,7 +29,7 @@ export function Drop({
 
   return (
     <section className="space-y-4 p-4">
-      <label className="@container flex min-h-[42dvh] cursor-pointer flex-col justify-between border-3 border-ink bg-green p-5 active:translate-x-[2px] active:translate-y-[2px]">
+      <label className="@container flex min-h-[42svh] cursor-pointer flex-col justify-between border-3 border-ink bg-green p-5 active:translate-x-[2px] active:translate-y-[2px]">
         <span className="label">Tap to drop · photos{dumpster.settings.allowVideo ? " + videos" : ""}</span>
         {/* Sized to the box, not the screen, so "photos." never runs past its right edge. */}
         <span className="display text-[clamp(2.25rem,16cqw,4.5rem)]">
