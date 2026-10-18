@@ -165,7 +165,8 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
           <Me
             dumpster={state.dumpster}
             me={me}
-            photosOfMe={state.media.filter((m) => inFilter(m, mineFilter(state))).length}
+            // No face matched yet means no shots of you, not every shot.
+            photosOfMe={mineFilter(state) ? state.media.filter((m) => inFilter(m, mineFilter(state))).length : 0}
             onChanged={dumpster.refresh}
             goTo={setTab}
             onShowMine={() => {
