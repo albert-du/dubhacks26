@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { config } from "./config";
 import { HttpError } from "./http";
 import { closeMongo, cols, db } from "./mongo";
-import { connectFromMessage, disconnectNotifications, getNotificationStatus, hashConnectionCode, notificationStatus, requestNotificationConnection, sendGuestNotification } from "./notifications";
+import { connectFromMessage, connectionMessage, disconnectNotifications, getNotificationStatus, hashConnectionCode, notificationStatus, requestNotificationConnection, sendGuestNotification } from "./notifications";
 import { photon, type InboundText } from "./photon";
 import sharp from "sharp";
 import { enrollGuest } from "./enroll";
@@ -55,7 +55,10 @@ test("notifications: route each guest through their verified line without a glob
       guest.notification = { spaceId: `space-${suffix}`, agentUserId: `agent-${suffix}`, recipientUserId: `recipient-${suffix}`, verifiedAt: new Date(), connectedMessageId: `message-${suffix}` };
       assert.equal(await sendGuestNotification(guest, "hello", `alert-${suffix}`), true);
     }
-    assert.deepEqual(calls.map((c) => [c.spaceId, c.senderId]), [["space-a", "agent-a"], ["space-b", "agent-b"]]);
+    assert.deepEqual(calls.map((c) => [c.spaceId, c.senderId, c.parentMessageId]), [
+      ["space-a", "agent-a", "message-a"],
+      ["space-b", "agent-b", "message-b"],
+    ]);
     photon.reply = async () => { throw new Error("provider unavailable"); };
     await assert.rejects(sendGuestNotification(a, "hello", "failure"), /provider unavailable/);
     delete process.env.PHOTON_API_KEY;
@@ -174,7 +177,15 @@ test("notifications: verify, retry, edit, isolate, and disconnect real guest rec
     assert.equal(pending?.phone, undefined);
     assert.equal(pending?.notification, undefined);
     assert.equal(pending?.notificationPending?.codeHash, hashConnectionCode(challenge.message.slice(8)));
-    await assert.rejects(requestNotificationConnection(d, a.viewerIds[0], "+12065550101", now), (e) => e instanceof HttpError && e.status === 429);
+    assert.equal(challenge.message, connectionMessage(a._id, "+12065550101"));
+    const again = await requestNotificationConnection(d, a.viewerIds[0], "+12065550101", now);
+    assert.equal(again.message, challenge.message);
+    assert.equal(again.agentNumber, challenge.agentNumber);
+    const shown = await getNotificationStatus(d, a.viewerIds[0]);
+    assert.equal(shown.state, "pending");
+    assert.equal(shown.message, challenge.message);
+    assert.equal(shown.agentNumber, challenge.agentNumber);
+    assert.ok(!JSON.stringify(shown).includes("+12065550101"));
     const inbound: InboundText = { from: "+12065550101", text: challenge.message, platform: "imessage", spaceKind: "direct", spaceId: "space-a", agentUserId: "agent-a", senderUserId: "recipient-a", agentHandle: "+12065550201", messageId: "message-a" };
     assert.match((await connectFromMessage({ ...inbound, from: "+12065550102" }, now))!, /invalid or expired/);
     assert.match((await connectFromMessage({ ...inbound, agentHandle: "+12065550202" }, now))!, /invalid or expired/);
@@ -197,11 +208,18 @@ test("notifications: verify, retry, edit, isolate, and disconnect real guest rec
     const second = await requestNotificationConnection(d, b.viewerIds[0], "+12065550102", now);
     assert.equal(second.agentNumber, "+12065550202");
     await connectFromMessage({ ...inbound, from: "+12065550102", text: second.message, spaceId: "space-b", agentUserId: "agent-b", senderUserId: "recipient-b", agentHandle: "+12065550202", messageId: "message-b" }, now);
-    await collection.guests.updateMany({ _id: { $in: [a._id, b._id] } }, { $set: { pendingPhotoAlerts: 2 } });
+    await collection.guests.updateMany({ _id: { $in: [a._id, b._id] } }, { $set: { pendingPhotoAlerts: 3, alertBatchStartedAt: new Date(Date.now() - 30_000) } });
+    const beforeWindow = calls.length;
+    await flushFaceAlerts();
+    assert.equal(calls.length, beforeWindow, "photos in the first two minutes stay grouped");
+    await collection.guests.updateMany({ _id: { $in: [a._id, b._id] } }, { $set: { pendingPhotoAlerts: 2, alertBatchStartedAt: new Date(Date.now() - config.alertDebounceMs - 1_000) } });
     failSecondLine = true;
     await flushFaceAlerts();
     const photoAlerts = calls.filter((call) => call.idempotencyKey?.startsWith("alert:"));
-    assert.deepEqual(photoAlerts.map((call) => [call.spaceId, call.senderId]), [["space-a", "agent-a"], ["space-b", "agent-b"]]);
+    assert.deepEqual(photoAlerts.map((call) => [call.spaceId, call.senderId, call.parentMessageId]), [
+      ["space-a", "agent-a", "message-a"],
+      ["space-b", "agent-b", "message-b"],
+    ]);
     for (const alert of photoAlerts) {
       assert.match(alert.text, /2 new photos of you/);
       assert.match(alert.text, /\/demo\?me=1/);

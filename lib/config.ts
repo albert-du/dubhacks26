@@ -58,8 +58,8 @@ export const config = {
 
   /** How long before expiry the "burning soon" SMS digest goes out. */
   warnBeforeMs: 2 * 60 * 60 * 1000,
-  /** Minimum gap between face-alert texts to one guest (batches "3 new photos of you"). */
-  alertDebounceMs: 90 * 1000,
+  /** Photos and mentions in this window become one text. The text waits until the window ends. */
+  alertDebounceMs: 2 * 60 * 1000,
   /** Mongo TTL backstop for the dumpster doc itself, after the worker has had time to purge blobs. */
   hardDeleteGraceMs: 6 * 60 * 60 * 1000,
 };

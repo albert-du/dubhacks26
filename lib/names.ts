@@ -102,11 +102,15 @@ export async function mergeGuests(d: Dumpster, fromId: string, intoId: string) {
   const { guests, clusters } = await cols();
   const [from, into] = await Promise.all([guests.findOne({ _id: fromId, dumpsterId: d._id }), guests.findOne({ _id: intoId, dumpsterId: d._id })]);
   if (!from || !into) throw new HttpError(404, "That person isn’t here anymore");
+  const batchStart = [from.alertBatchStartedAt, into.alertBatchStartedAt]
+    .filter((started): started is Date => !!started)
+    .sort((a, b) => a.getTime() - b.getTime())[0];
   const carry = {
     ...(!into.notification && from.notification
       ? { notification: from.notification, ...(from.phone ? { phone: from.phone } : {}) }
       : {}),
     ...(!into.embedding && from.embedding ? { embedding: from.embedding } : {}),
+    ...(batchStart && into.alertBatchStartedAt?.getTime() !== batchStart.getTime() ? { alertBatchStartedAt: batchStart } : {}),
   };
   await guests.updateOne(
     { _id: intoId },

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { NotificationStatus } from "@/lib/types";
 
-type Status = NotificationStatus & { available?: boolean };
+type Status = NotificationStatus & { available?: boolean; agentNumber?: string; message?: string };
 type Challenge = { agentNumber: string; message: string; expiresAt: string };
 
 export function NotificationSettings({ dumpsterId, initial, onConnected }: {
@@ -37,6 +37,8 @@ export function NotificationSettings({ dumpsterId, initial, onConnected }: {
         setPhone("");
         setError("");
         await onConnected();
+      } else if (next.state === "pending" && next.message && next.agentNumber && next.expiresAt) {
+        setChallenge({ message: next.message, agentNumber: next.agentNumber, expiresAt: next.expiresAt });
       } else if (next.state === "disconnected") {
         setChallenge(null);
       }
@@ -110,7 +112,7 @@ export function NotificationSettings({ dumpsterId, initial, onConnected }: {
               <p className="label" role="status">Waiting for your message</p>
               {challenge ? (
                 <>
-                  <p className="text-sm">Send from the exact number you entered to <b>{challenge.agentNumber}</b>. This message expires in ten minutes, or when the Dumpster burns.</p>
+                  <p className="text-sm">Send this from the exact number you entered to <b>{challenge.agentNumber}</b>. Reconnecting shows this same message. It expires in ten minutes, or when the Dumpster burns.</p>
                   <code className="block break-all border-2 border-ink bg-paper p-2 text-sm">{challenge.message}</code>
                   <a className="btn btn-green w-full" href={messageUrl}>Open Messages</a>
                   <button className="btn btn-ghost w-full" onClick={async () => {

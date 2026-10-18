@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { nanoid } from "nanoid";
 import { config } from "./config";
 import { HttpError } from "./http";
 import { cols } from "./mongo";
@@ -13,6 +12,15 @@ const INVALID_CODE = "That connection code is invalid or expired. In Me, request
 
 export function hashConnectionCode(code: string) {
   return createHash("sha256").update(code).digest("hex");
+}
+
+/** Same guest and number always get the same text to send. Reconnecting does not mint a new one. */
+export function connectionCode(guestId: string, phone: string) {
+  return createHash("sha256").update(`dump-imessage:${guestId}:${phone}`).digest("base64url").slice(0, 16);
+}
+
+export function connectionMessage(guestId: string, phone: string) {
+  return `connect ${connectionCode(guestId, phone)}`;
 }
 
 export function notificationStatus(guest: Guest, now = new Date()): NotificationStatus {
@@ -34,8 +42,22 @@ async function ownGuest(d: Dumpster, viewer: string) {
   return guest;
 }
 
-export async function getNotificationStatus(d: Dumpster, viewer: string) {
-  return { ...notificationStatus(await ownGuest(d, viewer)), available: imessageAvailable() };
+export async function getNotificationStatus(d: Dumpster, viewer: string): Promise<NotificationStatus & { available: boolean; agentNumber?: string; message?: string }> {
+  const guest = await ownGuest(d, viewer);
+  const status = notificationStatus(guest);
+  const available = imessageAvailable();
+  const pending = guest.notificationPending;
+  if (status.state !== "pending" || !pending) return { ...status, available };
+  const message = connectionMessage(guest._id, pending.phone);
+  const codeHash = hashConnectionCode(connectionCode(guest._id, pending.phone));
+  if (pending.codeHash !== codeHash) {
+    const { guests } = await cols();
+    await guests.updateOne(
+      { _id: guest._id, "notificationPending.phone": pending.phone, "notificationPending.expiresAt": pending.expiresAt },
+      { $set: { "notificationPending.codeHash": codeHash } },
+    );
+  }
+  return { ...status, available, agentNumber: pending.agentNumber, message };
 }
 
 export async function requestNotificationConnection(d: Dumpster, viewer: string, input: string, now = new Date()) {
@@ -43,13 +65,26 @@ export async function requestNotificationConnection(d: Dumpster, viewer: string,
   if (!imessageAvailable()) throw new HttpError(503, "iMessage alerts aren’t available right now.");
   const phone = normalizePhone(input);
   if (!phone) throw new HttpError(400, "Enter your phone number, including its country code.");
+  const message = connectionMessage(guest._id, phone);
+  const code = connectionCode(guest._id, phone);
+  const pending = guest.notificationPending;
+  // An open challenge for this number is shown again. Asking twice must not rotate it.
+  if (pending && pending.phone === phone && pending.expiresAt > now) {
+    if (pending.codeHash !== hashConnectionCode(code)) {
+      const { guests } = await cols();
+      await guests.updateOne(
+        { _id: guest._id, "notificationPending.phone": phone },
+        { $set: { "notificationPending.codeHash": hashConnectionCode(code) } },
+      );
+    }
+    return { state: "pending" as const, expiresAt: pending.expiresAt.toISOString(), agentNumber: pending.agentNumber, message };
+  }
   const cutoff = new Date(now.getTime() - REQUEST_COOLDOWN_MS);
   if (guest.notificationRequestedAt && guest.notificationRequestedAt > cutoff) {
     throw new HttpError(429, "Wait 30 seconds before requesting another connection message.");
   }
   const agentNumber = await photon.imessageAssignment(phone);
   if (!agentNumber) throw new HttpError(422, "iMessage alerts are available to registered demo participants. You can still use everything on the website.");
-  const code = nanoid(16);
   const expiresAt = new Date(Math.min(now.getTime() + CODE_LIFETIME_MS, d.expiresAt.getTime()));
   const { guests } = await cols();
   const result = await guests.updateOne({
@@ -62,7 +97,7 @@ export async function requestNotificationConnection(d: Dumpster, viewer: string,
     $unset: { notification: "", phone: "", expiryWarningSentAt: "", expiryWarningText: "" },
   });
   if (!result.modifiedCount) throw new HttpError(429, "Wait 30 seconds before requesting another connection message.");
-  return { state: "pending" as const, expiresAt: expiresAt.toISOString(), agentNumber, message: `connect ${code}` };
+  return { state: "pending" as const, expiresAt: expiresAt.toISOString(), agentNumber, message };
 }
 
 export async function disconnectNotifications(d: Dumpster, viewer: string) {
@@ -108,6 +143,12 @@ export async function connectFromMessage(message: InboundText, now = new Date())
 export async function sendGuestNotification(guest: Guest, text: string, idempotencyKey: string) {
   if (!guest.notification || guest.expiresAt <= new Date()) return false;
   if (!imessageAvailable()) throw new Error("iMessage alerts aren’t configured");
-  await photon.reply({ spaceId: guest.notification.spaceId, senderId: guest.notification.agentUserId, text, idempotencyKey });
+  await photon.reply({
+    spaceId: guest.notification.spaceId,
+    senderId: guest.notification.agentUserId,
+    parentMessageId: guest.notification.connectedMessageId,
+    text,
+    idempotencyKey,
+  });
   return true;
 }

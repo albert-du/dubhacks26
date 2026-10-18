@@ -153,12 +153,14 @@ test("photon: sends through user, space, then message, and stays quiet without c
 
   try {
     await photon.send("+14155550999", " 3 new photos ", { idempotencyKey: "alert:guest:3:0:0" });
+    const smsParent = "pho_msg_0123456789abcdefghjkmnpqr0";
+    const sharedParent = "pho_msg_0123456789abcdefghjkmnpqr1";
     await photon.reply({
       to: "+14155550999",
       text: "Dumpster is open",
       spaceId: "pho_spc_existing",
       senderId: "pho_usr_line",
-      parentMessageId: "pho_msg_in",
+      parentMessageId: smsParent,
       idempotencyKey: "reply:pho_msg_in",
     });
     assert.equal(calls[0].authorization, "Bearer pho_sk_test");
@@ -169,7 +171,7 @@ test("photon: sends through user, space, then message, and stays quiet without c
       text: "iMessage is connected",
       spaceId: "pho_spc_shared",
       senderId: "pho_usr_line",
-      parentMessageId: "pho_msg_shared_in",
+      parentMessageId: sharedParent,
       idempotencyKey: "reply:pho_msg_shared_in",
     });
 
@@ -207,13 +209,67 @@ test("photon: sends through user, space, then message, and stays quiet without c
   assert.deepEqual(calls[3].body, {
     spaceId: "pho_spc_existing",
     senderId: "pho_usr_line",
-    parentMessageId: "pho_msg_in",
+    parentMessageId: "pho_msg_0123456789abcdefghjkmnpqr0",
     content: { type: "text", format: "plain", text: "Dumpster is open" },
   });
   assert.deepEqual(calls[4].body, {
     spaceId: "pho_spc_shared",
     senderId: "pho_usr_line",
+    parentMessageId: "pho_msg_0123456789abcdefghjkmnpqr1",
     content: { type: "text", format: "plain", text: "iMessage is connected" },
   });
   assert.equal(calls[4].key, "reply:pho_msg_shared_in");
+});
+
+test("photon: retries a shared-line thread the line rejects, and ignores a parent that is not a message id", async () => {
+  const saved = {
+    PHOTON_API_KEY: process.env.PHOTON_API_KEY,
+    PHOTON_PROJECT_ID: process.env.PHOTON_PROJECT_ID,
+    PHOTON_PLATFORM: process.env.PHOTON_PLATFORM,
+    PHOTON_AGENT_USER_ID: process.env.PHOTON_AGENT_USER_ID,
+  };
+  process.env.PHOTON_API_KEY = "pho_sk_test";
+  process.env.PHOTON_PROJECT_ID = "pho_prj_test";
+  process.env.PHOTON_PLATFORM = "imessage";
+  delete process.env.PHOTON_AGENT_USER_ID;
+  const calls: { key: string; body: { parentMessageId?: string; content: { text: string } } }[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (_url: string | URL, init?: RequestInit) => {
+    const headers = new Headers(init?.headers);
+    const body = JSON.parse(String(init?.body)) as { parentMessageId?: string; content: { text: string } };
+    calls.push({ key: headers.get("idempotency-key") ?? "", body });
+    if (body.parentMessageId) return new Response(JSON.stringify({ code: "FAILED_PRECONDITION" }), { status: 409 });
+    return new Response(JSON.stringify({ id: "pho_msg_0123456789abcdefghjkmnpqr2" }), { status: 202 });
+  }) as typeof fetch;
+  try {
+    const parent = "pho_msg_0123456789abcdefghjkmnpqr1";
+    await photon.reply({
+      text: "3 new photos of you",
+      spaceId: "pho_spc_shared",
+      senderId: "pho_usr_line",
+      parentMessageId: parent,
+      idempotencyKey: "alert:guest:3",
+    });
+    await photon.reply({
+      text: "still delivered",
+      spaceId: "pho_spc_shared",
+      senderId: "pho_usr_line",
+      parentMessageId: "not-a-photon-id",
+      idempotencyKey: "alert:guest:plain",
+    });
+  } finally {
+    globalThis.fetch = original;
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0].body.parentMessageId, "pho_msg_0123456789abcdefghjkmnpqr1");
+  assert.equal(calls[0].key, "alert:guest:3");
+  assert.equal(calls[1].body.parentMessageId, undefined);
+  assert.equal(calls[1].body.content.text, "3 new photos of you");
+  assert.equal(calls[1].key, "alert:guest:3:direct");
+  assert.equal(calls[2].body.parentMessageId, undefined);
+  assert.equal(calls[2].key, "alert:guest:plain");
 });
