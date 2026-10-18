@@ -131,7 +131,7 @@ export async function dumpsterState(d: Dumpster, viewer: string): Promise<Dumpst
     clusters: await publicClusters(d),
     stickers: (await stickers.find({ dumpsterId: d._id }).sort({ createdAt: -1 }).toArray()).map(publicSticker),
     me: me
-      ? { guestId: me._id, phoneLast4: me.notification ? me.phone?.slice(-4) : undefined, clusterIds: myClusters.map((c) => c._id), notifications: notificationStatus(me) }
+      ? { guestId: me._id, name: me.name, phoneLast4: me.notification ? me.phone?.slice(-4) : undefined, clusterIds: myClusters.map((c) => c._id), notifications: notificationStatus(me) }
       : undefined,
     canAsk: backboard.enabled(),
     cursor: cursor.toISOString(),

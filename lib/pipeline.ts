@@ -177,7 +177,7 @@ async function assignClusters(d: Dumpster, mediaId: string, faces: FaceHit[]) {
       cover: { mediaId, box: f.box },
       expiresAt: d.expiresAt,
       updatedAt: new Date(),
-      ...(guest ? { guestId: guest._id } : {}),
+      ...(guest ? { guestId: guest._id, ...(guest.name ? { name: guest.name } : {}) } : {}),
     };
     await clusters.insertOne(c);
     list.push(c);

@@ -11,6 +11,7 @@ import { Drop } from "./Drop";
 import { EventMap } from "./EventMap";
 import { Fire } from "./Fire";
 import { Me } from "./Me";
+import { SignIn } from "./SignIn";
 import { Pack } from "./Pack";
 import { Dump } from "./Dump";
 import { Viewer } from "./Viewer";
@@ -88,27 +89,41 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
 
   const viewList = viewing ? (viewing.ids.map((i) => byId.get(i)).filter(Boolean) as PublicMedia[]) : [];
 
+  const header = (
+        <header className="sticky top-0 z-header border-b-3 border-ink bg-paper">
+          <div className="flex h-14 items-stretch">
+            <MarkBlock />
+            <h1 className="display min-w-0 flex-1 self-center truncate px-3 text-[22px] leading-none">{state.dumpster.name}</h1>
+            <button
+              onClick={copyLink}
+              className={`label mr-2 shrink-0 self-center border-2 border-ink px-2 py-1.5 !text-[10px] ${copied ? "bg-ink text-paper" : "bg-green"}`}
+              aria-live="polite"
+            >
+              {copied ? "Copied" : "Copy link"}
+            </button>
+          </div>
+          <div className="flex items-center justify-between border-t border-ink pl-3">
+            <span className="label">Burns in</span>
+            <span className="hazard py-1 pl-6">
+              <Countdown expiresAt={state.dumpster.expiresAt} className="display block bg-ink px-2 text-lg text-paper" />
+            </span>
+          </div>
+        </header>
+  );
+
+  // Signing in (name + selfie) is the door to the dumpster.
+  if (!state.me)
+    return (
+      <div className="mx-auto min-h-dvh w-full max-w-[430px]">
+        {header}
+        <SignIn dumpster={state.dumpster} onSignedIn={dumpster.refresh} />
+      </div>
+    );
+  const me = state.me;
+
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[430px] pb-[calc(64px+env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-header border-b-3 border-ink bg-paper">
-        <div className="flex h-14 items-stretch">
-          <MarkBlock />
-          <h1 className="display min-w-0 flex-1 self-center truncate px-3 text-[22px] leading-none">{state.dumpster.name}</h1>
-          <button
-            onClick={copyLink}
-            className={`label mr-2 shrink-0 self-center border-2 border-ink px-2 py-1.5 !text-[10px] ${copied ? "bg-ink text-paper" : "bg-green"}`}
-            aria-live="polite"
-          >
-            {copied ? "Copied" : "Copy link"}
-          </button>
-        </div>
-        <div className="flex items-center justify-between border-t border-ink pl-3">
-          <span className="label">Burns in</span>
-          <span className="hazard py-1 pl-6">
-            <Countdown expiresAt={state.dumpster.expiresAt} className="display block bg-ink px-2 text-lg text-paper" />
-          </span>
-        </div>
-      </header>
+      {header}
 
       <main>
         {tab === "drop" && <Drop dumpster={state.dumpster} uploader={uploader} onCopyLink={copyLink} copied={copied} />}
@@ -140,9 +155,9 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
         {tab === "me" && (
           <Me
             dumpster={state.dumpster}
-            me={state.me}
-            photosOfMe={state.me ? state.media.filter((m) => inFilter(m, mineFilter(state))).length : 0}
-            onEnrolled={dumpster.refresh}
+            me={me}
+            photosOfMe={state.media.filter((m) => inFilter(m, mineFilter(state))).length}
+            onChanged={dumpster.refresh}
             goTo={setTab}
             onShowMine={() => {
               setFilter(mineFilter(state));

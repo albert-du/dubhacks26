@@ -29,7 +29,8 @@ export interface Guest {
   _id: string;
   dumpsterId: string;
   viewerId: string;
-  // No name: people are named on their face (Cluster.name). A guest exists only to get texts.
+  /** What they signed in to this dumpster as. Also names their face. */
+  name: string;
   phone?: string;
   /** Verified routing for this guest only; never sent to another browser. */
   notification?: {
@@ -217,7 +218,8 @@ export interface DumpsterState {
   clusters: PublicCluster[];
   stickers: PublicSticker[];
   /** This browser's sign-up, if any. Only the last 4 digits of a verified number are sent back. */
-  me?: { guestId: string; phoneLast4?: string; clusterIds: string[]; notifications?: NotificationStatus };
+  /** This browser's sign-in for this dumpster. Absent = not signed in yet. */
+  me?: { guestId: string; name: string; phoneLast4?: string; clusterIds: string[]; notifications?: NotificationStatus };
   /** True when BACKBOARD_API_KEY is set. The browser never receives the key. */
   canAsk: boolean;
   cursor: string;

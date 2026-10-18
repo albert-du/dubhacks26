@@ -1,6 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { getLiveDumpster } from "@/lib/dumpsters";
+import { requireGuest } from "@/lib/guestAuth";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
 import { publicSticker } from "@/lib/serialize";
@@ -21,6 +22,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
   const { id, mediaId } = await params;
   const d = await getLiveDumpster(id);
   if (!d) throw notFound();
+  await requireGuest(d._id);
   const target = Body.parse(await req.json().catch(() => ({})));
   const { media, stickers } = await cols();
   const m = await media.findOne({ _id: mediaId, dumpsterId: id, status: "ready", kind: "image" });

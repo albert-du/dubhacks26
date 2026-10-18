@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLiveDumpster } from "@/lib/dumpsters";
+import { requireGuest } from "@/lib/guestAuth";
 import { HttpError, notFound, route } from "@/lib/http";
 import { cols } from "@/lib/mongo";
 import { emptyReactions, isReactionKey } from "@/lib/reactions";
@@ -16,6 +17,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
   const { id, mediaId } = await params;
   const d = await getLiveDumpster(id);
   if (!d) throw notFound();
+  await requireGuest(d._id);
   const { key } = Body.parse(await req.json());
   if (!isReactionKey(key)) throw new HttpError(400, "Unknown reaction");
   const viewer = await viewerId();

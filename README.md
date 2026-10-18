@@ -1,6 +1,6 @@
 # Dump
 
-Dump is one shared photo pile for a group. A party, a hike, a wedding, a tailgate. Someone opens a dumpster, passes the link or the QR code, and everyone throws in what they shot. You get in from that link. There is no sign-in.
+Dump is one shared photo pile for a group. A party, a hike, a wedding, a tailgate. Someone opens a dumpster, passes the link or the QR code, and everyone throws in what they shot. You get in from that link, then sign in to that one dumpster with your name and a quick selfie (take one or upload one). There are no accounts: the sign-in is for this dumpster only and burns with it.
 
 The pile lasts 24, 48, or 72 hours. Then the photos, the videos, the names, and the phone numbers are deleted.
 
@@ -37,7 +37,7 @@ A dumpster is six tabs along the bottom.
 
 **Pack.** Stickers cut out of a photo. Open a shot, tap Sticker, and pick a person, an object, or everyone in the frame. Dump removes the background and draws a white sticker edge. Add to phone opens the share sheet so you can save it or send it to Messages, WhatsApp, or Instagram. Download saves the PNG. Press and hold a sticker to save it too.
 
-**Me.** Texts are off until you turn them on. Then Dump asks for a selfie. The selfie is used once to find your face and is not kept. Next, connect your number by iMessage: enter your registered demo number, then send the one-time connection message to your assigned number. Codes expire after ten minutes and only work from the number you entered. Once connected, Dump texts you when new photos of you land, and when a video says the name on your face. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone connected gets one warning and a link, so they can save what they want. Change your number or disconnect in Me; Forget me also drops the face match. The connection expires with the dumpster.
+**Me.** Who you signed in as and how many shots you're in. Change your name or take a new selfie here; your name goes on your face in the Dump. The selfie is used to find your face and is not kept. Texts are optional: connect your number by iMessage: enter your registered demo number, then send the one-time connection message to your assigned number. Codes expire after ten minutes and only work from the number you entered. Once connected, Dump texts you when new photos of you land, and when a video says the name on your face. Those texts are batched, about a minute and a half apart. About two hours before the dumpster burns, everyone connected gets one warning and a link, so they can save what they want. Change your number or disconnect in Me; Sign out forgets your name, face match and number. The connection expires with the dumpster.
 
 Open a shot to see who is in it, what was recognized, any writing, and any words from a video. From there you can react, save a copy, cut a sticker, or delete it for everyone.
 
