@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { previewUrl } from "@/lib/preview";
 import { isPng, STICKER_FILE_NAME } from "@/lib/sticker";
 import type { PublicSticker, StickerTarget } from "@/lib/types";
 import type { Tab } from "./DumpsterView";
@@ -63,18 +64,18 @@ function StickerCard({
   onRetry: (mediaId: string, target: StickerTarget) => Promise<boolean>;
   onDelete: (stickerId: string) => Promise<boolean>;
 }) {
-  const file = useStickerFile(sticker.status === "ready" ? sticker.url : undefined);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const addToPhone = async () => {
-    if (!file) {
-      setNote(sticker.url ? "Still fetching the cutout…" : "Not ready yet");
-      return;
-    }
     setBusy(true);
     setNote(null);
     try {
+      const file = await stickerFile(sticker.url);
+      if (!file) {
+        setNote(sticker.url ? "Couldn’t fetch the cutout. Try again." : "Not ready yet");
+        return;
+      }
       // A title makes iOS send the file name, or fail the share on some iPhones.
       const payload = { files: [file] };
       if (canShare(payload)) {
@@ -97,7 +98,7 @@ function StickerCard({
         <div className="border-3 border-ink" style={{ transform: `rotate(${tilt(sticker.id)}deg)`, backgroundImage: checker }}>
           {/* The image is not a link, so a long-press can save it to the camera roll. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={sticker.url} alt={sticker.label} draggable className="block w-full" />
+          <StickerImage url={sticker.url} alt={sticker.label} />
         </div>
       ) : sticker.status === "failed" ? (
         <div className="grid aspect-square w-full place-items-center border-3 border-ink bg-paper px-3 text-center">
@@ -122,9 +123,19 @@ function StickerCard({
           <button
             className="btn btn-ghost w-full !px-1 !py-2 !text-sm"
             disabled={busy}
-            onClick={() => {
-              if (file) saveFile(file);
-              else setNote("Still fetching the cutout…");
+            onClick={async () => {
+              setBusy(true);
+              setNote(null);
+              try {
+                const file = await stickerFile(sticker.url);
+                if (!file) {
+                  setNote("Couldn’t fetch the cutout. Try again.");
+                  return;
+                }
+                saveFile(file);
+              } finally {
+                setBusy(false);
+              }
             }}
           >
             Download
@@ -150,25 +161,46 @@ function StickerCard({
   );
 }
 
-function useStickerFile(url: string | undefined) {
-  const [file, setFile] = useState<File | null>(null);
+/**
+ * Paint the small preview immediately, then swap in the full PNG once it has
+ * loaded so a long-press still saves the sticker.
+ */
+function StickerImage({ url, alt }: { url: string; alt: string }) {
+  const preview = previewUrl(url);
+  const [src, setSrc] = useState(preview);
   useEffect(() => {
-    if (!url) return;
-    const ac = new AbortController();
-    (async () => {
-      try {
-        const res = await fetch(`${url}${url.includes("?") ? "&" : "?"}download=1`, { signal: ac.signal });
-        if (!res.ok) return;
-        const bytes = new Uint8Array(await res.arrayBuffer());
-        if (ac.signal.aborted || !isPng(bytes)) return;
-        setFile(new File([bytes], STICKER_FILE_NAME, { type: "image/png" }));
-      } catch (e) {
-        if ((e as Error).name === "AbortError") return;
-      }
-    })();
-    return () => ac.abort();
-  }, [url]);
-  return file;
+    let gone = false;
+    const full = new Image();
+    full.decoding = "async";
+    full.onload = () => {
+      if (!gone) setSrc(url);
+    };
+    full.src = url;
+    return () => {
+      gone = true;
+    };
+  }, [url, preview]);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      draggable
+      decoding="async"
+      className="block w-full"
+      onError={() => setSrc((cur) => (cur === url ? cur : url))}
+    />
+  );
+}
+
+/** The share file is fetched on tap. Loading it for every sticker up front blocked the pack. */
+async function stickerFile(url: string | undefined) {
+  if (!url) return null;
+  const res = await fetch(`${url}${url.includes("?") ? "&" : "?"}download=1`);
+  if (!res.ok) return null;
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (!isPng(bytes)) return null;
+  return new File([bytes], STICKER_FILE_NAME, { type: "image/png" });
 }
 
 function canShare(data: ShareData) {

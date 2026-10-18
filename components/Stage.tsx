@@ -5,7 +5,7 @@ import { FireIcon } from "@/components/Brand";
 import { Burned } from "@/components/Burned";
 import { MediaStage } from "@/components/MediaStage";
 import { ReactionBar } from "@/components/Reactions";
-import { Countdown, useNow } from "@/components/ui";
+import { Countdown, ShotImage, useNow } from "@/components/ui";
 import { useDumpster } from "@/lib/client/useDumpster";
 import { useSaveShots } from "@/lib/client/useSaveShots";
 import { fireRank, REACTIONS, type ReactionKey } from "@/lib/reactions";
@@ -154,7 +154,7 @@ function StageSaveBar(props: {
 function SelectGrid({ list, selected, onToggle }: { list: PublicMedia[]; selected: Set<string>; onToggle: (id: string) => void }) {
   return (
     <ul className="grid grid-cols-2 gap-[3px] sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-      {list.map((m) => (
+      {list.map((m, i) => (
         <li key={m.id}>
           <button
             onClick={() => onToggle(m.id)}
@@ -162,8 +162,7 @@ function SelectGrid({ list, selected, onToggle }: { list: PublicMedia[]; selecte
             className="relative block aspect-square w-full overflow-hidden bg-[#222] text-left"
           >
             {m.kind === "image" ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={m.url} alt="" className="z-media relative size-full object-cover" />
+              <ShotImage url={m.url} eager={i < 8} className="z-media relative size-full object-cover" />
             ) : (
               <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className="z-media relative size-full object-cover" />
             )}
@@ -262,8 +261,7 @@ export function Stage({ initial }: { initial: DumpsterState }) {
                   className={`relative block overflow-hidden bg-[#222] text-left ${i === 0 ? "col-span-2 row-span-2" : ""}`}
                   aria-label="Open photo"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={m.url} alt="" className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`} />
+                  <ShotImage url={m.url} edge={i === 0 ? 960 : 320} eager={i < 5} className={`z-media relative size-full object-cover ${fresh ? "animate-drop" : ""}`} />
                   {fresh && <span className="label z-labels absolute top-2 left-2 bg-green px-1.5 py-0.5 text-ink">Just dropped</span>}
                   <ReactionMarks m={m} />
                 </button>
@@ -314,8 +312,7 @@ export function Stage({ initial }: { initial: DumpsterState }) {
 
         {fire && (
           <div className="grid grid-cols-[96px_1fr] border-3 border-fire">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={fire.url} alt="" className="size-24 object-cover" />
+            <ShotImage url={fire.url} eager className="size-24 object-cover" />
             <div className="p-2">
               <p className="label text-fire">Top Dumpster Fire</p>
               <p className="flex items-center gap-2">

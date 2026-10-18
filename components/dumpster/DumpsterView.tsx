@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MarkBlock } from "@/components/Brand";
 import { Burned } from "@/components/Burned";
 import { Countdown } from "@/components/ui";
 import { useDumpster } from "@/lib/client/useDumpster";
 import { useUploader } from "@/lib/client/useUploader";
+import { warmMap, warmPreviews } from "@/lib/client/warm";
 import type { PublicMedia, DumpsterState } from "@/lib/types";
 import { Drop } from "./Drop";
 import { EventMap } from "./EventMap";
@@ -54,7 +55,14 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
     return { kind: "faces", ids: s.me.clusterIds, label: "You", name };
   };
 
-  const [tab, setTab] = useState<Tab>(showMine ? "dump" : isNew || !initial.media.length ? "drop" : "dump");
+  const initialTab: Tab = showMine ? "dump" : isNew || !initial.media.length ? "drop" : "dump";
+  const [tab, setTab] = useState<Tab>(initialTab);
+  /** Screens stay mounted after the first visit so their photos, stickers, and map are still there. */
+  const [visited, setVisited] = useState<Tab[]>([initialTab]);
+  const goTo = (next: Tab) => {
+    setTab(next);
+    setVisited((cur) => (cur.includes(next) ? cur : [...cur, next]));
+  };
   const [filter, setFilter] = useState<Filter | null>(() => (showMine ? mineFilter(initial) : null));
   const [q, setQ] = useState("");
   const [viewing, setViewing] = useState<{ ids: string[]; index: number } | null>(null);
@@ -71,6 +79,23 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
     state.media.forEach((m, i) => n.set(m.id, state.media.length - i));
     return n;
   }, [state.media]);
+
+  // The map library and the small previews start loading while the guest is still on another tab.
+  useEffect(() => {
+    if (!state.me) return;
+    warmMap();
+    const urls = [
+      ...state.media.filter((m) => m.kind === "image").map((m) => m.url),
+      ...state.stickers.flatMap((s) => (s.url ? [s.url] : [])),
+    ];
+    const run = () => warmPreviews(urls);
+    const idle = window.requestIdleCallback?.(run, { timeout: 1200 });
+    const timer = idle === undefined ? window.setTimeout(run, 150) : undefined;
+    return () => {
+      if (idle !== undefined) window.cancelIdleCallback?.(idle);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [state.me, state.media, state.stickers]);
 
   if (dumpster.destroyed) return <Burned />;
 
@@ -135,47 +160,66 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
 
       <main>
         {tab === "drop" && <Drop dumpster={state.dumpster} uploader={uploader} onCopyLink={copyLink} copied={copied} />}
-        {tab === "dump" && (
-          <Dump
-            onNameFaces={dumpster.nameFaces}
-            onHideFace={dumpster.hideFace}
-            hiddenFaces={state.hiddenFaces}
-            onUnhideFace={dumpster.unhideFace}
-            id={id}
-            media={state.media}
-            byId={byId}
-            frames={frames}
-            names={names}
-            clusters={state.clusters}
-            me={state.me}
-            filter={filter}
-            setFilter={setFilter}
-            mine={mineFilter(state)}
-            q={q}
-            setQ={setQ}
-            canAsk={state.canAsk}
-            onOpen={open}
-            goTo={setTab}
-          />
+        {visited.includes("dump") && (
+          <div hidden={tab !== "dump"} inert={tab !== "dump"} className={tab === "dump" ? undefined : "hidden"}>
+            <Dump
+              onNameFaces={dumpster.nameFaces}
+              onHideFace={dumpster.hideFace}
+              hiddenFaces={state.hiddenFaces}
+              onUnhideFace={dumpster.unhideFace}
+              id={id}
+              media={state.media}
+              byId={byId}
+              frames={frames}
+              names={names}
+              clusters={state.clusters}
+              me={state.me}
+              filter={filter}
+              setFilter={setFilter}
+              mine={mineFilter(state)}
+              q={q}
+              setQ={setQ}
+              canAsk={state.canAsk}
+              onOpen={open}
+              goTo={goTo}
+            />
+          </div>
         )}
-        {tab === "fire" && <Fire media={state.media} onReact={dumpster.react} onOpen={open} />}
-        {tab === "map" && (
-          <EventMap media={state.media} onOpen={open} guestId={me.guestId} />
+        {visited.includes("fire") && (
+          <div hidden={tab !== "fire"} inert={tab !== "fire"} className={tab === "fire" ? undefined : "hidden"}>
+            <Fire media={state.media} onReact={dumpster.react} onOpen={open} />
+          </div>
         )}
-        {tab === "pack" && <Pack stickers={state.stickers} goTo={setTab} onRetry={dumpster.makeSticker} onDelete={dumpster.deleteSticker} />}
-        {tab === "me" && (
-          <Me
-            dumpster={state.dumpster}
-            me={me}
-            // No face matched yet means no shots of you, not every shot.
-            photosOfMe={mineFilter(state) ? state.media.filter((m) => inFilter(m, mineFilter(state))).length : 0}
-            onChanged={dumpster.refresh}
-            goTo={setTab}
-            onShowMine={() => {
-              setFilter(mineFilter(state));
-              setTab("dump");
-            }}
-          />
+        {visited.includes("map") && (
+          // Off-screen, not display:none: hiding the canvas drops the WebGL context and the map comes back blank.
+          <div
+            inert={tab !== "map"}
+            aria-hidden={tab !== "map"}
+            className={tab === "map" ? undefined : "pointer-events-none fixed top-0 -left-[120vw] w-full max-w-[430px]"}
+          >
+            <EventMap media={state.media} onOpen={open} guestId={me.guestId} active={tab === "map"} />
+          </div>
+        )}
+        {visited.includes("pack") && (
+          <div hidden={tab !== "pack"} inert={tab !== "pack"} className={tab === "pack" ? undefined : "hidden"}>
+            <Pack stickers={state.stickers} goTo={goTo} onRetry={dumpster.makeSticker} onDelete={dumpster.deleteSticker} />
+          </div>
+        )}
+        {visited.includes("me") && (
+          <div hidden={tab !== "me"} inert={tab !== "me"} className={tab === "me" ? undefined : "hidden"}>
+            <Me
+              dumpster={state.dumpster}
+              me={me}
+              // No face matched yet means no shots of you, not every shot.
+              photosOfMe={mineFilter(state) ? state.media.filter((m) => inFilter(m, mineFilter(state))).length : 0}
+              onChanged={dumpster.refresh}
+              goTo={goTo}
+              onShowMine={() => {
+                setFilter(mineFilter(state));
+                goTo("dump");
+              }}
+            />
+          </div>
         )}
       </main>
 
@@ -187,7 +231,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
             return (
               <li key={t.id} className={i ? "border-l border-ink" : ""}>
                 <button
-                  onClick={() => setTab(t.id)}
+                  onClick={() => goTo(t.id)}
                   aria-current={active ? "page" : undefined}
                   className={`relative flex h-16 w-full flex-col items-center justify-center ${
                     active ? "bg-ink text-paper" : t.id === "drop" ? "bg-green" : ""
@@ -225,7 +269,7 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
             setViewing(null);
             setQ("");
             setFilter({ kind: "faces", ids: [clusterId], label: name, name });
-            setTab("dump");
+            goTo("dump");
           }}
         />
       )}
