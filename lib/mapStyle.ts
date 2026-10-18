@@ -3,8 +3,9 @@ import type { StyleSpecification } from "maplibre-gl";
 /**
  * Paper-and-ink map for the scene tab. Vector tiles and glyphs come from
  * OpenFreeMap; the style itself stays in the app so the colors match Dump.
- * Oceans and lakes are solid ink. Parks are green washed into the paper.
- * Motorways are the working green. Everything else is ink, bone, or smoke.
+ * Water is blue. Grass is the working green. Motorways, including the
+ * bridges drawn with them, are ink. Parks and woods stay a green washed
+ * into the paper. Everything else is ink, bone, or smoke.
  */
 export const MAP_COLORS = {
   paper: "#f1eee4",
@@ -13,6 +14,8 @@ export const MAP_COLORS = {
   smoke: "#77736a",
   green: "#46a65a",
   park: "#d7ead9",
+  water: "#2a78d0",
+  waterDeep: "#123a66",
   residential: "#e6e0d0",
   farmland: "#e7e1d2",
 } as const;
@@ -62,7 +65,7 @@ export function dumpMapStyle(): StyleSpecification {
         source: "openmaptiles",
         "source-layer": "landcover",
         filter: ["all", POLY, ["==", ["get", "class"], "grass"]],
-        paint: { "fill-color": MAP_COLORS.park },
+        paint: { "fill-color": MAP_COLORS.green },
       },
       {
         id: "landcover_wood",
@@ -87,7 +90,7 @@ export function dumpMapStyle(): StyleSpecification {
         source: "openmaptiles",
         "source-layer": "water",
         filter: ["all", POLY, ["!=", ["get", "brunnel"], "tunnel"]],
-        paint: { "fill-color": MAP_COLORS.ink, "fill-antialias": true },
+        paint: { "fill-color": MAP_COLORS.water, "fill-antialias": true },
       },
       {
         id: "waterway",
@@ -96,7 +99,7 @@ export function dumpMapStyle(): StyleSpecification {
         "source-layer": "waterway",
         filter: LINE,
         paint: {
-          "line-color": MAP_COLORS.ink,
+          "line-color": MAP_COLORS.water,
           "line-width": ["interpolate", ["exponential", 1.3], ["zoom"], 8, 0.6, 16, 3],
         },
       },
@@ -183,7 +186,7 @@ export function dumpMapStyle(): StyleSpecification {
         maxzoom: 8,
         filter: roads(["motorway"]),
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": MAP_COLORS.green, "line-width": 1.4 },
+        paint: { "line-color": MAP_COLORS.ink, "line-width": 1.4 },
       },
       {
         id: "highway_motorway_casing",
@@ -207,7 +210,7 @@ export function dumpMapStyle(): StyleSpecification {
         filter: roads(["motorway"]),
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": MAP_COLORS.green,
+          "line-color": MAP_COLORS.ink,
           "line-width": ["interpolate", ["exponential", 1.4], ["zoom"], 8, 1, 12, 3.5, 18, 20],
         },
       },
@@ -253,7 +256,7 @@ export function dumpMapStyle(): StyleSpecification {
         },
         paint: {
           "text-color": MAP_COLORS.paper,
-          "text-halo-color": MAP_COLORS.ink,
+          "text-halo-color": MAP_COLORS.waterDeep,
           "text-halo-width": 1.2,
         },
       },
@@ -275,7 +278,7 @@ export function dumpMapStyle(): StyleSpecification {
         },
         paint: {
           "text-color": MAP_COLORS.paper,
-          "text-halo-color": MAP_COLORS.ink,
+          "text-halo-color": MAP_COLORS.waterDeep,
           "text-halo-width": 1.2,
         },
       },
