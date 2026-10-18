@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { config } from "./config";
 import type { Box, DetectedObject } from "./types";
+import { z } from "zod";
+import { redactVisionPersonalData, VISION_POLICY, VISION_REVIEW_POLICY } from "./visionPolicy";
 
 /**
  * Perceptron Mk1.5 vision adapter. One chat completion per image returns
@@ -52,14 +54,30 @@ export const perceptron = {
       model: config.perceptron.model,
       temperature: 0,
       max_completion_tokens: 2048,
-      messages: [{ role: "user", content: [
+      messages: [{ role: "system", content: VISION_POLICY }, { role: "user", content: [
         { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpeg.toString("base64")}` } },
         { type: "text", text: prompt },
       ] }],
     });
     const content = visionContent(completion).trim();
     if (!content) throw new Error("perceptron: empty response");
-    return content;
+    const answer = redactVisionPersonalData(content);
+    // A separate review sees the actual image and can reject unsupported or unsafe claims.
+    const review = await visionClient().chat.completions.create({
+      model: config.perceptron.model,
+      temperature: 0,
+      max_completion_tokens: 512,
+      response_format: { type: "json_object" },
+      messages: [{ role: "system", content: VISION_REVIEW_POLICY }, { role: "user", content: [
+        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpeg.toString("base64")}` } },
+        { type: "text", text: JSON.stringify({ question: prompt, proposedAnswer: answer }) },
+      ] }],
+    });
+    const verdict = z.object({ safe: z.boolean(), grounded: z.boolean() }).strict()
+      .parse(JSON.parse(visionContent(review)));
+    if (!verdict.safe) return "I can't help with that request.";
+    if (!verdict.grounded) return "I can't determine that from the image.";
+    return answer;
   },
 
   async analyze(jpeg: Buffer): Promise<VisionResult> {
