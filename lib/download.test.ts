@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
+import { IMESSAGE_STICKER_MAX_BYTES } from "./imaging";
 import { downloadBody, downloadFilename } from "./download";
 
 test("photo exports contain JPEG bytes with a matching filename and no metadata", async () => {
@@ -20,15 +21,28 @@ test("WebP stickers export as PNG with transparency", async () => {
     .webp().toBuffer();
   const body = await downloadBody("event/public/sticker-one.webp", webp);
   const meta = await sharp(body).metadata();
-  assert.equal(downloadFilename("event/public/sticker-one.webp"), "sticker-one.png");
+  assert.equal(downloadFilename("event/public/sticker-one.webp"), "sticker.png");
+  assert.ok(body.length < IMESSAGE_STICKER_MAX_BYTES);
   assert.equal(meta.format, "png");
   assert.equal(meta.hasAlpha, true);
   assert.equal((await sharp(body).raw().toBuffer())[3], 0);
 });
 
-test("existing PNG stickers and videos pass through unchanged", async () => {
+test("PNG stickers are re-exported under the iMessage limit with a plain name", async () => {
+  const png = await sharp({
+    create: { width: 8, height: 8, channels: 4, background: { r: 1, g: 2, b: 3, alpha: 0 } },
+  }).png().toBuffer();
+  const body = await downloadBody("event/public/sticker-one.png", png);
+  const meta = await sharp(body).metadata();
+  assert.equal(downloadFilename("event/public/sticker-one.png"), "sticker.png");
+  assert.equal(meta.format, "png");
+  assert.equal(meta.hasAlpha, true);
+  assert.ok(body.length < IMESSAGE_STICKER_MAX_BYTES);
+});
+
+test("videos pass through unchanged", async () => {
   const body = Buffer.from("unchanged");
-  for (const name of ["sticker-one.png", "video.mp4", "video.mov", "video.webm"]) {
+  for (const name of ["video.mp4", "video.mov", "video.webm"]) {
     const key = `event/public/${name}`;
     assert.equal(downloadFilename(key), name);
     assert.equal(await downloadBody(key, body), body);

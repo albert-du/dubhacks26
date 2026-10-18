@@ -439,7 +439,7 @@ export function Dump(props: {
       {results.length === 0 ? (
         <div className="px-4 py-12">
           <p className="display text-5xl">{media.length ? "Nothing matches." : "Empty dumpster."}</p>
-          <p className="mt-3">{media.length ? "Try another person or word." : "Be the first to throw something in."}</p>
+          <p className="mt-3">{media.length ? "Try another person or word." : "Be the first to dump photos."}</p>
           {!media.length && (
             <button className="btn btn-green mt-6" onClick={() => props.goTo("drop")}>
               Drop photos →
