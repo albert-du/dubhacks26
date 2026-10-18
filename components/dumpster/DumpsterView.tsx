@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MarkBlock } from "@/components/Brand";
 import { Burned } from "@/components/Burned";
 import { Countdown } from "@/components/ui";
@@ -8,6 +8,7 @@ import { useDumpster } from "@/lib/client/useDumpster";
 import { useUploader } from "@/lib/client/useUploader";
 import { setRevealEnabled } from "@/lib/client/reveal";
 import { warmMap } from "@/lib/client/warm";
+import { withTab, type Tab } from "@/lib/tabs";
 import type { PublicMedia, DumpsterState } from "@/lib/types";
 import { Drop } from "./Drop";
 import { EventMap } from "./EventMap";
@@ -18,7 +19,7 @@ import { Pack } from "./Pack";
 import { Dump } from "./Dump";
 import { Viewer } from "./Viewer";
 
-export type Tab = "drop" | "dump" | "fire" | "map" | "pack" | "me";
+export type { Tab };
 
 export type Filter =
   | { kind: "faces"; ids: string[]; label: string; name?: string }
@@ -43,7 +44,7 @@ export function inFilter(m: PublicMedia, filter: Filter | null) {
   return true;
 }
 
-export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterState; isNew: boolean; showMine: boolean }) {
+export function DumpsterView({ initial, showMine, tab: startTab }: { initial: DumpsterState; showMine: boolean; tab: Tab }) {
   const id = initial.dumpster.id;
   const uploader = useUploader(id);
   const dumpster = useDumpster(initial, uploader.settle);
@@ -56,13 +57,22 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
     return { kind: "faces", ids: s.me.clusterIds, label: "You", name };
   };
 
-  const initialTab: Tab = showMine ? "dump" : isNew || !initial.media.length ? "drop" : "dump";
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tab, setTab] = useState<Tab>(startTab);
   /** Screens stay mounted after the first visit so their photos, stickers, and map are still there. */
-  const [visited, setVisited] = useState<Tab[]>([initialTab]);
+  const [visited, setVisited] = useState<Tab[]>([startTab]);
+  // The screen is React state unless the query remembers it. A reload then opens
+  // the same tab instead of falling back to dump. A fresh history state lets Next
+  // adopt the url; reusing its state skips that, and the next router update puts
+  // the address bar back. replace keeps this history entry, so Back still leaves.
+  const rememberTab = useCallback((next: Tab) => {
+    const nextSearch = withTab(window.location.search, next);
+    if (nextSearch === window.location.search) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${nextSearch}${window.location.hash}`);
+  }, []);
   const goTo = (next: Tab) => {
     setTab(next);
     setVisited((cur) => (cur.includes(next) ? cur : [...cur, next]));
+    rememberTab(next);
   };
   const [filter, setFilter] = useState<Filter | null>(() => (showMine ? mineFilter(initial) : null));
   const [q, setQ] = useState("");
@@ -80,6 +90,12 @@ export function DumpsterView({ initial, isNew, showMine }: { initial: DumpsterSt
     state.media.forEach((m, i) => n.set(m.id, state.media.length - i));
     return n;
   }, [state.media]);
+
+  // The first visit has no tab in the url yet. Later switches also write from goTo,
+  // before this effect, so a reload in that gap still lands on the screen they picked.
+  useEffect(() => {
+    rememberTab(tab);
+  }, [rememberTab, tab]);
 
   // The map library starts loading while the guest is still on another tab.
   // Previews stay on the row queue so a background pass cannot jump the first screen.
